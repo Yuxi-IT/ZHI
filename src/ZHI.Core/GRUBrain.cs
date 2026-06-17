@@ -45,8 +45,8 @@ public class GRUBrain : Module
         _hiddenSize = 128;
         _gruInputSize = CnnFeatDim + (ToolDefinitions.StateSize - GridFlat); // 288 + 40 = 328
 
-        _conv1 = Conv2d(GridChannels, 16, 3, padding: 0);
-        _conv2 = Conv2d(16, 32, 3, padding: 0);
+        _conv1 = Conv2d(GridChannels, 16, 3, padding: (long)0);
+        _conv2 = Conv2d(16, 32, 3, padding: (long)0);
         _gru = GRU(_gruInputSize, _hiddenSize, 1, batchFirst: false);
         _fc = Linear(_hiddenSize, 64);
         _actorHead = Linear(64, ToolDefinitions.ActionCount);
@@ -64,8 +64,8 @@ public class GRUBrain : Module
         _hiddenSize = 128;
         _gruInputSize = CnnFeatDim + (ToolDefinitions.StateSize - GridFlat); // 288 + non-grid dims
 
-        _conv1 = Conv2d(GridChannels, 16, 3, padding: 0);
-        _conv2 = Conv2d(16, 32, 3, padding: 0);
+        _conv1 = Conv2d(GridChannels, 16, 3, padding: (long)0);
+        _conv2 = Conv2d(16, 32, 3, padding: (long)0);
         _gru = GRU(_gruInputSize, _hiddenSize, 1, batchFirst: false);
         _fc = Linear(_hiddenSize, 64);
         _actorHead = Linear(64, ToolDefinitions.ActionCount);

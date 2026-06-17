@@ -294,14 +294,19 @@ public class CosmosEngine : IDisposable
             int ax = _v.PosX[i], ay = _v.PosY[i];
             float hpRatio = MathF.Max(0f, _v.Existence[i] / initialHP);
             float agentHeat = bodyHeat * hpRatio;
-            _v.TemperatureGrid[ax, ay] += agentHeat;
+
+            // Stationary agents are better heat sources
+            float selfBonus = _v.IsStationary[i] ? _config.Stamina.StationarySelfHeat : 0f;
+            float neighborBonus = _v.IsStationary[i] ? _config.Stamina.StationaryNeighborHeat : 0f;
+
+            _v.TemperatureGrid[ax, ay] += agentHeat + selfBonus;
             for (int dx = -1; dx <= 1; dx++)
                 for (int dy = -1; dy <= 1; dy++)
                 {
                     if (dx == 0 && dy == 0) continue;
                     int nx = ax + dx, ny = ay + dy;
                     if (nx >= 0 && nx < W && ny >= 0 && ny < H)
-                        _v.TemperatureGrid[nx, ny] += agentHeat * 0.5f;
+                        _v.TemperatureGrid[nx, ny] += agentHeat * 0.5f + neighborBonus;
                 }
         }
 
@@ -412,6 +417,9 @@ public class CosmosEngine : IDisposable
                 float coldRatio = 1f - (bodyTemp - _config.Temperature.MinTemp)
                     / (_config.Temperature.ColdThreshold - _config.Temperature.MinTemp);
                 float coldDecay = coldRatio * _config.Temperature.MaxColdDecay;
+                // Pit reduces cold penalty by 30%
+                if (_v.GetTerrainAt(_v.PosX[i], _v.PosY[i]) == ToolDefinitions.TerrainPit)
+                    coldDecay *= 0.7f;
                 _v.Existence[i] -= coldDecay;
             }
 
@@ -585,11 +593,7 @@ public class CosmosEngine : IDisposable
             }
         }
 
-        // 6. Rebuild spatial grids + build state
-        _v.RebuildSpatialGrids();
-        _v.BuildStateMatrix();
-
-        // 7. GRU inference
+        // 6. GRU inference (uses StateMatrix built at end of previous tick)
         var (actions, signalValues, logProbs, values, entropy, newHidden) =
             _gruBrain.StepForward(_v.StateMatrix, _gruHidden);
         _gruHidden?.Dispose();
@@ -617,7 +621,38 @@ public class CosmosEngine : IDisposable
         float[] rewards = new float[n];
         ProcessActions(actionsArr, signalArr, rewards);
 
-        // 8b. Signal field decay (after all deposits this tick)
+        // 8b. Stationary detection + Stamina recovery
+        for (int i = 0; i < n; i++)
+        {
+            if (!_v.Alive[i]) continue;
+
+            // Stationary判定: Attack also resets counter
+            long act = actionsArr[i];
+            bool isMovingOrFighting = act >= 0 && act <= 3 || act == 8 || act == 9 || act == 5;
+            if (isMovingOrFighting)
+                _v.TicksSinceLastMove[i] = 0;
+            else
+                _v.TicksSinceLastMove[i]++;
+
+            _v.IsStationary[i] = _v.TicksSinceLastMove[i] >= _config.Stamina.StationaryTicksRequired;
+
+            // Stamina recovery: well-fed + hydrated + healthy
+            if (_v.Hunger[i] > 60f && _v.Thirst[i] > 70f && _v.Existence[i] > 30f)
+            {
+                float recovery = _config.Stamina.BaseRecovery;
+                if (_v.IsStationary[i]) recovery *= _config.Stamina.StationaryRecoveryBonus;
+                _v.Stamina[i] = Math.Clamp(_v.Stamina[i] + recovery, 0f, _config.Stamina.MaxStamina);
+            }
+
+            // Stationary HP recovery bonus
+            if (_v.IsStationary[i])
+            {
+                _v.Existence[i] = MathF.Min(_v.Existence[i] + _config.Stamina.StationaryHpRecoveryBonus,
+                    _config.Existence.Initial);
+            }
+        }
+
+        // 8c. Signal field decay (after all deposits this tick)
         for (int x = 0; x < W; x++)
             for (int y = 0; y < H; y++)
                 for (int ch = 0; ch < 4; ch++)
@@ -686,9 +721,18 @@ public class CosmosEngine : IDisposable
             _gruHidden!.mul_(mask);
         }
 
-        // 11. Store in PPO buffer
-        float[] stateFlat = _v.GetStateBuffer();
-        _ppoBuffer!.Store(stateFlat, actionsArr, signalArr, logProbsArr, rewards, donesArr, valuesArr);
+        // 11. Snapshot current observation (s_t) for PPO storage
+        int stateSize = ToolDefinitions.StateSize;
+        int nn = _v.N;
+        float[] stateForPpo = new float[nn * stateSize];
+        Array.Copy(_v.GetStateBuffer(), stateForPpo, nn * stateSize);
+
+        // 11b. Rebuild spatial grids + build next observation (s_{t+1}) for GRU
+        _v.RebuildSpatialGrids();
+        _v.BuildStateMatrix();
+
+        // 11c. Store in PPO buffer (s_t, a_t, r_t, v_t)
+        _ppoBuffer!.Store(stateForPpo, actionsArr, signalArr, logProbsArr, rewards, donesArr, valuesArr);
 
         // 12. PPO update
         if (_ppoBuffer.IsFull)
@@ -812,32 +856,84 @@ public class CosmosEngine : IDisposable
             {
                 case ZhiAction.MoveUp:
                     _v.IsEating[i] = false;
-                    if (_v.PosY[i] > 0 && !_v.IsDeepWater(_v.PosX[i], _v.PosY[i] - 1))
+                    if (_v.PosY[i] > 0
+                        && !_v.IsDeepWater(_v.PosX[i], _v.PosY[i] - 1)
+                        && !_v.IsMoundAt(_v.PosX[i], _v.PosY[i] - 1)
+                        && (_v.Stamina[i] >= _config.Stamina.LowStaminaThreshold || _rng.NextDouble() > 0.5))
+                    {
                         _v.PosY[i]--;
+                        float moveCost = _config.Stamina.MoveCost;
+                        if (_v.GetTerrainAt(_v.PosX[i], _v.PosY[i]) == ToolDefinitions.TerrainPit)
+                            moveCost += 2f;
+                        _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - moveCost);
+                    }
+                    else
+                    {
+                        _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - _config.Stamina.MoveCost * 0.5f);
+                    }
                     _v.ScentGrid[_v.PosX[i], _v.PosY[i]] += _config.Scent.DepositAmount;
                     _v.FacingDirection[i] = 0;
                     break;
 
                 case ZhiAction.MoveDown:
                     _v.IsEating[i] = false;
-                    if (_v.PosY[i] < H - 1 && !_v.IsDeepWater(_v.PosX[i], _v.PosY[i] + 1))
+                    if (_v.PosY[i] < H - 1
+                        && !_v.IsDeepWater(_v.PosX[i], _v.PosY[i] + 1)
+                        && !_v.IsMoundAt(_v.PosX[i], _v.PosY[i] + 1)
+                        && (_v.Stamina[i] >= _config.Stamina.LowStaminaThreshold || _rng.NextDouble() > 0.5))
+                    {
                         _v.PosY[i]++;
+                        float moveCost = _config.Stamina.MoveCost;
+                        if (_v.GetTerrainAt(_v.PosX[i], _v.PosY[i]) == ToolDefinitions.TerrainPit)
+                            moveCost += 2f;
+                        _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - moveCost);
+                    }
+                    else
+                    {
+                        _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - _config.Stamina.MoveCost * 0.5f);
+                    }
                     _v.ScentGrid[_v.PosX[i], _v.PosY[i]] += _config.Scent.DepositAmount;
                     _v.FacingDirection[i] = 1;
                     break;
 
                 case ZhiAction.MoveLeft:
                     _v.IsEating[i] = false;
-                    if (_v.PosX[i] > 0 && !_v.IsDeepWater(_v.PosX[i] - 1, _v.PosY[i]))
+                    if (_v.PosX[i] > 0
+                        && !_v.IsDeepWater(_v.PosX[i] - 1, _v.PosY[i])
+                        && !_v.IsMoundAt(_v.PosX[i] - 1, _v.PosY[i])
+                        && (_v.Stamina[i] >= _config.Stamina.LowStaminaThreshold || _rng.NextDouble() > 0.5))
+                    {
                         _v.PosX[i]--;
+                        float moveCost = _config.Stamina.MoveCost;
+                        if (_v.GetTerrainAt(_v.PosX[i], _v.PosY[i]) == ToolDefinitions.TerrainPit)
+                            moveCost += 2f;
+                        _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - moveCost);
+                    }
+                    else
+                    {
+                        _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - _config.Stamina.MoveCost * 0.5f);
+                    }
                     _v.ScentGrid[_v.PosX[i], _v.PosY[i]] += _config.Scent.DepositAmount;
                     _v.FacingDirection[i] = 2;
                     break;
 
                 case ZhiAction.MoveRight:
                     _v.IsEating[i] = false;
-                    if (_v.PosX[i] < W - 1 && !_v.IsDeepWater(_v.PosX[i] + 1, _v.PosY[i]))
+                    if (_v.PosX[i] < W - 1
+                        && !_v.IsDeepWater(_v.PosX[i] + 1, _v.PosY[i])
+                        && !_v.IsMoundAt(_v.PosX[i] + 1, _v.PosY[i])
+                        && (_v.Stamina[i] >= _config.Stamina.LowStaminaThreshold || _rng.NextDouble() > 0.5))
+                    {
                         _v.PosX[i]++;
+                        float moveCost = _config.Stamina.MoveCost;
+                        if (_v.GetTerrainAt(_v.PosX[i], _v.PosY[i]) == ToolDefinitions.TerrainPit)
+                            moveCost += 2f;
+                        _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - moveCost);
+                    }
+                    else
+                    {
+                        _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - _config.Stamina.MoveCost * 0.5f);
+                    }
                     _v.ScentGrid[_v.PosX[i], _v.PosY[i]] += _config.Scent.DepositAmount;
                     _v.FacingDirection[i] = 3;
                     break;
@@ -870,6 +966,16 @@ public class CosmosEngine : IDisposable
                     {
                         rewards[i] -= 0.1f;
                     }
+                    break;
+
+                case ZhiAction.Push:
+                    _v.IsEating[i] = false;
+                    ProcessPush(i, rewards);
+                    break;
+
+                case ZhiAction.Terraform:
+                    _v.IsEating[i] = false;
+                    ProcessTerraform(i, rewards);
                     break;
             }
         }
@@ -1046,6 +1152,7 @@ public class CosmosEngine : IDisposable
 
         _v.Existence[attacker] -= _config.Combat.AttackCost;
         _v.AttackCount[attacker]++;
+        _v.Stamina[attacker] = MathF.Max(0f, _v.Stamina[attacker] - _config.Stamina.AttackCost);
 
         if (bestTarget >= 0)
         {
@@ -1053,6 +1160,8 @@ public class CosmosEngine : IDisposable
             float damage = 20f * hpRatio;
             // Targets actively eating take 110% damage (eating vulnerability)
             if (_v.IsEating[bestTarget]) damage *= 1.1f;
+            // Stationary targets take 120% damage
+            if (_v.IsStationary[bestTarget]) damage *= _config.Stamina.StationaryDamageMult;
             _v.Stress[bestTarget] += _config.Combat.StressPerAttack;
             _v.Existence[bestTarget] -= damage;
             _v.LastActionNameMirror[attacker] = $"attack#{bestTarget}";
@@ -1103,6 +1212,150 @@ public class CosmosEngine : IDisposable
         if (sx >= 0 && sx < W && sy >= 0 && sy < H && signalValue >= 0 && signalValue < 4)
             _v.SignalField[sx, sy, signalValue] = MathF.Min(1.0f,
                 _v.SignalField[sx, sy, signalValue] + 0.5f);
+    }
+
+    private void ProcessPush(int i, float[] rewards)
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        int px = _v.PosX[i], py = _v.PosY[i];
+        int fd = _v.FacingDirection[i];
+
+        // Stamina gate
+        if (_v.Stamina[i] < _config.Stamina.LowStaminaThreshold)
+            return;
+
+        // Front cell in facing direction
+        int fx = px, fy = py;
+        switch (fd)
+        {
+            case 0: fy = py - 1; break;
+            case 1: fy = py + 1; break;
+            case 2: fx = px - 1; break;
+            default: fx = px + 1; break;
+        }
+        if (fx < 0 || fx >= W || fy < 0 || fy >= H) { _v.Stamina[i] -= _config.Stamina.PushCost * 0.5f; return; }
+
+        // Check for pushable entity in front cell
+        bool hasEntity = false;
+        int entityType = 0; // 1=food, 2=corpse
+        int foodIdx = -1, corpseIdx = -1;
+
+        lock (_v.LockObj)
+        {
+            for (int f = 0; f < _v.FoodTiles.Count; f++)
+            {
+                var ft = _v.FoodTiles[f];
+                int fw = ft.Width > 0 ? ft.Width : 1;
+                int fh = ft.Height > 0 ? ft.Height : 1;
+                if (fx >= ft.X && fx < ft.X + fw && fy >= ft.Y && fy < ft.Y + fh)
+                {
+                    hasEntity = true; entityType = 1; foodIdx = f; break;
+                }
+            }
+            if (!hasEntity)
+            {
+                for (int c = 0; c < _v.CorpseTiles.Count; c++)
+                {
+                    var ct = _v.CorpseTiles[c];
+                    if (ct.X == fx && ct.Y == fy)
+                    {
+                        hasEntity = true; entityType = 2; corpseIdx = c; break;
+                    }
+                }
+            }
+
+            if (!hasEntity) { _v.Stamina[i] -= _config.Stamina.PushCost * 0.5f; return; }
+
+            // Destination cell (push target)
+            int dx = fx, dy = fy;
+            switch (fd)
+            {
+                case 0: dy = fy - 1; break;
+                case 1: dy = fy + 1; break;
+                case 2: dx = fx - 1; break;
+                default: dx = fx + 1; break;
+            }
+
+            // Validate destination
+            if (dx < 0 || dx >= W || dy < 0 || dy >= H) { _v.Stamina[i] -= _config.Stamina.PushCost * 0.5f; return; }
+            if (_v.IsDeepWater(dx, dy)) { _v.Stamina[i] -= _config.Stamina.PushCost * 0.5f; return; }
+            if (_v.IsMoundAt(dx, dy)) { _v.Stamina[i] -= _config.Stamina.PushCost * 0.5f; return; }
+            if (_v.HasAnyAgentAt(dx, dy)) { _v.Stamina[i] -= _config.Stamina.PushCost * 0.5f; return; }
+
+            // Check destination doesn't already have food/corpse
+            bool destOccupied = false;
+            foreach (var ft in _v.FoodTiles)
+            {
+                int fw2 = ft.Width > 0 ? ft.Width : 1;
+                int fh2 = ft.Height > 0 ? ft.Height : 1;
+                if (dx >= ft.X && dx < ft.X + fw2 && dy >= ft.Y && dy < ft.Y + fh2)
+                { destOccupied = true; break; }
+            }
+            if (!destOccupied)
+            {
+                foreach (var ct in _v.CorpseTiles)
+                    if (ct.X == dx && ct.Y == dy) { destOccupied = true; break; }
+            }
+            if (destOccupied) { _v.Stamina[i] -= _config.Stamina.PushCost * 0.5f; return; }
+
+            // Execute push
+            if (entityType == 1 && foodIdx >= 0)
+            {
+                var ft = _v.FoodTiles[foodIdx];
+                // Small food only (1×1), BigFood too large to push
+                if (ft.IsBig) { _v.Stamina[i] -= _config.Stamina.PushCost * 0.5f; return; }
+                ft.X = dx; ft.Y = dy;
+                _v.FoodTiles[foodIdx] = ft;
+            }
+            else if (entityType == 2 && corpseIdx >= 0)
+            {
+                var ct = _v.CorpseTiles[corpseIdx];
+                ct.X = dx; ct.Y = dy;
+                _v.CorpseTiles[corpseIdx] = ct;
+            }
+
+            _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - _config.Stamina.PushCost);
+            _v.PushCount[i]++;
+            _tickEvents.Add(new WorldEvent
+            {
+                Type = "push", AgentId = i,
+                FoodType = entityType == 1 ? "food" : "corpse",
+                Tick = _globalTick
+            });
+        }
+    }
+
+    private void ProcessTerraform(int i, float[] rewards)
+    {
+        int px = _v.PosX[i], py = _v.PosY[i];
+
+        // Stamina gate
+        if (_v.Stamina[i] < _config.Stamina.LowStaminaThreshold)
+            return;
+
+        byte current = _v.GetTerrainAt(px, py);
+        byte next = (byte)((current + 1) % 3); // 0→1→2→0
+
+        // Cannot create Mound on a cell with any agent
+        if (next == ToolDefinitions.TerrainMound && _v.HasAnyAgentAt(px, py))
+        {
+            _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - _config.Stamina.TerraformCost * 0.5f);
+            return;
+        }
+
+        _v.TerrainGrid[px, py] = next;
+        _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - _config.Stamina.TerraformCost);
+        _v.TerraformCount[i]++;
+
+        string terrainName = next == ToolDefinitions.TerrainPit ? "pit" :
+                             next == ToolDefinitions.TerrainMound ? "mound" : "flat";
+        _tickEvents.Add(new WorldEvent
+        {
+            Type = "terraform", AgentId = i,
+            FoodType = terrainName,
+            Tick = _globalTick
+        });
     }
 
     // PLACEHOLDER_FOOD
