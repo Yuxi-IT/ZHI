@@ -27,7 +27,7 @@ public sealed class GridConfig
     public int Width { get; set; } = 64;
     public int Height { get; set; } = 64;
     public int MaxFood { get; set; } = 500;
-    public float FoodSpawnChance { get; set; } = 0.1f;
+    public float FoodSpawnChance { get; set; } = 0.4f;
     public int FoodTTL { get; set; } = 100;
     public float BigFoodChance { get; set; } = 0.02f;
     public float BigFoodBonus { get; set; } = 40f;

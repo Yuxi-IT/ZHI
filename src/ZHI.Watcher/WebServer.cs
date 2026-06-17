@@ -217,8 +217,10 @@ public class WebServer : IDisposable
             });
         }
 
-        var food = new List<object>(v.FoodTiles.Count);
-        foreach (var f in v.FoodTiles)
+        FoodTile[] foodSnap;
+        lock (v.LockObj) { foodSnap = v.FoodTiles.ToArray(); }
+        var food = new List<object>(foodSnap.Length);
+        foreach (var f in foodSnap)
             food.Add(new { x = f.X, y = f.Y, ttl = f.TTL, is_big = f.IsBig });
 
         var payload = new

@@ -22,6 +22,7 @@ public class GRUBrain : Module
 
     private optim.Optimizer? _optimizer;
     private readonly float _gamma;
+    private readonly float _learningRate;
     private readonly int _hiddenSize;
 
     public int HiddenSize => _hiddenSize;
@@ -35,6 +36,7 @@ public class GRUBrain : Module
         _signalHead = Linear(64, ToolDefinitions.SignalValues);
         _criticHead = Linear(64, 1);
         _gamma = 0.99f;
+        _learningRate = 0.0003f;
 
         RegisterComponents();
         this.to(Device.TorchDevice);
@@ -49,10 +51,10 @@ public class GRUBrain : Module
         _signalHead = Linear(64, ToolDefinitions.SignalValues);
         _criticHead = Linear(64, 1);
         _gamma = gamma;
+        _learningRate = learningRate;
 
         RegisterComponents();
         this.to(Device.TorchDevice);
-        _optimizer = optim.Adam(parameters(), learningRate);
     }
 
     /// <summary>
@@ -175,16 +177,20 @@ public class GRUBrain : Module
 
     /// <summary>PPO update with dual-head policy.</summary>
     public float PpoUpdate(
-        Tensor stateSeq,      // [T, N, 37]
-        Tensor actions,       // [T, N]
-        Tensor signalValues,  // [T, N]
-        Tensor oldLogProbs,   // [T, N]
-        Tensor advantages,    // [T, N]
-        Tensor returns,       // [T, N]
+        Tensor stateSeq,
+        Tensor actions,
+        Tensor signalValues,
+        Tensor oldLogProbs,
+        Tensor advantages,
+        Tensor returns,
         int epochs = 4,
         float clipEpsilon = 0.2f,
         float entCoef = 0.01f)
     {
+        // Create fresh optimizer each PPO update to avoid stale parameter handles
+        _optimizer?.Dispose();
+        _optimizer = optim.Adam(parameters(), _learningRate);
+
         float totalLoss = 0f;
         int updates = 0;
 
@@ -204,7 +210,7 @@ public class GRUBrain : Module
             using var entMean = entropy.mean();
             using var loss = actorLoss + 0.5f * valueLoss - entCoef * entMean;
 
-            _optimizer!.zero_grad();
+            _optimizer.zero_grad();
             loss.backward();
             _optimizer.step();
 
@@ -233,5 +239,7 @@ public class GRUBrain : Module
         using var ms = new MemoryStream(weights);
         load(ms);
         this.to(Device.TorchDevice);
+        _optimizer?.Dispose();
+        _optimizer = optim.Adam(parameters(), _learningRate);
     }
 }

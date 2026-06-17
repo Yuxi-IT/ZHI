@@ -199,8 +199,8 @@ public class Blackbox : IDisposable
         // Recent 10
         var recent = all.TakeLast(10).ToList();
         var recentSuicides = recent.Count(d => d.Cause == "SELF_TERMINATION");
-        result.SuicideRateRecent10 = recent.Count > 0 ? (float)recentSuicides / recent.Count : 0;
-        result.AvgAliveSecondsRecent10 = recent.Average(d => d.AliveSeconds);
+        result.SuicideRateRecent_10 = recent.Count > 0 ? (float)recentSuicides / recent.Count : 0;
+        result.AvgAliveSecondsRecent_10 = recent.Average(d => d.AliveSeconds);
 
         // Cause distribution
         result.CauseDistribution = all.GroupBy(d => d.Cause)
@@ -228,9 +228,9 @@ public class StatsResult
     public int TotalGenerations { get; set; }
     public int TotalDeaths { get; set; }
     public float SuicideRateAll { get; set; }
-    public float SuicideRateRecent10 { get; set; }
+    public float SuicideRateRecent_10 { get; set; }
     public double AvgAliveSecondsAll { get; set; }
-    public double AvgAliveSecondsRecent10 { get; set; }
+    public double AvgAliveSecondsRecent_10 { get; set; }
     public Dictionary<string, int> CauseDistribution { get; set; } = new();
     public List<GenerationStat> Generations { get; set; } = new();
 }

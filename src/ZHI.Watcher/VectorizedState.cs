@@ -21,6 +21,7 @@ public class VectorizedState : IDisposable
 {
     public int N { get; }
     public Device Device { get; }
+    public readonly object LockObj = new();
 
     // Agent state (CPU arrays — spatial logic is CPU-side)
     public int[] PosX;

@@ -134,7 +134,7 @@ public class CosmosEngine : IDisposable
         }
 
         // Reset grid
-        _v.FoodTiles.Clear();
+        lock (_v.LockObj) { _v.FoodTiles.Clear(); }
         Array.Clear(_v.ScentGrid);
         SpawnInitialFood();
 
@@ -210,21 +210,24 @@ public class CosmosEngine : IDisposable
         }
 
         // 5. Food TTL & spawning + food scent emission
-        for (int f = _v.FoodTiles.Count - 1; f >= 0; f--)
+        lock (_v.LockObj)
         {
-            var food = _v.FoodTiles[f];
-            food.TTL--;
-            if (food.TTL <= 0)
-                _v.FoodTiles.RemoveAt(f);
-            else
+            for (int f = _v.FoodTiles.Count - 1; f >= 0; f--)
             {
-                _v.FoodTiles[f] = food;
-                _v.ScentGrid[food.X, food.Y] += 0.3f;
+                var food = _v.FoodTiles[f];
+                food.TTL--;
+                if (food.TTL <= 0)
+                    _v.FoodTiles.RemoveAt(f);
+                else
+                {
+                    _v.FoodTiles[f] = food;
+                    _v.ScentGrid[food.X, food.Y] += 0.3f;
+                }
             }
         }
         TrySpawnFood();
 
-        // 6. Build 37-dim state
+        // 6. Build state
         _v.BuildStateMatrix();
 
         // 7. GRU inference
@@ -472,9 +475,12 @@ public class CosmosEngine : IDisposable
         }
 
         // Remove consumed food tiles (reverse order)
-        var sorted = consumed.OrderByDescending(x => x).ToList();
-        foreach (int idx in sorted)
-            _v.FoodTiles.RemoveAt(idx);
+        lock (_v.LockObj)
+        {
+            var sorted = consumed.OrderByDescending(x => x).ToList();
+            foreach (int idx in sorted)
+                _v.FoodTiles.RemoveAt(idx);
+        }
     }
 
     private void ProcessAttack(int attacker)
@@ -553,18 +559,29 @@ public class CosmosEngine : IDisposable
         {
             int x = _rng.Next(W);
             int y = _rng.Next(H);
+
+            // Check food tile collision
             bool occupied = false;
             for (int f = 0; f < _v.FoodTiles.Count; f++)
             {
                 if (_v.FoodTiles[f].X == x && _v.FoodTiles[f].Y == y)
                 { occupied = true; break; }
             }
-            if (!occupied)
+            if (occupied) continue;
+
+            // Avoid spawning directly under an alive agent
+            bool agentHere = false;
+            for (int a = 0; a < _v.N; a++)
             {
-                bool isBig = _rng.NextDouble() < _config.Grid.BigFoodChance;
-                _v.FoodTiles.Add(new FoodTile { X = x, Y = y, TTL = _config.Grid.FoodTTL, IsBig = isBig });
-                return;
+                if (_v.Alive[a] && _v.PosX[a] == x && _v.PosY[a] == y)
+                { agentHere = true; break; }
             }
+            if (agentHere) continue;
+
+            bool isBig = _rng.NextDouble() < _config.Grid.BigFoodChance;
+            lock (_v.LockObj)
+                _v.FoodTiles.Add(new FoodTile { X = x, Y = y, TTL = _config.Grid.FoodTTL, IsBig = isBig });
+            return;
         }
     }
 
