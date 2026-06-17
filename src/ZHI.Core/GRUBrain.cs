@@ -58,7 +58,42 @@ public class GRUBrain : Module
     }
 
     /// <summary>
-    /// Single-step forward with dual heads.
+    /// Build action mask from state tensor. Hiding agents can only Signal(6) or Hide(7).
+    /// Returns [N, ActionCount] tensor with 1=valid, 0=invalid.
+    /// </summary>
+    private Tensor BuildActionMask(Tensor states)
+    {
+        int N = (int)states.shape[0];
+        int S = ToolDefinitions.StateSize;
+        int A = ToolDefinitions.ActionCount;
+        float[] maskData = new float[N * A];
+
+        var stateData = states.data<float>();
+
+        for (int i = 0; i < N; i++)
+        {
+            bool isHiding = stateData[i * S + 140] > 0.5f;
+            int b = i * A;
+
+            // Default: all actions valid
+            for (int a = 0; a < A; a++) maskData[b + a] = 1f;
+
+            if (isHiding)
+            {
+                // Mask: Move(0-3), Eat(4), Attack(5), Drink(8)
+                // Keep: Signal(6), Hide(7)
+                maskData[b + 0] = 0f; maskData[b + 1] = 0f;
+                maskData[b + 2] = 0f; maskData[b + 3] = 0f;
+                maskData[b + 4] = 0f; maskData[b + 5] = 0f;
+                maskData[b + 8] = 0f;
+            }
+        }
+
+        return torch.tensor(maskData, [N, A]).to(states.device);
+    }
+
+    /// <summary>
+    /// Single-step forward with dual heads and action masking.
     /// Returns (actions[N], signalValues[N], logProbs[N], values[N], newHidden)
     /// logProbs includes both action + signal log prob (summed when action=Signal).
     /// </summary>
@@ -67,7 +102,7 @@ public class GRUBrain : Module
     {
         using var scope = torch.NewDisposeScope();
 
-        using var input3d = state.unsqueeze(0); // [1, N, 37]
+        using var input3d = state.unsqueeze(0); // [1, N, S]
 
         Tensor output3d, newHidden;
         if (hidden is not null)
@@ -85,9 +120,11 @@ public class GRUBrain : Module
 
         using var features = functional.relu(_fc.forward(output3d.squeeze(0))); // [N, 64]
 
-        // Action head
+        // Action head with masking
         var actionLogits = _actorHead.forward(features);
-        var actionProbs = functional.softmax(actionLogits, dim: -1);
+        using var actionMask = BuildActionMask(state);
+        var maskedLogits = actionLogits + (1 - actionMask) * (-1e9f);
+        var actionProbs = functional.softmax(maskedLogits, dim: -1);
         using var actions2d = multinomial(actionProbs, 1);
         var actions = actions2d.squeeze(1); // [N]
 
@@ -122,7 +159,7 @@ public class GRUBrain : Module
     }
 
     /// <summary>
-    /// Sequence forward for PPO. stateSeq: [T, N, 37], actions: [T, N], signalValues: [T, N].
+    /// Sequence forward for PPO with action masking. stateSeq: [T, N, S], actions: [T, N], signalValues: [T, N].
     /// </summary>
     public (Tensor logProbs, Tensor values, Tensor entropy)
         SeqForward(Tensor stateSeq, Tensor actions, Tensor signalValues, Tensor? initHidden = null)
@@ -144,9 +181,12 @@ public class GRUBrain : Module
         using var flat = output3d.reshape([-1, _hiddenSize]);
         using var features = functional.relu(_fc.forward(flat));
 
-        // Action head
+        // Action head with masking
         var actionLogits = _actorHead.forward(features);
-        var actionProbs = functional.softmax(actionLogits, dim: -1);
+        var flatStates = stateSeq.reshape([-1, ToolDefinitions.StateSize]);
+        using var actionMask = BuildActionMask(flatStates);
+        var maskedLogits = actionLogits + (1 - actionMask) * (-1e9f);
+        var actionProbs = functional.softmax(maskedLogits, dim: -1);
         var actionLogProbsFull = log(actionProbs + 1e-8f);
         var flatActions = actions.reshape([-1]);
         var actionLogProbs = actionLogProbsFull.gather(1, flatActions.unsqueeze(1)).squeeze(1);

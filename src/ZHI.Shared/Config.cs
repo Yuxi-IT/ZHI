@@ -14,6 +14,7 @@ public sealed class ZhiConfig
     public HideConfig Hide { get; set; } = new();
     public AgeDeathConfig AgeDeath { get; set; } = new();
     public ThirstConfig Thirst { get; set; } = new();
+    public HungerConfig Hunger { get; set; } = new();
     public RiverConfig River { get; set; } = new();
     public int Port { get; set; } = 19816;
     public int DecisionIntervalMs { get; set; } = 200;
@@ -24,8 +25,6 @@ public sealed class ExistenceConfig
 {
     public float Initial { get; set; } = 100.0f;
     public float DecayPerTick { get; set; } = 0.1f;
-    public float EatBonus { get; set; } = 10.0f;
-    public float EatFailPenalty { get; set; } = 1.0f;
 }
 
 public sealed class GridConfig
@@ -46,9 +45,8 @@ public sealed class GridConfig
     public int BigFoodEatTime { get; set; } = 5;
     public int BigFoodMinAgents { get; set; } = 2;
 
-    // Food respawning (slow trickle to prevent total extinction)
-    public int FoodRespawnInterval { get; set; } = 50;
-    public int FoodRespawnThreshold { get; set; } = 10;
+    // Food respawning (fixed-rate continuous spawn)
+    public int FoodRespawnInterval { get; set; } = 2;
 }
 
 public sealed class CombatConfig
@@ -127,12 +125,19 @@ public sealed class ReproduceConfig
 public sealed class ThirstConfig
 {
     public float Initial { get; set; } = 100f;
-    public float DecayPerTick { get; set; } = 0.01f;
-    public float MoveCost { get; set; } = 0.05f;
-    public float AttackCost { get; set; } = 0.05f;
-    public float DrinkAmount { get; set; } = 5f;
-    public float DeathThreshold { get; set; } = 0f;
-    public float DamagePerTick { get; set; } = 0.2f; // HP loss per tick when thirsty (thirst=0)
+    public float DecayRate { get; set; } = 0.1f;         // 1000 ticks to empty
+    public float DrinkRestore { get; set; } = 40f;       // per drink action
+    public float PenaltyThreshold { get; set; } = 30f;
+    public float PenaltyAmount { get; set; } = 0.6f;     // HP/tick when thirsty (higher priority)
+}
+
+public sealed class HungerConfig
+{
+    public float Initial { get; set; } = 100f;
+    public float DecayRate { get; set; } = 0.05f;       // 2000 ticks to empty
+    public float EatRestore { get; set; } = 30f;         // per eat action
+    public float PenaltyThreshold { get; set; } = 20f;
+    public float PenaltyAmount { get; set; } = 0.2f;     // HP/tick when hungry
 }
 
 public sealed class RiverConfig

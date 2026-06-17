@@ -9,14 +9,15 @@ public enum ZhiAction
     Eat = 4,
     Attack = 5,
     Signal = 6,
-    Hide = 7
+    Hide = 7,
+    Drink = 8
 }
 
 public static class ToolDefinitions
 {
-    public const int ActionCount = 8;
+    public const int ActionCount = 9;
     public const int SignalValues = 4;
-    public const int StateSize = 46; // 44 + thirst + water_sound_gradient
+    public const int StateSize = 163; // 125 grid + 38 non-grid
     public const int GridWidth = 64;
     public const int GridHeight = 64;
     public const int VisionRadius = 2; // 5×5 window = radius 2
@@ -30,7 +31,8 @@ public static class ToolDefinitions
         "eat",
         "attack",
         "signal",
-        "hide"
+        "hide",
+        "drink"
     ];
 
     public static string GetToolName(ZhiAction action) => ActionNames[(int)action];

@@ -166,7 +166,7 @@ public class CosmosEngine : IDisposable
         ComputeWaterSound();
         SpawnInitialFood();
 
-        // Relocate agents that spawned on deep water
+        // Relocate agents that spawned on deep water, initialize physiological state
         for (int i = 0; i < n; i++)
         {
             while (_v.IsDeepWater(_v.PosX[i], _v.PosY[i]))
@@ -175,6 +175,7 @@ public class CosmosEngine : IDisposable
                 _v.PosY[i] = _rng.Next(ToolDefinitions.GridHeight);
             }
             _v.Thirst[i] = _config.Thirst.Initial;
+            _v.Hunger[i] = _config.Hunger.Initial;
         }
 
         // Load brain weights
@@ -226,21 +227,17 @@ public class CosmosEngine : IDisposable
             _v.Stress[i] = MathF.Max(0f, _v.Stress[i] - _config.Combat.StressDecay);
         }
 
-        // 3. Existence natural decay (reduced when hiding) + age death
+        // 3. HP decay: BaseDecay + HungerPenalty + ThirstPenalty + AgeDeath
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
             float decay = _config.Existence.DecayPerTick;
-            if (_v.IsHiding[i])
-            {
-                decay *= _config.Hide.DecayMultiplier;
-                _genHidingTicks++;
-            }
-            // Graduated age death: youth → elder → senescent → max age
+
+            // Graduated age death
             int age = _v.TickCount[i];
             if (age >= _config.AgeDeath.MaxAge)
             {
-                _v.Existence[i] = 0f; // instant death at max age
+                _v.Existence[i] = 0f;
                 continue;
             }
             else if (age >= _config.AgeDeath.Stage3Age)
@@ -249,7 +246,27 @@ public class CosmosEngine : IDisposable
                 decay += _config.AgeDeath.Stage2Decay;
             else if (age >= _config.AgeDeath.Stage1Age)
                 decay += _config.AgeDeath.Stage1Decay;
+
+            // Hide reduction
+            if (_v.IsHiding[i])
+            {
+                decay *= _config.Hide.DecayMultiplier;
+                _genHidingTicks++;
+            }
+
+            // Hunger penalty (below threshold → HP drain)
+            if (_v.Hunger[i] < _config.Hunger.PenaltyThreshold)
+                decay += _config.Hunger.PenaltyAmount;
+
+            // Thirst penalty (below threshold → HP drain, higher priority)
+            if (_v.Thirst[i] < _config.Thirst.PenaltyThreshold)
+                decay += _config.Thirst.PenaltyAmount;
+
             _v.Existence[i] -= decay;
+
+            // Passive HP recovery when well-fed AND hydrated
+            if (_v.Hunger[i] > 80f && _v.Thirst[i] > 80f)
+                _v.Existence[i] = MathF.Min(_v.Existence[i] + 0.2f, _config.Existence.Initial);
         }
 
         // 4. Scent decay
@@ -260,19 +277,18 @@ public class CosmosEngine : IDisposable
             for (int y = 0; y < H; y++)
                 _v.ScentGrid[x, y] *= scentDecay;
 
-        // 4a. Thirst: natural decay + dehydration damage + auto-drink
+        // 4a. Hunger decay (no auto-eat)
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
-            _v.Thirst[i] = MathF.Max(0f, _v.Thirst[i] - _config.Thirst.DecayPerTick);
+            _v.Hunger[i] = MathF.Max(0f, _v.Hunger[i] - _config.Hunger.DecayRate);
+        }
 
-            // Dehydration damage
-            if (_v.Thirst[i] <= _config.Thirst.DeathThreshold)
-                _v.Existence[i] -= _config.Thirst.DamagePerTick;
-
-            // Auto-drink when adjacent to water
-            if (_v.IsAdjacentToWater(_v.PosX[i], _v.PosY[i]))
-                _v.Thirst[i] = MathF.Min(100f, _v.Thirst[i] + _config.Thirst.DrinkAmount);
+        // 4b. Thirst decay (no auto-drink)
+        for (int i = 0; i < n; i++)
+        {
+            if (!_v.Alive[i]) continue;
+            _v.Thirst[i] = MathF.Max(0f, _v.Thirst[i] - _config.Thirst.DecayRate);
         }
 
         // 4b. Signal memory decay + signal age
@@ -326,28 +342,25 @@ public class CosmosEngine : IDisposable
             }
         }
 
-        // 5b. Food respawn (slow trickle to prevent total extinction)
+        // 5b. Food respawn: unconditional fixed-rate continuous spawn
         if (_config.Grid.FoodRespawnInterval > 0
             && _globalTick % _config.Grid.FoodRespawnInterval == 0)
         {
-            int currentFood = _v.FoodTiles.Count;
-            if (currentFood < _config.Grid.FoodRespawnThreshold)
-            {
-                int rx = _rng.Next(W);
-                int ry = _rng.Next(H);
-                lock (_v.LockObj)
-                    _v.FoodTiles.Add(new FoodTile
-                    {
-                        X = rx, Y = ry,
-                        Width = 1, Height = 1,
-                        TTL = _config.Grid.FoodTTL,
-                        Energy = _config.Grid.FoodEnergy,
-                        IsBig = false
-                    });
-            }
+            int rx = _rng.Next(W);
+            int ry = _rng.Next(H);
+            lock (_v.LockObj)
+                _v.FoodTiles.Add(new FoodTile
+                {
+                    X = rx, Y = ry,
+                    Width = 1, Height = 1,
+                    TTL = _config.Grid.FoodTTL,
+                    Energy = _config.Grid.FoodEnergy,
+                    IsBig = false
+                });
         }
 
-        // 6. Build state
+        // 6. Rebuild spatial grids + build state
+        _v.RebuildSpatialGrids();
         _v.BuildStateMatrix();
 
         // 7. GRU inference
@@ -369,6 +382,12 @@ public class CosmosEngine : IDisposable
         // 8. Process actions
         float[] rewards = new float[n];
         ProcessActions(actionsArr, signalArr, rewards);
+
+        // 8b. Signal field decay (after all deposits this tick)
+        for (int x = 0; x < W; x++)
+            for (int y = 0; y < H; y++)
+                for (int ch = 0; ch < 4; ch++)
+                    _v.SignalField[x, y, ch] *= 0.9f;
 
         // 9. Death check + corpse spawning
         float[] donesArr = new float[n];
@@ -561,7 +580,6 @@ public class CosmosEngine : IDisposable
                         _v.PosY[i]--;
                     _v.ScentGrid[_v.PosX[i], _v.PosY[i]] += _config.Scent.DepositAmount;
                     _v.FacingDirection[i] = 0;
-                    _v.Thirst[i] = MathF.Max(0f, _v.Thirst[i] - _config.Thirst.MoveCost);
                     break;
 
                 case ZhiAction.MoveDown:
@@ -569,7 +587,6 @@ public class CosmosEngine : IDisposable
                         _v.PosY[i]++;
                     _v.ScentGrid[_v.PosX[i], _v.PosY[i]] += _config.Scent.DepositAmount;
                     _v.FacingDirection[i] = 1;
-                    _v.Thirst[i] = MathF.Max(0f, _v.Thirst[i] - _config.Thirst.MoveCost);
                     break;
 
                 case ZhiAction.MoveLeft:
@@ -577,7 +594,6 @@ public class CosmosEngine : IDisposable
                         _v.PosX[i]--;
                     _v.ScentGrid[_v.PosX[i], _v.PosY[i]] += _config.Scent.DepositAmount;
                     _v.FacingDirection[i] = 2;
-                    _v.Thirst[i] = MathF.Max(0f, _v.Thirst[i] - _config.Thirst.MoveCost);
                     break;
 
                 case ZhiAction.MoveRight:
@@ -585,7 +601,6 @@ public class CosmosEngine : IDisposable
                         _v.PosX[i]++;
                     _v.ScentGrid[_v.PosX[i], _v.PosY[i]] += _config.Scent.DepositAmount;
                     _v.FacingDirection[i] = 3;
-                    _v.Thirst[i] = MathF.Max(0f, _v.Thirst[i] - _config.Thirst.MoveCost);
                     break;
 
                 case ZhiAction.Eat:
@@ -598,6 +613,21 @@ public class CosmosEngine : IDisposable
 
                 case ZhiAction.Signal:
                     ProcessSignal(i, (int)signalValues[i]);
+                    break;
+
+                case ZhiAction.Drink:
+                    if (_v.IsAdjacentToWater(_v.PosX[i], _v.PosY[i])
+                        || _v.IsShallowWater(_v.PosX[i], _v.PosY[i]))
+                    {
+                        float thirstBefore = _v.Thirst[i];
+                        _v.Thirst[i] = MathF.Min(100f, _v.Thirst[i] + _config.Thirst.DrinkRestore);
+                        float thirstDelta = _v.Thirst[i] - thirstBefore;
+                        if (thirstDelta > 0) rewards[i] += thirstDelta * 0.05f;
+                    }
+                    else
+                    {
+                        rewards[i] -= 0.1f;
+                    }
                     break;
 
                 case ZhiAction.Hide:
@@ -662,11 +692,9 @@ public class CosmosEngine : IDisposable
 
             if (foodIdx < 0 && corpseIdx < 0)
             {
+                // Failed eat: no HP penalty, just negative reward
                 foreach (int i in agents)
-                {
-                    _v.Existence[i] -= 0.25f;
                     rewards[i] -= 0.25f;
-                }
                 continue;
             }
 
@@ -678,16 +706,18 @@ public class CosmosEngine : IDisposable
                 {
                     if (agents.Count >= minAgents)
                     {
-                        // Cooperative eat: full energy shared equally
-                        float share = tile.Energy / agents.Count;
+                        // Cooperative eat: total = EatRestore * 2, shared equally
+                        float totalRestore = _config.Hunger.EatRestore * 2f;
+                        float share = totalRestore / agents.Count;
                         consumedFood.Add(foodIdx);
                         foreach (int i in agents)
                         {
-                            _v.Existence[i] += share;
+                            float hungerBefore = _v.Hunger[i];
+                            _v.Hunger[i] = MathF.Min(100f, _v.Hunger[i] + share);
+                            float hungerDelta = _v.Hunger[i] - hungerBefore;
+                            if (hungerDelta > 0) rewards[i] += hungerDelta * 0.05f;
                             _v.EatCount[i]++;
                             _v.BigFoodEatCount[i]++;
-                            float reward = _v.Existence[i] < 20f ? 5f : 3f;
-                            rewards[i] += reward;
                             _tickEvents.Add(new WorldEvent { Type = "eat", AgentId = i, FoodType = "BigFood", Value = share, Tick = _globalTick });
                         }
                         _genBigFoodEaten++;
@@ -695,55 +725,58 @@ public class CosmosEngine : IDisposable
                     }
                     else
                     {
-                        // Solo eat: 40% energy, food consumed
-                        float soloEnergy = tile.Energy * 0.4f;
+                        // Solo eat: 40% of EatRestore
+                        float soloRestore = _config.Hunger.EatRestore * 0.4f;
                         consumedFood.Add(foodIdx);
                         foreach (int i in agents)
                         {
-                            _v.Existence[i] += soloEnergy;
+                            float hungerBefore = _v.Hunger[i];
+                            _v.Hunger[i] = MathF.Min(100f, _v.Hunger[i] + soloRestore);
+                            float hungerDelta = _v.Hunger[i] - hungerBefore;
+                            if (hungerDelta > 0) rewards[i] += hungerDelta * 0.05f;
                             _v.EatCount[i]++;
                             _v.BigFoodEatCount[i]++;
-                            float reward = _v.Existence[i] < 20f ? 5f : 3f;
-                            rewards[i] += reward;
-                            _tickEvents.Add(new WorldEvent { Type = "eat", AgentId = i, FoodType = "BigFood", Value = soloEnergy, Tick = _globalTick });
+                            _tickEvents.Add(new WorldEvent { Type = "eat", AgentId = i, FoodType = "BigFood", Value = soloRestore, Tick = _globalTick });
                         }
                         _genBigFoodEaten++;
-                        _genBigFoodEnergy += soloEnergy * agents.Count;
+                        _genBigFoodEnergy += soloRestore * agents.Count;
                     }
                 }
                 else
                 {
+                    // Normal food: first eater wins
                     consumedFood.Add(foodIdx);
                     int winner = agents[0];
-                    _v.Existence[winner] += tile.Energy;
+                    float hungerBefore = _v.Hunger[winner];
+                    _v.Hunger[winner] = MathF.Min(100f, _v.Hunger[winner] + _config.Hunger.EatRestore);
+                    float hungerDelta = _v.Hunger[winner] - hungerBefore;
+                    if (hungerDelta > 0) rewards[winner] += hungerDelta * 0.05f;
                     _v.EatCount[winner]++;
                     _v.FoodEatCount[winner]++;
-                    float reward = _v.Existence[winner] < 20f ? 5f : 3f;
-                    rewards[winner] += reward;
-                    _tickEvents.Add(new WorldEvent { Type = "eat", AgentId = winner, FoodType = "Food", Value = tile.Energy, Tick = _globalTick });
+                    _tickEvents.Add(new WorldEvent { Type = "eat", AgentId = winner, FoodType = "Food", Value = _config.Hunger.EatRestore, Tick = _globalTick });
                     _genFoodEaten++;
                     _genFoodEnergy += tile.Energy;
 
+                    // Other eaters at same position fail
                     for (int k = 1; k < agents.Count; k++)
-                    {
-                        _v.Existence[agents[k]] -= 0.25f;
                         rewards[agents[k]] -= 0.25f;
-                    }
                 }
             }
             else
             {
-                // Eating corpse
+                // Eating corpse: 80% of EatRestore
                 var corpse = _v.CorpseTiles[corpseIdx];
                 consumedCorpses.Add(corpseIdx);
-                float share = corpse.Energy / agents.Count;
+                float corpseRestore = _config.Hunger.EatRestore * 0.8f;
+                float share = corpseRestore / agents.Count;
                 foreach (int i in agents)
                 {
-                    _v.Existence[i] += share;
+                    float hungerBefore = _v.Hunger[i];
+                    _v.Hunger[i] = MathF.Min(100f, _v.Hunger[i] + share);
+                    float hungerDelta = _v.Hunger[i] - hungerBefore;
+                    if (hungerDelta > 0) rewards[i] += hungerDelta * 0.05f;
                     _v.EatCount[i]++;
                     _v.CorpseEatCount[i]++;
-                    float reward = _v.Existence[i] < 20f ? 5f : 3f;
-                    rewards[i] += reward;
                     _tickEvents.Add(new WorldEvent { Type = "eat", AgentId = i, FoodType = "Corpse", Value = share, Tick = _globalTick });
                 }
                 _genCorpsesEaten++;
@@ -783,7 +816,6 @@ public class CosmosEngine : IDisposable
         }
 
         _v.Existence[attacker] -= _config.Combat.AttackCost;
-        _v.Thirst[attacker] = MathF.Max(0f, _v.Thirst[attacker] - _config.Thirst.AttackCost);
         _v.AttackCount[attacker]++;
 
         if (bestTarget >= 0)
@@ -829,6 +861,13 @@ public class CosmosEngine : IDisposable
                 _v.SignalAge[j] = 0;
             }
         }
+
+        // Deposit onto spatial signal field (additive with cap)
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        if (sx >= 0 && sx < W && sy >= 0 && sy < H && signalValue >= 0 && signalValue < 4)
+            _v.SignalField[sx, sy, signalValue] = MathF.Min(1.0f,
+                _v.SignalField[sx, sy, signalValue] + 0.5f);
     }
 
     // PLACEHOLDER_FOOD
@@ -1053,6 +1092,15 @@ public class CosmosEngine : IDisposable
                 using var noise = torch.randn(param.shape, device: ZHI.Core.Device.TorchDevice)
                     * _config.Cosmos.MutationStd * _config.Reproduce.MutationScale;
                 using (var _ = torch.no_grad()) param.add_(noise);
+            }
+        }
+
+        // Child weight noise: ε~N(0, 0.005) on all parameters
+        using (torch.no_grad())
+        {
+            foreach (var param in brain.parameters())
+            {
+                param.add_(torch.randn_like(param) * 0.005f);
             }
         }
 
