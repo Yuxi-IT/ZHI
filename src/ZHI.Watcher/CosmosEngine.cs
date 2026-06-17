@@ -1291,8 +1291,8 @@ public class CosmosEngine : IDisposable
             _tickEvents.Add(new WorldEvent { Type = "respawn", AgentId = i, Tick = _globalTick });
             Log($"[Cosmos] Agent #{i} respawned (lived {livedSecs:F1}s)");
 
-            // Lightweight generation milestone: every 64 respawns = 1 generation
-            if (_respawnCount % 64 == 0)
+            // Lightweight generation milestone: every 16 respawns = 1 generation
+            if (_respawnCount % 16 == 0)
             {
                 _generation++;
                 _config.DeathCount = _totalDeaths;
