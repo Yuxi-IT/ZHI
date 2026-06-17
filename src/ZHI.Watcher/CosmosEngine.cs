@@ -798,6 +798,7 @@ public class CosmosEngine : IDisposable
         if (bestTarget >= 0)
         {
             _v.Stress[bestTarget] += _config.Combat.StressPerAttack;
+            _v.Existence[bestTarget] -= 20f;
             _v.LastActionNameMirror[attacker] = $"attack#{bestTarget}";
             _tickEvents.Add(new WorldEvent
             {
