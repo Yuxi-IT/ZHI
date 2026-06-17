@@ -210,6 +210,7 @@ public class WebServer : IDisposable
                 y = v.PosY[i],
                 existence = v.Existence[i],
                 stress = v.Stress[i],
+                hunger = v.Hunger[i],
                 thirst = v.Thirst[i],
                 is_alive = v.Alive[i],
                 status = v.StatusMirror[i],

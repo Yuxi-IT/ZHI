@@ -167,6 +167,12 @@ function AgentCard({
           </span>
         </div>
         <div className="flex justify-between">
+          <span>Hunger</span>
+          <span className={agent.hunger < 20 ? 'text-orange-400' : 'text-neutral-400'}>
+            {agent.hunger.toFixed(1)}
+          </span>
+        </div>
+        <div className="flex justify-between">
           <span>Thirst</span>
           <span className={agent.thirst < 20 ? 'text-cyan-400' : 'text-neutral-400'}>
             {agent.thirst.toFixed(1)}

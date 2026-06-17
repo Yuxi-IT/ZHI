@@ -4,6 +4,7 @@ export interface AgentSnapshot {
   y: number
   existence: number
   stress: number
+  hunger: number
   thirst: number
   is_alive: boolean
   status: string

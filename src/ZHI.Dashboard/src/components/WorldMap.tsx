@@ -299,7 +299,8 @@ export function WorldMap({
         x: mx + 12, y: my - 10,
         text: [
           `Agent #${agent.id}`,
-          `HP: ${agent.existence.toFixed(1)}  Stress: ${agent.stress.toFixed(2)}  Thirst: ${agent.thirst.toFixed(1)}`,
+          `HP: ${agent.existence.toFixed(1)}  Stress: ${agent.stress.toFixed(2)}`,
+          `Hunger: ${agent.hunger.toFixed(1)}  Thirst: ${agent.thirst.toFixed(1)}`,
           `Age: ${agent.tick_count} ticks  Action: ${agent.last_action}`,
           `Eats: ${agent.eat_count}  Attacks: ${agent.attack_count}  Signals: ${agent.signal_count}`
         ]
