@@ -54,12 +54,6 @@ function App() {
     <div className="h-screen flex flex-col bg-[#0a0a0a] text-neutral-300 font-mono text-xs overflow-hidden">
       {/* Header */}
       <header className="flex items-center gap-4 px-5 py-2 border-b border-neutral-800 shrink-0">
-        <div className="flex items-center gap-2 text-[10px] text-neutral-400">
-          <span>{formatGameTime(timeOfDay)}</span>
-          <span className="text-neutral-700">|</span>
-          <span>{temperature.toFixed(1)}°C</span>
-        </div>
-        <span className="text-neutral-700">|</span>
         <h1 className="text-sm font-normal tracking-[0.2em] text-neutral-400">ZHI</h1>
         <span className="text-neutral-600">栀 · Cosmos V2.7</span>
         <div className="flex items-center gap-3 ml-auto">
@@ -98,6 +92,9 @@ function App() {
         <div className="flex-1 flex flex-col min-h-0 min-w-0">
           {/* Display toggles bar */}
           <div className="flex items-center gap-1 px-3 py-1 border-b border-neutral-800 shrink-0">
+            <span className="text-neutral-400 text-[9px]">{formatGameTime(timeOfDay)}</span>
+            <span className="text-neutral-600 text-[9px]">{temperature.toFixed(1)}°C</span>
+            <span className="text-neutral-700 text-[9px] mx-1">|</span>
             <span className="text-neutral-600 text-[9px] mr-1">显示:</span>
             <button
               onClick={() => setShowScent(v => !v)}
