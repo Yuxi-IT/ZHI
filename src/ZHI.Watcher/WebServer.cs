@@ -115,6 +115,18 @@ public class WebServer : IDisposable
             return;
         }
 
+        if (path == "/api/config" && context.Request.HttpMethod == "GET")
+        {
+            await ServeConfig(context);
+            return;
+        }
+
+        if (path == "/api/config" && context.Request.HttpMethod == "POST")
+        {
+            await HandleConfigSave(context);
+            return;
+        }
+
         // Static files
         if (path == "/" || path == "/index.html")
         {
@@ -185,6 +197,39 @@ public class WebServer : IDisposable
     {
         var json = BuildCosmosPayload();
         var bytes = Encoding.UTF8.GetBytes(json);
+        context.Response.ContentType = "application/json; charset=utf-8";
+        context.Response.ContentLength64 = bytes.Length;
+        await context.Response.OutputStream.WriteAsync(bytes);
+        context.Response.Close();
+    }
+
+    private async Task ServeConfig(HttpListenerContext context)
+    {
+        var json = JsonSerializer.Serialize(_engine.CurrentConfig, new JsonSerializerOptions { WriteIndented = true });
+        var bytes = Encoding.UTF8.GetBytes(json);
+        context.Response.ContentType = "application/json; charset=utf-8";
+        context.Response.ContentLength64 = bytes.Length;
+        await context.Response.OutputStream.WriteAsync(bytes);
+        context.Response.Close();
+    }
+
+    private async Task HandleConfigSave(HttpListenerContext context)
+    {
+        using var reader = new StreamReader(context.Request.InputStream, context.Request.ContentEncoding);
+        var body = await reader.ReadToEndAsync();
+        var newConfig = JsonSerializer.Deserialize<ZhiConfig>(body);
+        if (newConfig == null)
+        {
+            context.Response.StatusCode = 400;
+            context.Response.Close();
+            return;
+        }
+
+        bool restart = context.Request.QueryString["restart"] == "true";
+        _engine.UpdateConfigAndRestart(newConfig);
+
+        var resp = JsonSerializer.Serialize(new { ok = true, restarted = restart });
+        var bytes = Encoding.UTF8.GetBytes(resp);
         context.Response.ContentType = "application/json; charset=utf-8";
         context.Response.ContentLength64 = bytes.Length;
         await context.Response.OutputStream.WriteAsync(bytes);

@@ -67,6 +67,7 @@ public class CosmosEngine : IDisposable
     public float GenFoodEnergy => _genFoodEnergy;
     public float GenBigFoodEnergy => _genBigFoodEnergy;
     public float GenCorpseEnergy => _genCorpseEnergy;
+    public ZhiConfig CurrentConfig => _config;
 
     private readonly List<GenerationResult> _genResults = new();
 
@@ -1045,6 +1046,8 @@ public class CosmosEngine : IDisposable
         {
             float hpRatio = Math.Clamp(_v.Existence[attacker] / 100f, 0.2f, 1.5f);
             float damage = 20f * hpRatio;
+            // Eating targets take 110% damage
+            if (_v.EatTargetType[bestTarget] > 0) damage *= 1.1f;
             _v.Stress[bestTarget] += _config.Combat.StressPerAttack;
             _v.Existence[bestTarget] -= damage;
             _v.LastActionNameMirror[attacker] = $"attack#{bestTarget}";
@@ -1479,6 +1482,48 @@ public class CosmosEngine : IDisposable
     {
         var json = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(_configPath, json);
+    }
+
+    public void UpdateConfigAndRestart(ZhiConfig newConfig)
+    {
+        // Deep-copy config into _config
+        var json = JsonSerializer.Serialize(newConfig);
+        var updated = JsonSerializer.Deserialize<ZhiConfig>(json)!;
+        // Preserve DeathCount (runtime state)
+        updated.DeathCount = _totalDeaths;
+        // Copy all fields
+        typeof(ZhiConfig).GetProperty("Cosmos")!.SetValue(_config, updated.Cosmos);
+        typeof(ZhiConfig).GetProperty("Grid")!.SetValue(_config, updated.Grid);
+        typeof(ZhiConfig).GetProperty("Combat")!.SetValue(_config, updated.Combat);
+        typeof(ZhiConfig).GetProperty("Hunger")!.SetValue(_config, updated.Hunger);
+        typeof(ZhiConfig).GetProperty("Thirst")!.SetValue(_config, updated.Thirst);
+        typeof(ZhiConfig).GetProperty("Existence")!.SetValue(_config, updated.Existence);
+        typeof(ZhiConfig).GetProperty("Reproduce")!.SetValue(_config, updated.Reproduce);
+        typeof(ZhiConfig).GetProperty("Temperature")!.SetValue(_config, updated.Temperature);
+        typeof(ZhiConfig).GetProperty("Scent")!.SetValue(_config, updated.Scent);
+        typeof(ZhiConfig).GetProperty("FoodScent")!.SetValue(_config, updated.FoodScent);
+        typeof(ZhiConfig).GetProperty("Corpse")!.SetValue(_config, updated.Corpse);
+        typeof(ZhiConfig).GetProperty("River")!.SetValue(_config, updated.River);
+        typeof(ZhiConfig).GetProperty("Signal")!.SetValue(_config, updated.Signal);
+        typeof(ZhiConfig).GetProperty("AgeDeath")!.SetValue(_config, updated.AgeDeath);
+        typeof(ZhiConfig).GetProperty("Network")!.SetValue(_config, updated.Network);
+        typeof(ZhiConfig).GetProperty("DecisionIntervalMs")!.SetValue(_config, updated.DecisionIntervalMs);
+
+        SaveConfig();
+        Log("[Cosmos] Config updated, reinitializing world...");
+
+        // Save current best weights before restart
+        int bestIdx = -1; int bestTicks = 0;
+        for (int j = 0; j < _v.N; j++)
+            if (_v.Alive[j] && _v.TickCount[j] > bestTicks) { bestIdx = j; bestTicks = _v.TickCount[j]; }
+        if (bestIdx >= 0 && bestIdx < _agentWeights.Count)
+            _blackbox.SaveWeights(_generation, _agentWeights[bestIdx]);
+
+        // Reinitialize
+        var resumeWeights = new List<byte[]> { _agentWeights[bestIdx >= 0 ? bestIdx : 0] };
+        InitializeGeneration(resumeWeights);
+        _generation++;
+        Log($"[Cosmos] World restarted as Gen {_generation}");
     }
 
     public void TogglePause() => _paused = !_paused;

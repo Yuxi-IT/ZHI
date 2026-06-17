@@ -577,8 +577,23 @@ export function WorldMap({
       }
     }
 
+    const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault()
+      const rect = canvas.getBoundingClientRect()
+      const cam = camRef.current
+      const cellSize = cam.zoom * (rect.width / gridW)
+      const worldX = cam.x + (e.clientX - rect.left)
+      const worldY = cam.y + (e.clientY - rect.top)
+      const gx = Math.floor(worldX / cellSize)
+      const gy = Math.floor(worldY / cellSize)
+
+      const agent = agents.find(a => a.is_alive && a.x === gx && a.y === gy)
+      if (agent) setTrackedAgent(agent.id)
+    }
+
     canvas.addEventListener('wheel', onWheel, { passive: false })
     canvas.addEventListener('mousedown', onMouseDown)
+    canvas.addEventListener('contextmenu', onContextMenu)
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
     canvas.addEventListener('mouseleave', onMouseLeave)
@@ -587,6 +602,7 @@ export function WorldMap({
     return () => {
       canvas.removeEventListener('wheel', onWheel)
       canvas.removeEventListener('mousedown', onMouseDown)
+      canvas.removeEventListener('contextmenu', onContextMenu)
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
       canvas.removeEventListener('mouseleave', onMouseLeave)

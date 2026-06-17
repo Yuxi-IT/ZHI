@@ -8,6 +8,7 @@ import { LogPanel } from './components/LogPanel'
 import { ChartsPanel } from './components/ChartsPanel'
 import { EventMonitor } from './components/EventMonitor'
 import { EventLog } from './components/EventLog'
+import { SettingsPanel } from './components/SettingsPanel'
 
 function formatGameTime(hours: number): string {
   const h = Math.floor(hours)
@@ -18,19 +19,27 @@ function formatGameTime(hours: number): string {
   return `${icon} ${hh}:${mm}`
 }
 
+function tempColor(t: number): string {
+  if (t < 5) return '#c0d0ff'
+  if (t < 15) return '#60a5fa'
+  if (t < 25) return '#4ade80'
+  if (t < 35) return '#fb923c'
+  return '#ef4444'
+}
+
 function App() {
   const { generation, totalDeaths, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, signalField, logs, events, clearEvents, stats, connected } = useWebSocket()
   const { stats: dbStats, loading } = useStats()
   const { history, record } = useEcoHistory()
-  const [bottomTab, setBottomTab] = useState<'log' | 'charts' | 'events'>('log')
+  const [bottomTab, setBottomTab] = useState<'log' | 'charts' | 'settings'>('log')
   const [trackedAgent, setTrackedAgent] = useState<number | null>(null)
   const [trackNextGen, setTrackNextGen] = useState(false)
 
   // Display toggles
-  const [showScent, setShowScent] = useState(false)
-  const [showFoodScent, setShowFoodScent] = useState(false)
+  const [showScent, setShowScent] = useState(true)
+  const [showFoodScent, setShowFoodScent] = useState(true)
   const [showDirection, setShowDirection] = useState(true)
-  const [showVision, setShowVision] = useState(false)
+  const [showVision, setShowVision] = useState(true)
   const [showSignal, setShowSignal] = useState(false)
 
   const aliveCount = agents.filter(a => a.is_alive).length
@@ -93,7 +102,7 @@ function App() {
           {/* Display toggles bar */}
           <div className="flex items-center gap-1 px-3 py-1 border-b border-neutral-800 shrink-0">
             <span className="text-neutral-400 text-[9px]">{formatGameTime(timeOfDay)}</span>
-            <span className="text-neutral-600 text-[9px]">{temperature.toFixed(1)}°C</span>
+            <span className="text-[9px] font-semibold" style={{ color: tempColor(temperature) }}>{temperature.toFixed(1)}°C</span>
             <span className="text-neutral-700 text-[9px] mx-1">|</span>
             <span className="text-neutral-600 text-[9px] mr-1">显示:</span>
             <button
@@ -166,18 +175,18 @@ function App() {
           <div className="h-48 shrink-0 border-t border-r border-neutral-800 flex flex-col overflow-hidden">
             {/* Tab toggle */}
             <div className="flex items-center gap-1 px-3 py-1 border-b border-neutral-800 shrink-0">
-              {(['log', 'charts', 'events'] as const).map(tab => (
+              {(['log', 'charts', 'settings'] as const).map(tab => (
                 <button
                   key={tab}
                   className={`px-2 py-0.5 text-[10px] rounded ${bottomTab === tab ? 'bg-neutral-800 text-neutral-300' : 'text-neutral-600 hover:text-neutral-400'}`}
                   onClick={() => setBottomTab(tab)}
                 >
-                  {tab === 'log' ? 'Log' : tab === 'charts' ? 'Charts' : 'Events'}
+                  {tab === 'log' ? 'Log' : tab === 'charts' ? 'Charts' : 'Settings'}
                 </button>
               ))}
             </div>
             {bottomTab === 'charts' ? <ChartsPanel data={history} />
-              : bottomTab === 'events' ? <EventLog events={events} />
+              : bottomTab === 'settings' ? <SettingsPanel />
               : <LogPanel logs={logs} />}
           </div>
         </div>

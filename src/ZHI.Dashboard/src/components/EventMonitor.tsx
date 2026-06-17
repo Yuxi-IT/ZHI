@@ -48,7 +48,7 @@ export function EventMonitor({ events, energySource, onClear }: Props) {
   const autoScrollRef = useRef(true)
   const [autoScroll, setAutoScroll] = useState(true)
   const [activeFilters, setActiveFilters] = useState<Set<WorldEventType>>(
-    new Set(['death', 'attack', 'respawn', 'eat', 'signal'])
+    new Set(['death', 'attack', 'respawn', 'eat'])
   )
 
   const toggleFilter = (type: WorldEventType) => {
