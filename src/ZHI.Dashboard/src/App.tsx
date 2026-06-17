@@ -19,7 +19,6 @@ function App() {
 
   // Display toggles
   const [showScent, setShowScent] = useState(false)
-  const [showFoodScent, setShowFoodScent] = useState(false)
   const [showDirection, setShowDirection] = useState(true)
   const [showVision, setShowVision] = useState(false)
   const [showSignal, setShowSignal] = useState(false)
@@ -86,15 +85,9 @@ function App() {
             <span className="text-neutral-600 text-[9px] mr-1">显示:</span>
             <button
               onClick={() => setShowScent(v => !v)}
-              className={`px-1.5 py-0.5 text-[9px] rounded border ${showScent ? 'border-blue-600 text-blue-400 bg-blue-900/20' : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'}`}
+              className={`px-1.5 py-0.5 text-[9px] rounded border ${showScent ? 'border-purple-600 text-purple-400 bg-purple-900/20' : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'}`}
             >
-              气味-栀
-            </button>
-            <button
-              onClick={() => setShowFoodScent(v => !v)}
-              className={`px-1.5 py-0.5 text-[9px] rounded border ${showFoodScent ? 'border-green-600 text-green-400 bg-green-900/20' : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'}`}
-            >
-              气味-食
+              气味
             </button>
             <button
               onClick={() => setShowDirection(v => !v)}
@@ -141,7 +134,6 @@ function App() {
               trackedAgent={trackedAgent}
               onTrackChange={setTrackedAgent}
               showScent={showScent}
-              showFoodScent={showFoodScent}
               showDirection={showDirection}
               showVision={showVision}
               showSignal={showSignal}

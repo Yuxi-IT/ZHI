@@ -17,7 +17,6 @@ interface Props {
   trackedAgent?: number | null
   onTrackChange?: (id: number | null) => void
   showScent?: boolean
-  showFoodScent?: boolean
   showDirection?: boolean
   showVision?: boolean
   showSignal?: boolean
@@ -41,7 +40,7 @@ interface FloatingText {
 export function WorldMap({
   agents, food, corpses, river, scent, signalField, events,
   trackedAgent: trackedProp, onTrackChange,
-  showScent = false, showFoodScent = false,
+  showScent = false,
   showDirection = false, showVision = false,
   showSignal = false,
 }: Props) {
@@ -401,7 +400,7 @@ export function WorldMap({
       ? `${zoomPct}% | tracking #${trackedAgent} | alive ${aliveCount}/${agents.length}`
       : `${zoomPct}% | alive ${aliveCount}/${agents.length}`
     ctx.fillText(hudText, 8, 8)
-  }, [agents, food, corpses, river, scent, signalField, trackedAgent, showScent, showFoodScent, showDirection, showVision, showSignal])
+  }, [agents, food, corpses, river, scent, signalField, trackedAgent, showScent, showDirection, showVision, showSignal])
 
   useEffect(() => {
     let animating = true
