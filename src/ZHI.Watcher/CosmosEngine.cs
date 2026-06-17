@@ -227,7 +227,7 @@ public class CosmosEngine : IDisposable
             _v.Stress[i] = MathF.Max(0f, _v.Stress[i] - _config.Combat.StressDecay);
         }
 
-        // 3. HP decay: BaseDecay + HungerPenalty + ThirstPenalty + AgeDeath
+        // 3. HP decay: BaseDecay + ContinuousRampPenalty + AgeDeath
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
@@ -247,20 +247,21 @@ public class CosmosEngine : IDisposable
             else if (age >= _config.AgeDeath.Stage1Age)
                 decay += _config.AgeDeath.Stage1Decay;
 
-            // Hide reduction
+            // Hide reduction + cumulative hide decay
             if (_v.IsHiding[i])
             {
                 decay *= _config.Hide.DecayMultiplier;
+                decay *= 1.0f + (_v.HideStartTick[i] > 0 ? (_globalTick - _v.HideStartTick[i]) / 200f * 0.4f : 0f);
                 _genHidingTicks++;
             }
 
-            // Hunger penalty (below threshold → HP drain)
-            if (_v.Hunger[i] < _config.Hunger.PenaltyThreshold)
-                decay += _config.Hunger.PenaltyAmount;
+            // Continuous ramp hunger penalty (starts at PenaltyStart, linear to MaxPenalty at 0)
+            float hungerRatio = MathF.Max(0f, 1f - (_v.Hunger[i] / _config.Hunger.PenaltyStart));
+            decay += hungerRatio * _config.Hunger.MaxPenalty;
 
-            // Thirst penalty (below threshold → HP drain, higher priority)
-            if (_v.Thirst[i] < _config.Thirst.PenaltyThreshold)
-                decay += _config.Thirst.PenaltyAmount;
+            // Continuous ramp thirst penalty (starts at PenaltyStart, linear to MaxPenalty at 0)
+            float thirstRatio = MathF.Max(0f, 1f - (_v.Thirst[i] / _config.Thirst.PenaltyStart));
+            decay += thirstRatio * _config.Thirst.MaxPenalty;
 
             _v.Existence[i] -= decay;
 
@@ -277,23 +278,37 @@ public class CosmosEngine : IDisposable
             for (int y = 0; y < H; y++)
                 _v.ScentGrid[x, y] *= scentDecay;
 
-        // 4a. Hunger decay (doubled while hiding — can't eat)
+        // 4a. Hunger decay (accelerated while hiding)
+        float hideMult = _config.Hide.MetabolicMultiplier;
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
-            float hungerDecay = _config.Hunger.DecayRate * (_v.IsHiding[i] ? 2.0f : 1.0f);
+            float hungerDecay = _config.Hunger.DecayRate * (_v.IsHiding[i] ? hideMult : 1.0f);
             _v.Hunger[i] = MathF.Max(0f, _v.Hunger[i] - hungerDecay);
         }
 
-        // 4b. Thirst decay (doubled while hiding — can't drink)
+        // 4b. Thirst decay (accelerated while hiding)
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
-            float thirstDecay = _config.Thirst.DecayRate * (_v.IsHiding[i] ? 2.0f : 1.0f);
+            float thirstDecay = _config.Thirst.DecayRate * (_v.IsHiding[i] ? hideMult : 1.0f);
             _v.Thirst[i] = MathF.Max(0f, _v.Thirst[i] - thirstDecay);
         }
 
-        // 4b. Signal memory decay + signal age
+        // 4c. Hide duration cap — force break with stress penalty
+        for (int i = 0; i < n; i++)
+        {
+            if (!_v.Alive[i] || !_v.IsHiding[i]) continue;
+            int hideDuration = _globalTick - _v.HideStartTick[i];
+            if (hideDuration >= _config.Hide.MaxDurationTicks)
+            {
+                _v.IsHiding[i] = false;
+                _v.Stress[i] = MathF.Min(5f, _v.Stress[i] + _config.Hide.BreakStressPenalty);
+                _tickEvents.Add(new WorldEvent { Type = "hide_fatigue_break", AgentId = i, Tick = _globalTick });
+            }
+        }
+
+        // 4d. Signal memory decay + signal age
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
@@ -344,21 +359,26 @@ public class CosmosEngine : IDisposable
             }
         }
 
-        // 5b. Food respawn: unconditional fixed-rate continuous spawn
+        // 5b. Food respawn (capped at MaxFood)
         if (_config.Grid.FoodRespawnInterval > 0
             && _globalTick % _config.Grid.FoodRespawnInterval == 0)
         {
-            int rx = _rng.Next(W);
-            int ry = _rng.Next(H);
             lock (_v.LockObj)
-                _v.FoodTiles.Add(new FoodTile
+            {
+                if (_v.FoodTiles.Count < _config.Grid.MaxFood)
                 {
-                    X = rx, Y = ry,
-                    Width = 1, Height = 1,
-                    TTL = _config.Grid.FoodTTL,
-                    Energy = _config.Grid.FoodEnergy,
-                    IsBig = false
-                });
+                    int rx = _rng.Next(W);
+                    int ry = _rng.Next(H);
+                    _v.FoodTiles.Add(new FoodTile
+                    {
+                        X = rx, Y = ry,
+                        Width = 1, Height = 1,
+                        TTL = _config.Grid.FoodTTL,
+                        Energy = _config.Grid.FoodEnergy,
+                        IsBig = false
+                    });
+                }
+            }
         }
 
         // 6. Rebuild spatial grids + build state

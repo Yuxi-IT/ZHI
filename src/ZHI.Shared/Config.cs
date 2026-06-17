@@ -38,15 +38,16 @@ public sealed class GridConfig
     public int InitialBigFood { get; set; } = 10;
     public float FoodEnergy { get; set; } = 15f;
     public float BigFoodEnergy { get; set; } = 80f;
-    public int FoodTTL { get; set; } = 500;
-    public int BigFoodTTL { get; set; } = 1000;
+    public int FoodTTL { get; set; } = 300;
+    public int BigFoodTTL { get; set; } = 600;
 
     // BigFood cooperative eating
     public int BigFoodEatTime { get; set; } = 5;
     public int BigFoodMinAgents { get; set; } = 2;
 
-    // Food respawning (fixed-rate continuous spawn)
-    public int FoodRespawnInterval { get; set; } = 2;
+    // Food respawning
+    public int FoodRespawnInterval { get; set; } = 10;
+    public int MaxFood { get; set; } = 100;
 }
 
 public sealed class CombatConfig
@@ -99,6 +100,9 @@ public sealed class HideConfig
     public float DecayMultiplier { get; set; } = 0.9f;
     public int MinDuration { get; set; } = 1;
     public int DetectionRange { get; set; } = 2;
+    public float MetabolicMultiplier { get; set; } = 1.6f;
+    public int MaxDurationTicks { get; set; } = 150;
+    public float BreakStressPenalty { get; set; } = 1.5f;
 }
 
 public sealed class AgeDeathConfig
@@ -127,8 +131,8 @@ public sealed class ThirstConfig
     public float Initial { get; set; } = 100f;
     public float DecayRate { get; set; } = 0.1f;         // 1000 ticks to empty
     public float DrinkRestore { get; set; } = 40f;       // per drink action
-    public float PenaltyThreshold { get; set; } = 30f;
-    public float PenaltyAmount { get; set; } = 0.6f;     // HP/tick when thirsty (higher priority)
+    public float PenaltyStart { get; set; } = 70f;       // continuous ramp begins here
+    public float MaxPenalty { get; set; } = 0.8f;        // HP/tick at thirst=0
 }
 
 public sealed class HungerConfig
@@ -136,8 +140,8 @@ public sealed class HungerConfig
     public float Initial { get; set; } = 100f;
     public float DecayRate { get; set; } = 0.05f;       // 2000 ticks to empty
     public float EatRestore { get; set; } = 30f;         // per eat action
-    public float PenaltyThreshold { get; set; } = 20f;
-    public float PenaltyAmount { get; set; } = 0.2f;     // HP/tick when hungry
+    public float PenaltyStart { get; set; } = 60f;       // continuous ramp begins here
+    public float MaxPenalty { get; set; } = 0.25f;       // HP/tick at hunger=0
 }
 
 public sealed class RiverConfig

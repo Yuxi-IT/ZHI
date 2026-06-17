@@ -75,7 +75,7 @@ public class GRUBrain : Module
             bool isHiding = stateData[i * S + 140] > 0.5f;
             float hunger = stateData[i * S + 144]; // normalized 0-1
             float thirst = stateData[i * S + 145]; // normalized 0-1
-            bool critical = hunger < 0.3f || thirst < 0.3f;
+            bool critical = hunger < 0.35f || thirst < 0.45f;
             int b = i * A;
 
             // Default: all actions valid
