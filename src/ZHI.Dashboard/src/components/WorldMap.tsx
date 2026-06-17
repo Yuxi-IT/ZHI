@@ -40,7 +40,7 @@ interface FloatingText {
 }
 
 export function WorldMap({
-  agents, food, corpses, river, scent, signalField, events,
+  agents, food, corpses, river, scent, foodScent, signalField, events,
   trackedAgent: trackedProp, onTrackChange,
   showScent = false, showFoodScent = false,
   showDirection = false, showVision = false,
