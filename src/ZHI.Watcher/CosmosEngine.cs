@@ -319,6 +319,32 @@ public class CosmosEngine : IDisposable
                     _v.ScentGrid[x, y] = scentBuf[x * H + y];
         }
 
+        // 4b. Food scent decay + diffusion (independent from agent scent)
+        float foodScentDecay = _config.FoodScent.DecayRate;
+        for (int x = 0; x < W; x++)
+            for (int y = 0; y < H; y++)
+                _v.FoodScentGrid[x, y] *= foodScentDecay;
+
+        float foodDiffRate = _config.FoodScent.DiffusionRate;
+        if (foodDiffRate > 0f)
+        {
+            var foodScentBuf = new float[W * H];
+            for (int x = 0; x < W; x++)
+                for (int y = 0; y < H; y++)
+                {
+                    float s = _v.FoodScentGrid[x, y];
+                    float share = s * foodDiffRate;
+                    if (x > 0) foodScentBuf[(x - 1) * H + y] += share * 0.25f;
+                    if (x < W - 1) foodScentBuf[(x + 1) * H + y] += share * 0.25f;
+                    if (y > 0) foodScentBuf[x * H + (y - 1)] += share * 0.25f;
+                    if (y < H - 1) foodScentBuf[x * H + (y + 1)] += share * 0.25f;
+                    foodScentBuf[x * H + y] += s * (1f - foodDiffRate);
+                }
+            for (int x = 0; x < W; x++)
+                for (int y = 0; y < H; y++)
+                    _v.FoodScentGrid[x, y] = foodScentBuf[x * H + y];
+        }
+
         // 4a. Hunger decay
         for (int i = 0; i < n; i++)
         {
@@ -354,16 +380,21 @@ public class CosmosEngine : IDisposable
                 else
                 {
                     _v.FoodTiles[f] = food;
-                    float scentAmount = food.IsBig ? 1.0f : 0.3f;
+                    float scentAmount = food.IsBig ? _config.FoodScent.BigFoodEmission : _config.FoodScent.SmallFoodEmission;
                     int fw = food.Width > 0 ? food.Width : 1;
                     int fh = food.Height > 0 ? food.Height : 1;
-                    for (int fx = 0; fx < fw; fx++)
-                        for (int fy = 0; fy < fh; fy++)
+                    int spreadRadius = _config.FoodScent.SpreadRadius;
+                    for (int fx = -spreadRadius; fx < fw + spreadRadius; fx++)
+                        for (int fy = -spreadRadius; fy < fh + spreadRadius; fy++)
                         {
                             int sx = food.X + fx;
                             int sy = food.Y + fy;
-                            if (sx < W && sy < H)
-                                _v.ScentGrid[sx, sy] += scentAmount;
+                            if (sx >= 0 && sx < W && sy >= 0 && sy < H)
+                            {
+                                float dist = MathF.Sqrt(fx * fx + fy * fy);
+                                float falloff = MathF.Max(0, 1f - dist / (spreadRadius + 1));
+                                _v.FoodScentGrid[sx, sy] += scentAmount * falloff;
+                            }
                         }
                 }
             }
@@ -379,7 +410,7 @@ public class CosmosEngine : IDisposable
                 {
                     _v.CorpseTiles[c] = corpse;
                     if (corpse.X < W && corpse.Y < H)
-                        _v.ScentGrid[corpse.X, corpse.Y] += _config.Corpse.ScentAmount;
+                        _v.FoodScentGrid[corpse.X, corpse.Y] += _config.Corpse.ScentAmount;
                 }
             }
         }
@@ -546,7 +577,7 @@ public class CosmosEngine : IDisposable
             if (!_v.Alive[i]) continue;
             if (_v.Existence[i] >= _config.Reproduce.MinExistence
                 && _v.TickCount[i] >= _config.Reproduce.MinAge
-                && aliveNow < _config.Cosmos.AgentCount
+                && _v.N < _config.Cosmos.AgentCount
                 && (_globalTick - _v.LastReproduceTick[i]) >= _config.Reproduce.Cooldown)
             {
                 // Population pressure: reduce reproduction chance when overcrowded
@@ -1075,15 +1106,12 @@ public class CosmosEngine : IDisposable
     {
         int delay = _config.Cosmos.RespawnDelayTicks;
         int n = _v.N;
-        int maxAgents = _config.Cosmos.AgentCount;
-        int aliveCount = GetAliveCount();
 
         for (int i = 0; i < n; i++)
         {
             if (_v.Alive[i]) continue;
             if (_deathTick[i] < 0) continue;
             if (_globalTick - _deathTick[i] < delay) continue;
-            if (aliveCount >= maxAgents) break;
 
             double livedSecs = (_v.BirthTimes[i] != default)
                 ? (DateTime.UtcNow - _v.BirthTimes[i]).TotalSeconds : 0;
@@ -1114,7 +1142,6 @@ public class CosmosEngine : IDisposable
 
             _totalDeaths++;
             _respawnCount++;
-            aliveCount++;
             _tickEvents.Add(new WorldEvent { Type = "respawn", AgentId = i, Tick = _globalTick });
             Log($"[Cosmos] Agent #{i} respawned (lived {livedSecs:F1}s)");
 

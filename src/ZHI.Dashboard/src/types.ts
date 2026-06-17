@@ -50,7 +50,8 @@ export interface CosmosState {
   food: FoodTile[]
   corpses: CorpseTile[]
   river: number[]  // flat array: 0=land, 1=shallow, 2=deep (row-major)
-  scent: number[]  // flat array: scent intensity per cell (row-major)
+  scent: number[]  // flat array: agent movement scent (row-major)
+  food_scent: number[]  // flat array: food/corpse scent (row-major)
   signal_field: number[]  // flat array: max signal intensity per cell (row-major)
 }
 

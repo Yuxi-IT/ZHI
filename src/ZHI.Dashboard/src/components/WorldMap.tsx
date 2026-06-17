@@ -12,11 +12,13 @@ interface Props {
   corpses: CorpseTile[]
   river: number[]
   scent: number[]
+  foodScent?: number[]
   signalField?: number[]
   events?: WorldEvent[]
   trackedAgent?: number | null
   onTrackChange?: (id: number | null) => void
   showScent?: boolean
+  showFoodScent?: boolean
   showDirection?: boolean
   showVision?: boolean
   showSignal?: boolean
@@ -40,7 +42,7 @@ interface FloatingText {
 export function WorldMap({
   agents, food, corpses, river, scent, signalField, events,
   trackedAgent: trackedProp, onTrackChange,
-  showScent = false,
+  showScent = false, showFoodScent = false,
   showDirection = false, showVision = false,
   showSignal = false,
 }: Props) {
@@ -191,7 +193,24 @@ export function WorldMap({
       }
     }
 
-    // Scent heatmap (agent movement trails)
+    // Food scent heatmap (green — food/corpse emission)
+    if (showFoodScent && foodScent && foodScent.length > 0) {
+      const startCol = Math.max(0, Math.floor(cam.x / cellSize))
+      const endCol = Math.min(GRID_W, Math.ceil((cam.x + w) / cellSize))
+      const startRow = Math.max(0, Math.floor(cam.y / cellSize))
+      const endRow = Math.min(GRID_H, Math.ceil((cam.y + h) / cellSize))
+      for (let gx = startCol; gx < endCol; gx++) {
+        for (let gy = startRow; gy < endRow; gy++) {
+          const val = foodScent[gy * GRID_W + gx]
+          if (val <= 0.01) continue
+          const alpha = Math.min(val / 10, 0.5)
+          ctx.fillStyle = `rgba(34, 197, 94, ${alpha})`
+          ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize)
+        }
+      }
+    }
+
+    // Agent scent heatmap (purple — movement trails)
     if (showScent && scent.length > 0) {
       const startCol = Math.max(0, Math.floor(cam.x / cellSize))
       const endCol = Math.min(GRID_W, Math.ceil((cam.x + w) / cellSize))
@@ -400,7 +419,7 @@ export function WorldMap({
       ? `${zoomPct}% | tracking #${trackedAgent} | alive ${aliveCount}/${agents.length}`
       : `${zoomPct}% | alive ${aliveCount}/${agents.length}`
     ctx.fillText(hudText, 8, 8)
-  }, [agents, food, corpses, river, scent, signalField, trackedAgent, showScent, showDirection, showVision, showSignal])
+  }, [agents, food, corpses, river, scent, foodScent, signalField, trackedAgent, showScent, showFoodScent, showDirection, showVision, showSignal])
 
   useEffect(() => {
     let animating = true

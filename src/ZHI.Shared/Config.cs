@@ -7,6 +7,7 @@ public sealed class ZhiConfig
     public CombatConfig Combat { get; set; } = new();
     public SignalConfig Signal { get; set; } = new();
     public ScentConfig Scent { get; set; } = new();
+    public FoodScentConfig FoodScent { get; set; } = new();
     public NetworkConfig Network { get; set; } = new();
     public CosmosConfig Cosmos { get; set; } = new();
     public CorpseConfig Corpse { get; set; } = new();
@@ -68,6 +69,16 @@ public sealed class ScentConfig
 {
     public float DepositAmount { get; set; } = 1.0f;
     public float DecayRate { get; set; } = 0.95f;
+    public float DiffusionRate { get; set; } = 0.1f;
+}
+
+public sealed class FoodScentConfig
+{
+    public float DecayRate { get; set; } = 0.85f;
+    public float DiffusionRate { get; set; } = 0.08f;
+    public float SmallFoodEmission { get; set; } = 0.3f;
+    public float BigFoodEmission { get; set; } = 1.0f;
+    public int SpreadRadius { get; set; } = 2;
 }
 
 public sealed class NetworkConfig
@@ -85,6 +96,7 @@ public sealed class CosmosConfig
     public float MutationStd { get; set; } = 0.02f;
     public float MutationRateMin { get; set; } = 0.02f;
     public int MutationDecayGenerations { get; set; } = 100;
+    public int RespawnDelayTicks { get; set; } = 25;
 }
 
 public sealed class CorpseConfig

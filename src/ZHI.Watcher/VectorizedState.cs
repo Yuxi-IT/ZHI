@@ -31,6 +31,17 @@ public struct CorpseTile
 /// </summary>
 public class VectorizedState : IDisposable
 {
+    // Forward-facing visibility mask (facing up, 7×7). 1=visible, 0=hidden.
+    // Agent at center (row 3). Can see forward cone, nothing behind.
+    private static readonly bool[,] BaseVisionMask = {
+        { true,  true,  true,  true,  true,  true,  true  },  // dy=-3
+        { false, true,  true,  true,  true,  true,  false },  // dy=-2
+        { false, false, true,  true,  true,  false, false },  // dy=-1
+        { false, false, false, true,  false, false, false },  // dy=0 (self)
+        { false, false, false, false, false, false, false },  // dy=+1
+        { false, false, false, false, false, false, false },  // dy=+2
+        { false, false, false, false, false, false, false },  // dy=+3
+    };
     public int N { get; private set; }
     public Device Device { get; }
     public readonly object LockObj = new();
@@ -59,12 +70,14 @@ public class VectorizedState : IDisposable
     public int[] SignalAge;        // ticks since last signal received
     public float[] Thirst;         // 0=dehydrated, 100=fully hydrated
     public float[] Hunger;         // 0=starving, 100=fully fed
+    public int[] RespawnCount;     // how many times this agent slot has respawned
 
     // Grid state
     public List<FoodTile> FoodTiles;
     public List<CorpseTile> CorpseTiles;
-    public float[,] ScentGrid; // [GridWidth, GridHeight]
-    public int[,] RiverGrid;   // [GridWidth, GridHeight] — 0=land, 1=shallow, 2=deep
+    public float[,] ScentGrid;     // [GridWidth, GridHeight] — agent movement trails
+    public float[,] FoodScentGrid; // [GridWidth, GridHeight] — food/corpse scent
+    public int[,] RiverGrid;       // [GridWidth, GridHeight] — 0=land, 1=shallow, 2=deep
     public float[,] WaterSoundGrid; // [GridWidth, GridHeight] — sound intensity from water
     public float[,,] SignalField;   // [GridWidth, GridHeight, 4] — spatial signal persistence
 
@@ -107,6 +120,7 @@ public class VectorizedState : IDisposable
         SignalAge = new int[n]; // default 0
         Thirst = new float[n];
         Hunger = new float[n];
+        RespawnCount = new int[n];
         for (int i = 0; i < n; i++) { Thirst[i] = 100f; Hunger[i] = 100f; }
 
         FoodTiles = new List<FoodTile>();
@@ -114,6 +128,7 @@ public class VectorizedState : IDisposable
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
         ScentGrid = new float[W, H];
+        FoodScentGrid = new float[W, H];
         RiverGrid = new int[W, H];
         WaterSoundGrid = new float[W, H];
         SignalField = new float[W, H, 4];
@@ -194,8 +209,9 @@ public class VectorizedState : IDisposable
 
     public void BuildStateMatrix()
     {
-        int S = ToolDefinitions.StateSize; // 162
+        int S = ToolDefinitions.StateSize; // 282
         int R = ToolDefinitions.VisionRadius;
+        int D = R * 2 + 1; // 7
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
 
@@ -209,15 +225,30 @@ public class VectorizedState : IDisposable
             int cx = PosX[i];
             int cy = PosY[i];
 
-            // [0-124] 5×5 grid × 5 channels (one-hot): food, bigfood, corpse, agent, self
+            // [0-244] 7×7 grid × 5 channels: food, bigfood, corpse, agent, self
             int gridBase = baseIdx;
+            int fd = FacingDirection[i];
             for (int dy = -R; dy <= R; dy++)
             {
                 for (int dx = -R; dx <= R; dx++)
                 {
-                    int gx = cx + dx, gy = cy + dy;
-                    int cellIdx = ((dy + R) * 5 + (dx + R)) * 5;
+                    int cellIdx = ((dy + R) * D + (dx + R)) * 5;
 
+                    // Directional visibility: rotate offset to base (facing-up) frame
+                    int rdx, rdy;
+                    switch (fd)
+                    {
+                        case 0: rdx = dx; rdy = dy; break;       // up
+                        case 1: rdx = -dx; rdy = -dy; break;     // down
+                        case 2: rdx = -dy; rdy = dx; break;      // left
+                        default: rdx = dy; rdy = -dx; break;     // right
+                    }
+                    int maskCol = rdx + R, maskRow = rdy + R;
+                    if (maskCol < 0 || maskCol >= D || maskRow < 0 || maskRow >= D
+                        || !BaseVisionMask[maskRow, maskCol])
+                        continue;
+
+                    int gx = cx + dx, gy = cy + dy;
                     if (gx < 0 || gx >= W || gy < 0 || gy >= H) continue;
 
                     bool hasFood = HasFoodAt(gx, gy, out bool isBigFood);
@@ -233,32 +264,45 @@ public class VectorizedState : IDisposable
                 }
             }
 
-            // [125-128] self state
-            _stateAssemblyBuffer[baseIdx + 125] = Existence[i] / 100f;
-            _stateAssemblyBuffer[baseIdx + 126] = Stress[i] / 5f;
-            _stateAssemblyBuffer[baseIdx + 127] = LastAction[i] / 6f;
-            _stateAssemblyBuffer[baseIdx + 128] = Math.Min(TickCount[i] / 200f, 1f);
+            // [245-248] self state
+            _stateAssemblyBuffer[baseIdx + 245] = Existence[i] / 100f;
+            _stateAssemblyBuffer[baseIdx + 246] = Stress[i] / 5f;
+            _stateAssemblyBuffer[baseIdx + 247] = LastAction[i] / 6f;
+            _stateAssemblyBuffer[baseIdx + 248] = Math.Min(TickCount[i] / 200f, 1f);
 
-            // [129-132] signal memory (4 channels, each decaying independently)
-            _stateAssemblyBuffer[baseIdx + 129] = SignalMemory[i, 0];
-            _stateAssemblyBuffer[baseIdx + 130] = SignalMemory[i, 1];
-            _stateAssemblyBuffer[baseIdx + 131] = SignalMemory[i, 2];
-            _stateAssemblyBuffer[baseIdx + 132] = SignalMemory[i, 3];
+            // [249-252] signal memory (4 channels, each decaying independently)
+            _stateAssemblyBuffer[baseIdx + 249] = SignalMemory[i, 0];
+            _stateAssemblyBuffer[baseIdx + 250] = SignalMemory[i, 1];
+            _stateAssemblyBuffer[baseIdx + 251] = SignalMemory[i, 2];
+            _stateAssemblyBuffer[baseIdx + 252] = SignalMemory[i, 3];
 
-            // [133-136] scent gradient
+            // [253-256] scent gradient
             float scentHere = ScentGrid[cx, cy];
-            _stateAssemblyBuffer[baseIdx + 133] = (cy > 0) ? ScentGrid[cx, cy - 1] - scentHere : 0f;
-            _stateAssemblyBuffer[baseIdx + 134] = (cy < H - 1) ? ScentGrid[cx, cy + 1] - scentHere : 0f;
-            _stateAssemblyBuffer[baseIdx + 135] = (cx < W - 1) ? ScentGrid[cx + 1, cy] - scentHere : 0f;
-            _stateAssemblyBuffer[baseIdx + 136] = (cx > 0) ? ScentGrid[cx - 1, cy] - scentHere : 0f;
+            _stateAssemblyBuffer[baseIdx + 253] = (cy > 0) ? ScentGrid[cx, cy - 1] - scentHere : 0f;
+            _stateAssemblyBuffer[baseIdx + 254] = (cy < H - 1) ? ScentGrid[cx, cy + 1] - scentHere : 0f;
+            _stateAssemblyBuffer[baseIdx + 255] = (cx < W - 1) ? ScentGrid[cx + 1, cy] - scentHere : 0f;
+            _stateAssemblyBuffer[baseIdx + 256] = (cx > 0) ? ScentGrid[cx - 1, cy] - scentHere : 0f;
 
-            // [137-139] local stats
+            // [257-259] local stats (using same directional visibility)
             int foodVisible = 0;
             int agentVisible = 0;
             for (int dy = -R; dy <= R; dy++)
             {
                 for (int dx = -R; dx <= R; dx++)
                 {
+                    int rdx2, rdy2;
+                    switch (fd)
+                    {
+                        case 0: rdx2 = dx; rdy2 = dy; break;
+                        case 1: rdx2 = -dx; rdy2 = -dy; break;
+                        case 2: rdx2 = -dy; rdy2 = dx; break;
+                        default: rdx2 = dy; rdy2 = -dx; break;
+                    }
+                    int mc = rdx2 + R, mr = rdy2 + R;
+                    if (mc < 0 || mc >= D || mr < 0 || mr >= D
+                        || !BaseVisionMask[mr, mc])
+                        continue;
+
                     int gx = cx + dx, gy = cy + dy;
                     if (gx < 0 || gx >= W || gy < 0 || gy >= H) continue;
                     int key = gx * H + gy;
@@ -268,28 +312,27 @@ public class VectorizedState : IDisposable
                     if (agentIdx >= 0 && agentIdx != i) agentVisible++;
                 }
             }
-            _stateAssemblyBuffer[baseIdx + 137] = Math.Min(foodVisible / 5f, 1f);
-            _stateAssemblyBuffer[baseIdx + 138] = Math.Min(agentVisible / 8f, 1f);
-            _stateAssemblyBuffer[baseIdx + 139] = Math.Min(scentHere / 10f, 1f);
+            _stateAssemblyBuffer[baseIdx + 257] = Math.Min(foodVisible / 5f, 1f);
+            _stateAssemblyBuffer[baseIdx + 258] = Math.Min(agentVisible / 8f, 1f);
+            _stateAssemblyBuffer[baseIdx + 259] = Math.Min(scentHere / 10f, 1f);
 
-            // [140-141] facing direction (unit vector)
-            int fd = FacingDirection[i];
-            _stateAssemblyBuffer[baseIdx + 140] = fd == 2 ? -1f : fd == 3 ? 1f : 0f;
-            _stateAssemblyBuffer[baseIdx + 141] = fd == 0 ? -1f : fd == 1 ? 1f : 0f;
+            // [260-261] facing direction (unit vector)
+            _stateAssemblyBuffer[baseIdx + 260] = fd == 2 ? -1f : fd == 3 ? 1f : 0f;
+            _stateAssemblyBuffer[baseIdx + 261] = fd == 0 ? -1f : fd == 1 ? 1f : 0f;
 
-            // [142] signal age (normalized)
-            _stateAssemblyBuffer[baseIdx + 142] = Math.Min(SignalAge[i] / 20f, 1f);
+            // [262] signal age (normalized)
+            _stateAssemblyBuffer[baseIdx + 262] = Math.Min(SignalAge[i] / 20f, 1f);
 
-            // [143] hunger (normalized 0-1)
-            _stateAssemblyBuffer[baseIdx + 143] = Hunger[i] / 100f;
+            // [263] hunger (normalized 0-1)
+            _stateAssemblyBuffer[baseIdx + 263] = Hunger[i] / 100f;
 
-            // [144] thirst (normalized 0-1)
-            _stateAssemblyBuffer[baseIdx + 144] = Thirst[i] / 100f;
+            // [264] thirst (normalized 0-1)
+            _stateAssemblyBuffer[baseIdx + 264] = Thirst[i] / 100f;
 
-            // [145] water sound intensity at current position (normalized)
-            _stateAssemblyBuffer[baseIdx + 145] = Math.Min(WaterSoundGrid[cx, cy] / 10f, 1f);
+            // [265] water sound intensity at current position (normalized)
+            _stateAssemblyBuffer[baseIdx + 265] = Math.Min(WaterSoundGrid[cx, cy] / 10f, 1f);
 
-            // [146-161] signal field gradient: 4 channels × 4 directions
+            // [266-281] signal field gradient: 4 channels × 4 directions
             for (int ch = 0; ch < 4; ch++)
             {
                 float sigHere = SignalField[cx, cy, ch];
@@ -298,10 +341,10 @@ public class VectorizedState : IDisposable
                 float sigE = (cx < W - 1) ? SignalField[cx + 1, cy, ch] - sigHere : 0f;
                 float sigW = (cx > 0) ? SignalField[cx - 1, cy, ch] - sigHere : 0f;
 
-                _stateAssemblyBuffer[baseIdx + 146 + ch * 4 + 0] = sigN;
-                _stateAssemblyBuffer[baseIdx + 146 + ch * 4 + 1] = sigS;
-                _stateAssemblyBuffer[baseIdx + 146 + ch * 4 + 2] = sigE;
-                _stateAssemblyBuffer[baseIdx + 146 + ch * 4 + 3] = sigW;
+                _stateAssemblyBuffer[baseIdx + 266 + ch * 4 + 0] = sigN;
+                _stateAssemblyBuffer[baseIdx + 266 + ch * 4 + 1] = sigS;
+                _stateAssemblyBuffer[baseIdx + 266 + ch * 4 + 2] = sigE;
+                _stateAssemblyBuffer[baseIdx + 266 + ch * 4 + 3] = sigW;
             }
         }
 
@@ -356,6 +399,45 @@ public class VectorizedState : IDisposable
         return agentIdx >= 0 && agentIdx != excludeIdx;
     }
 
+    public void RespawnAgent(int i, Random rng)
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+
+        // Random position avoiding deep water
+        int attempts = 0;
+        do
+        {
+            PosX[i] = rng.Next(W);
+            PosY[i] = rng.Next(H);
+            attempts++;
+        } while (IsDeepWater(PosX[i], PosY[i]) && attempts < 50);
+
+        Existence[i] = 100f;
+        Stress[i] = 0f;
+        Alive[i] = true;
+        LastAction[i] = 0;
+        LastSignalReceived[i] = -1;
+        for (int ch = 0; ch < ToolDefinitions.SignalValues; ch++)
+            SignalMemory[i, ch] = 0f;
+        TickCount[i] = 0;
+        AttackCount[i] = 0;
+        EatCount[i] = 0;
+        FoodEatCount[i] = 0;
+        BigFoodEatCount[i] = 0;
+        CorpseEatCount[i] = 0;
+        SignalCount[i] = 0;
+        StatusMirror[i] = "ALIVE";
+        LastActionNameMirror[i] = "none";
+        BirthTimes[i] = DateTime.UtcNow;
+        LastReproduceTick[i] = 0;
+        FacingDirection[i] = rng.Next(4);
+        SignalAge[i] = 0;
+        Thirst[i] = 100f;
+        Hunger[i] = 100f;
+        RespawnCount[i]++;
+    }
+
     public float[] GetStateBuffer() => _stateAssemblyBuffer;
 
     /// <summary>Add a new agent (reproduction). Returns the new agent index.</summary>
@@ -385,6 +467,7 @@ public class VectorizedState : IDisposable
         SignalAge = Resize(SignalAge, newN); SignalAge[newN - 1] = 0;
         Thirst = Resize(Thirst, newN); Thirst[newN - 1] = 100f;
         Hunger = Resize(Hunger, newN); Hunger[newN - 1] = 100f;
+        RespawnCount = Resize(RespawnCount, newN);
 
         // Resize GPU tensor and assembly buffer
         StateMatrix.Dispose();

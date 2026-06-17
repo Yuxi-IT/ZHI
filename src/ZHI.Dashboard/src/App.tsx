@@ -10,7 +10,7 @@ import { EventMonitor } from './components/EventMonitor'
 import { EventLog } from './components/EventLog'
 
 function App() {
-  const { generation, totalDeaths, agents, food, corpses, river, scent, signalField, logs, events, clearEvents, stats, connected } = useWebSocket()
+  const { generation, totalDeaths, agents, food, corpses, river, scent, foodScent, signalField, logs, events, clearEvents, stats, connected } = useWebSocket()
   const { stats: dbStats, loading } = useStats()
   const { history, record } = useEcoHistory()
   const [bottomTab, setBottomTab] = useState<'log' | 'charts' | 'events'>('log')
@@ -19,6 +19,7 @@ function App() {
 
   // Display toggles
   const [showScent, setShowScent] = useState(false)
+  const [showFoodScent, setShowFoodScent] = useState(false)
   const [showDirection, setShowDirection] = useState(true)
   const [showVision, setShowVision] = useState(false)
   const [showSignal, setShowSignal] = useState(false)
@@ -87,7 +88,13 @@ function App() {
               onClick={() => setShowScent(v => !v)}
               className={`px-1.5 py-0.5 text-[9px] rounded border ${showScent ? 'border-purple-600 text-purple-400 bg-purple-900/20' : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'}`}
             >
-              气味
+              气味-栀
+            </button>
+            <button
+              onClick={() => setShowFoodScent(v => !v)}
+              className={`px-1.5 py-0.5 text-[9px] rounded border ${showFoodScent ? 'border-green-600 text-green-400 bg-green-900/20' : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'}`}
+            >
+              气味-食
             </button>
             <button
               onClick={() => setShowDirection(v => !v)}
@@ -134,6 +141,8 @@ function App() {
               trackedAgent={trackedAgent}
               onTrackChange={setTrackedAgent}
               showScent={showScent}
+              showFoodScent={showFoodScent}
+              foodScent={foodScent}
               showDirection={showDirection}
               showVision={showVision}
               showSignal={showSignal}

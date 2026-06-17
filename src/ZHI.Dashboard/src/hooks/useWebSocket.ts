@@ -16,6 +16,7 @@ export function useWebSocket() {
   const [corpses, setCorpses] = useState<CorpseTile[]>([]);
   const [river, setRiver] = useState<number[]>([]);
   const [scent, setScent] = useState<number[]>([]);
+  const [foodScent, setFoodScent] = useState<number[]>([]);
   const [signalField, setSignalField] = useState<number[]>([]);
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const [events, setEvents] = useState<WorldEvent[]>([]);
@@ -50,6 +51,7 @@ export function useWebSocket() {
           setCorpses(data.corpses ?? []);
           if (data.river) setRiver(data.river);
           if (data.scent) setScent(data.scent);
+          if (data.food_scent) setFoodScent(data.food_scent);
           if (data.signal_field) setSignalField(data.signal_field);
           if (data.stats) setStats(data.stats);
           break;
@@ -82,5 +84,5 @@ export function useWebSocket() {
 
   const clearEvents = useCallback(() => setEvents([]), []);
 
-  return { connected, generation, totalDeaths, agents, food, corpses, river, scent, signalField, logs, events, clearEvents, stats };
+  return { connected, generation, totalDeaths, agents, food, corpses, river, scent, foodScent, signalField, logs, events, clearEvents, stats };
 }

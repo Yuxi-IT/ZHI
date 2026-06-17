@@ -226,7 +226,8 @@ public class WebServer : IDisposable
                 bigfood_eat_count = v.BigFoodEatCount[i],
                 corpse_eat_count = v.CorpseEatCount[i],
                 signal_count = v.SignalCount[i],
-                facing_direction = v.FacingDirection[i]
+                facing_direction = v.FacingDirection[i],
+                respawn_count = v.RespawnCount[i]
             });
         }
 
@@ -258,6 +259,23 @@ public class WebServer : IDisposable
         for (int sx = 0; sx < gw; sx++)
             for (int sy = 0; sy < gh; sy++)
                 scent[sy * gw + sx] = v.ScentGrid[sx, sy];
+
+        // Serialize food scent grid as flat float array (food/corpse scent)
+        var foodScent = new float[gw * gh];
+        for (int sx = 0; sx < gw; sx++)
+            for (int sy = 0; sy < gh; sy++)
+                foodScent[sy * gw + sx] = v.FoodScentGrid[sx, sy];
+
+        // Serialize signal field as flat float array (max of 4 channels per cell)
+        var signalField = new float[gw * gh];
+        for (int sx = 0; sx < gw; sx++)
+            for (int sy = 0; sy < gh; sy++)
+            {
+                float maxSig = 0f;
+                for (int ch = 0; ch < 4; ch++)
+                    maxSig = Math.Max(maxSig, v.SignalField[sx, sy, ch]);
+                signalField[sy * gw + sx] = maxSig;
+            }
 
         // Compute energy source percentages
         float totalEnergySrc = _engine.GenFoodEnergy + _engine.GenBigFoodEnergy + _engine.GenCorpseEnergy;
@@ -291,6 +309,8 @@ public class WebServer : IDisposable
             corpses,
             river,
             scent,
+            food_scent = foodScent,
+            signal_field = signalField,
             grid_width = ZHI.Shared.ToolDefinitions.GridWidth,
             grid_height = ZHI.Shared.ToolDefinitions.GridHeight,
             stats
