@@ -452,24 +452,31 @@ public class WebServer : IDisposable
             try { await Task.Delay(200, ct); }
             catch (OperationCanceledException) { break; }
 
-            var payload = JsonSerializer.Serialize(new
+            try
             {
-                type = "cosmos",
-                data = JsonSerializer.Deserialize<object>(BuildCosmosPayload())
-            });
-
-            await BroadcastAsync(payload);
-
-            // Broadcast events if any
-            var events = _engine.TickEvents;
-            if (events.Count > 0)
-            {
-                var eventPayload = JsonSerializer.Serialize(new
+                var payload = JsonSerializer.Serialize(new
                 {
-                    type = "events",
-                    data = events
-                }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
-                await BroadcastAsync(eventPayload);
+                    type = "cosmos",
+                    data = JsonSerializer.Deserialize<object>(BuildCosmosPayload())
+                });
+
+                await BroadcastAsync(payload);
+
+                // Broadcast events if any
+                var events = _engine.TickEvents;
+                if (events.Count > 0)
+                {
+                    var eventPayload = JsonSerializer.Serialize(new
+                    {
+                        type = "events",
+                        data = events
+                    }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
+                    await BroadcastAsync(eventPayload);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[WebServer] Broadcast error: {ex.Message}");
             }
         }
     }

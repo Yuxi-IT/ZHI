@@ -37,6 +37,8 @@ public class CosmosEngine : IDisposable
     private int _globalTick;
     private int _tickExceptionCount;
     private bool _paused;
+    private ZhiConfig? _pendingConfig;
+    private volatile bool _pendingRestart;
     private float _effectiveMutationRate = 0.1f;
     private float _totalEnergyInWorld;
     private int[] _deathTick = Array.Empty<int>();
@@ -137,6 +139,22 @@ public class CosmosEngine : IDisposable
 
             while (!_cts.Token.IsCancellationRequested)
             {
+                if (_pendingRestart)
+                {
+                    _pendingRestart = false;
+                    Log("[Cosmos] Reinitializing world with new config...");
+                    int bestIdx = -1; int bestTicks = 0;
+                    for (int j = 0; j < _v.N; j++)
+                        if (_v.Alive[j] && _v.TickCount[j] > bestTicks) { bestIdx = j; bestTicks = _v.TickCount[j]; }
+                    if (bestIdx >= 0 && bestIdx < _agentWeights.Count)
+                        _blackbox.SaveWeights(_generation, _agentWeights[bestIdx]);
+                    var restartWeights = new List<byte[]> { _agentWeights[bestIdx >= 0 ? bestIdx : 0] };
+                    InitializeGeneration(restartWeights);
+                    _generation++;
+                    Log($"[Cosmos] World restarted as Gen {_generation}");
+                    continue;
+                }
+
                 if (!_paused)
                 {
                     try { Tick(); }
@@ -1486,12 +1504,12 @@ public class CosmosEngine : IDisposable
 
     public void UpdateConfigAndRestart(ZhiConfig newConfig)
     {
-        // Deep-copy config into _config
+        // Deep-copy config
         var json = JsonSerializer.Serialize(newConfig);
         var updated = JsonSerializer.Deserialize<ZhiConfig>(json)!;
-        // Preserve DeathCount (runtime state)
         updated.DeathCount = _totalDeaths;
-        // Copy all fields
+
+        // Copy config sections
         typeof(ZhiConfig).GetProperty("Cosmos")!.SetValue(_config, updated.Cosmos);
         typeof(ZhiConfig).GetProperty("Grid")!.SetValue(_config, updated.Grid);
         typeof(ZhiConfig).GetProperty("Combat")!.SetValue(_config, updated.Combat);
@@ -1510,20 +1528,9 @@ public class CosmosEngine : IDisposable
         typeof(ZhiConfig).GetProperty("DecisionIntervalMs")!.SetValue(_config, updated.DecisionIntervalMs);
 
         SaveConfig();
-        Log("[Cosmos] Config updated, reinitializing world...");
-
-        // Save current best weights before restart
-        int bestIdx = -1; int bestTicks = 0;
-        for (int j = 0; j < _v.N; j++)
-            if (_v.Alive[j] && _v.TickCount[j] > bestTicks) { bestIdx = j; bestTicks = _v.TickCount[j]; }
-        if (bestIdx >= 0 && bestIdx < _agentWeights.Count)
-            _blackbox.SaveWeights(_generation, _agentWeights[bestIdx]);
-
-        // Reinitialize
-        var resumeWeights = new List<byte[]> { _agentWeights[bestIdx >= 0 ? bestIdx : 0] };
-        InitializeGeneration(resumeWeights);
-        _generation++;
-        Log($"[Cosmos] World restarted as Gen {_generation}");
+        _pendingConfig = updated;
+        _pendingRestart = true;
+        Log("[Cosmos] Config saved, restart pending...");
     }
 
     public void TogglePause() => _paused = !_paused;
