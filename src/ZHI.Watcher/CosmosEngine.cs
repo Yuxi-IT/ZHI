@@ -1298,18 +1298,25 @@ public class CosmosEngine : IDisposable
                 _config.DeathCount = _totalDeaths;
                 SaveConfig();
 
-                // Save best weights (longest lived current agent)
-                int bestIdx = -1;
-                int bestTicks = 0;
-                for (int j = 0; j < _v.N; j++)
+                // Save best weights every 8 generations (every 512 respawns)
+                if (_generation % 8 == 0)
                 {
-                    if (_v.Alive[j] && _v.TickCount[j] > bestTicks)
-                    { bestIdx = j; bestTicks = _v.TickCount[j]; }
-                }
-                if (bestIdx >= 0 && bestIdx < _agentWeights.Count)
-                    _blackbox.SaveWeights(_generation, _agentWeights[bestIdx]);
+                    int bestIdx = -1;
+                    int bestTicks = 0;
+                    for (int j = 0; j < _v.N; j++)
+                    {
+                        if (_v.Alive[j] && _v.TickCount[j] > bestTicks)
+                        { bestIdx = j; bestTicks = _v.TickCount[j]; }
+                    }
+                    if (bestIdx >= 0 && bestIdx < _agentWeights.Count)
+                        _blackbox.SaveWeights(_generation, _agentWeights[bestIdx]);
 
-                Log($"[Cosmos] ===== Gen {_generation} (respawn milestone, total deaths={_totalDeaths}) =====");
+                    Log($"[Cosmos] ===== Gen {_generation} saved weights (respawn milestone, total deaths={_totalDeaths}) =====");
+                }
+                else
+                {
+                    Log($"[Cosmos] ===== Gen {_generation} (respawn milestone, total deaths={_totalDeaths}) =====");
+                }
             }
         }
     }
