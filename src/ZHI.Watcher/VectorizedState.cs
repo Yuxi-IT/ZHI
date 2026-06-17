@@ -70,6 +70,11 @@ public class VectorizedState : IDisposable
     public bool[] IsEating;        // whether agent is in eating toggle state
     public float[] BodyTemperature; // agent's own body temperature (tracks local env with inertia)
     public int[] RespawnCount;     // how many times this agent slot has respawned
+    public float[] Stamina;        // 0-100, consumed by high-effort actions
+    public int[] TicksSinceLastMove; // counter for stationary detection
+    public bool[] IsStationary;    // true when TicksSinceLastMove >= threshold
+    public int[] PushCount;        // how many times agent pushed an entity
+    public int[] TerraformCount;   // how many times agent changed terrain
 
     // Grid state
     public List<FoodTile> FoodTiles;
@@ -80,6 +85,7 @@ public class VectorizedState : IDisposable
     public float[,] WaterSoundGrid; // [GridWidth, GridHeight] — sound intensity from water
     public float[,] TemperatureGrid; // [GridWidth, GridHeight] — local temperature with body heat
     public float[,,] SignalField;   // [GridWidth, GridHeight, 4] — spatial signal persistence
+    public byte[,] TerrainGrid;     // [GridWidth, GridHeight] — 0=Flat, 1=Pit, 2=Mound
 
     // Spatial query grids (rebuilt each tick, pre-allocated once)
     private int[] _agentGrid;      // [W*H] → agent index or -1
@@ -123,7 +129,12 @@ public class VectorizedState : IDisposable
         IsEating = new bool[n];
         BodyTemperature = new float[n];
         RespawnCount = new int[n];
-        for (int i = 0; i < n; i++) { Thirst[i] = 100f; Hunger[i] = 100f; BodyTemperature[i] = 20f; }
+        Stamina = new float[n];
+        TicksSinceLastMove = new int[n];
+        IsStationary = new bool[n];
+        PushCount = new int[n];
+        TerraformCount = new int[n];
+        for (int i = 0; i < n; i++) { Thirst[i] = 100f; Hunger[i] = 100f; BodyTemperature[i] = 20f; Stamina[i] = 100f; }
 
         FoodTiles = new List<FoodTile>();
         CorpseTiles = new List<CorpseTile>();
@@ -135,6 +146,7 @@ public class VectorizedState : IDisposable
         WaterSoundGrid = new float[W, H];
         TemperatureGrid = new float[W, H];
         SignalField = new float[W, H, 4];
+        TerrainGrid = new byte[W, H];
 
         // Spatial query grids (pre-allocated, cleared each tick)
         int gridSize = W * H;
@@ -212,11 +224,12 @@ public class VectorizedState : IDisposable
 
     public void BuildStateMatrix()
     {
-        int S = ToolDefinitions.StateSize; // 282
+        int S = ToolDefinitions.StateSize; // 334
         int R = ToolDefinitions.VisionRadius;
         int D = R * 2 + 1; // 7
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
+        const int GridCh = 6; // food, bigfood, corpse, agent, self, terrain
 
         Array.Clear(_stateAssemblyBuffer);
 
@@ -228,14 +241,14 @@ public class VectorizedState : IDisposable
             int cx = PosX[i];
             int cy = PosY[i];
 
-            // [0-244] 7×7 grid × 5 channels: food, bigfood, corpse, agent, self
+            // [0-293] 7×7 grid × 6 channels: food, bigfood, corpse, agent, self, terrain
             int gridBase = baseIdx;
             int fd = FacingDirection[i];
             for (int dy = -R; dy <= R; dy++)
             {
                 for (int dx = -R; dx <= R; dx++)
                 {
-                    int cellIdx = ((dy + R) * D + (dx + R)) * 5;
+                    int cellIdx = ((dy + R) * D + (dx + R)) * GridCh;
 
                     // Directional visibility: rotate offset to base (facing-up) frame
                     int rdx, rdy;
@@ -258,35 +271,39 @@ public class VectorizedState : IDisposable
                     bool hasCorpse = HasCorpseAt(gx, gy);
                     bool hasAgent = HasOtherAgentAt(i, gx, gy);
                     bool isSelf = (dx == 0 && dy == 0);
+                    byte terrain = TerrainGrid[gx, gy];
+                    float terrainNorm = terrain == 1 ? 0.5f : terrain == 2 ? 1f : 0f;
 
                     _stateAssemblyBuffer[gridBase + cellIdx + 0] = (hasFood && !isBigFood) ? 1f : 0f;
                     _stateAssemblyBuffer[gridBase + cellIdx + 1] = isBigFood ? 1f : 0f;
                     _stateAssemblyBuffer[gridBase + cellIdx + 2] = hasCorpse ? 1f : 0f;
                     _stateAssemblyBuffer[gridBase + cellIdx + 3] = (hasAgent && !isSelf) ? 1f : 0f;
                     _stateAssemblyBuffer[gridBase + cellIdx + 4] = isSelf ? 1f : 0f;
+                    _stateAssemblyBuffer[gridBase + cellIdx + 5] = terrainNorm;
                 }
             }
 
-            // [245-248] self state
-            _stateAssemblyBuffer[baseIdx + 245] = Existence[i] / 100f;
-            _stateAssemblyBuffer[baseIdx + 246] = Stress[i] / 5f;
-            _stateAssemblyBuffer[baseIdx + 247] = LastAction[i] / 6f;
-            _stateAssemblyBuffer[baseIdx + 248] = Math.Min(TickCount[i] / 200f, 1f);
+            // [294-298] self state (5 dims: HP, Stress, LastAction, Age, Stamina)
+            _stateAssemblyBuffer[baseIdx + 294] = Existence[i] / 100f;
+            _stateAssemblyBuffer[baseIdx + 295] = Stress[i] / 5f;
+            _stateAssemblyBuffer[baseIdx + 296] = LastAction[i] / 9f; // now 10 actions
+            _stateAssemblyBuffer[baseIdx + 297] = Math.Min(TickCount[i] / 200f, 1f);
+            _stateAssemblyBuffer[baseIdx + 298] = Stamina[i] / 100f;
 
-            // [249-252] signal memory (4 channels, each decaying independently)
-            _stateAssemblyBuffer[baseIdx + 249] = SignalMemory[i, 0];
-            _stateAssemblyBuffer[baseIdx + 250] = SignalMemory[i, 1];
-            _stateAssemblyBuffer[baseIdx + 251] = SignalMemory[i, 2];
-            _stateAssemblyBuffer[baseIdx + 252] = SignalMemory[i, 3];
+            // [299-302] signal memory (4 channels)
+            _stateAssemblyBuffer[baseIdx + 299] = SignalMemory[i, 0];
+            _stateAssemblyBuffer[baseIdx + 300] = SignalMemory[i, 1];
+            _stateAssemblyBuffer[baseIdx + 301] = SignalMemory[i, 2];
+            _stateAssemblyBuffer[baseIdx + 302] = SignalMemory[i, 3];
 
-            // [253-256] scent gradient
+            // [303-306] scent gradient
             float scentHere = ScentGrid[cx, cy];
-            _stateAssemblyBuffer[baseIdx + 253] = (cy > 0) ? ScentGrid[cx, cy - 1] - scentHere : 0f;
-            _stateAssemblyBuffer[baseIdx + 254] = (cy < H - 1) ? ScentGrid[cx, cy + 1] - scentHere : 0f;
-            _stateAssemblyBuffer[baseIdx + 255] = (cx < W - 1) ? ScentGrid[cx + 1, cy] - scentHere : 0f;
-            _stateAssemblyBuffer[baseIdx + 256] = (cx > 0) ? ScentGrid[cx - 1, cy] - scentHere : 0f;
+            _stateAssemblyBuffer[baseIdx + 303] = (cy > 0) ? ScentGrid[cx, cy - 1] - scentHere : 0f;
+            _stateAssemblyBuffer[baseIdx + 304] = (cy < H - 1) ? ScentGrid[cx, cy + 1] - scentHere : 0f;
+            _stateAssemblyBuffer[baseIdx + 305] = (cx < W - 1) ? ScentGrid[cx + 1, cy] - scentHere : 0f;
+            _stateAssemblyBuffer[baseIdx + 306] = (cx > 0) ? ScentGrid[cx - 1, cy] - scentHere : 0f;
 
-            // [257-259] local stats (using same directional visibility)
+            // [307-309] local stats (using same directional visibility)
             int foodVisible = 0;
             int agentVisible = 0;
             for (int dy = -R; dy <= R; dy++)
@@ -315,30 +332,33 @@ public class VectorizedState : IDisposable
                     if (agentIdx >= 0 && agentIdx != i) agentVisible++;
                 }
             }
-            _stateAssemblyBuffer[baseIdx + 257] = Math.Min(foodVisible / 5f, 1f);
-            _stateAssemblyBuffer[baseIdx + 258] = Math.Min(agentVisible / 8f, 1f);
-            _stateAssemblyBuffer[baseIdx + 259] = Math.Min(scentHere / 10f, 1f);
+            _stateAssemblyBuffer[baseIdx + 307] = Math.Min(foodVisible / 5f, 1f);
+            _stateAssemblyBuffer[baseIdx + 308] = Math.Min(agentVisible / 8f, 1f);
+            _stateAssemblyBuffer[baseIdx + 309] = Math.Min(scentHere / 10f, 1f);
 
-            // [260-261] facing direction (unit vector)
-            _stateAssemblyBuffer[baseIdx + 260] = fd == 2 ? -1f : fd == 3 ? 1f : 0f;
-            _stateAssemblyBuffer[baseIdx + 261] = fd == 0 ? -1f : fd == 1 ? 1f : 0f;
+            // [310-311] facing direction (unit vector)
+            _stateAssemblyBuffer[baseIdx + 310] = fd == 2 ? -1f : fd == 3 ? 1f : 0f;
+            _stateAssemblyBuffer[baseIdx + 311] = fd == 0 ? -1f : fd == 1 ? 1f : 0f;
 
-            // [262] signal age (normalized)
-            _stateAssemblyBuffer[baseIdx + 262] = Math.Min(SignalAge[i] / 20f, 1f);
+            // [312] signal age (normalized)
+            _stateAssemblyBuffer[baseIdx + 312] = Math.Min(SignalAge[i] / 20f, 1f);
 
-            // [263] hunger (normalized 0-1)
-            _stateAssemblyBuffer[baseIdx + 263] = Hunger[i] / 100f;
+            // [313] hunger (normalized 0-1)
+            _stateAssemblyBuffer[baseIdx + 313] = Hunger[i] / 100f;
 
-            // [264] thirst (normalized 0-1)
-            _stateAssemblyBuffer[baseIdx + 264] = Thirst[i] / 100f;
+            // [314] thirst (normalized 0-1)
+            _stateAssemblyBuffer[baseIdx + 314] = Thirst[i] / 100f;
 
-            // [265] water sound intensity at current position (normalized)
-            _stateAssemblyBuffer[baseIdx + 265] = Math.Min(WaterSoundGrid[cx, cy] / 10f, 1f);
+            // [315] water sound intensity at current position (normalized)
+            _stateAssemblyBuffer[baseIdx + 315] = Math.Min(WaterSoundGrid[cx, cy] / 10f, 1f);
 
-            // [266] is_eating
-            _stateAssemblyBuffer[baseIdx + 266] = IsEating[i] ? 1f : 0f;
+            // [316] is_eating
+            _stateAssemblyBuffer[baseIdx + 316] = IsEating[i] ? 1f : 0f;
 
-            // [267-282] signal field gradient: 4 channels × 4 directions
+            // [317] is_stationary
+            _stateAssemblyBuffer[baseIdx + 317] = IsStationary[i] ? 1f : 0f;
+
+            // [318-333] signal field gradient: 4 channels × 4 directions
             for (int ch = 0; ch < 4; ch++)
             {
                 float sigHere = SignalField[cx, cy, ch];
@@ -347,10 +367,10 @@ public class VectorizedState : IDisposable
                 float sigE = (cx < W - 1) ? SignalField[cx + 1, cy, ch] - sigHere : 0f;
                 float sigW = (cx > 0) ? SignalField[cx - 1, cy, ch] - sigHere : 0f;
 
-                _stateAssemblyBuffer[baseIdx + 267 + ch * 4 + 0] = sigN;
-                _stateAssemblyBuffer[baseIdx + 267 + ch * 4 + 1] = sigS;
-                _stateAssemblyBuffer[baseIdx + 267 + ch * 4 + 2] = sigE;
-                _stateAssemblyBuffer[baseIdx + 267 + ch * 4 + 3] = sigW;
+                _stateAssemblyBuffer[baseIdx + 318 + ch * 4 + 0] = sigN;
+                _stateAssemblyBuffer[baseIdx + 318 + ch * 4 + 1] = sigS;
+                _stateAssemblyBuffer[baseIdx + 318 + ch * 4 + 2] = sigE;
+                _stateAssemblyBuffer[baseIdx + 318 + ch * 4 + 3] = sigW;
             }
         }
 
@@ -386,6 +406,25 @@ public class VectorizedState : IDisposable
     {
         return IsShallowWater(x - 1, y) || IsShallowWater(x + 1, y) ||
                IsShallowWater(x, y - 1) || IsShallowWater(x, y + 1);
+    }
+
+    public byte GetTerrainAt(int x, int y)
+    {
+        if (x < 0 || x >= ToolDefinitions.GridWidth || y < 0 || y >= ToolDefinitions.GridHeight) return 0;
+        return TerrainGrid[x, y];
+    }
+
+    public bool IsMoundAt(int x, int y)
+    {
+        return GetTerrainAt(x, y) == ToolDefinitions.TerrainMound;
+    }
+
+    public bool HasAnyAgentAt(int x, int y)
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        if (x < 0 || x >= W || y < 0 || y >= H) return false;
+        return _agentGrid[x * H + y] >= 0;
     }
 
     private bool HasCorpseAt(int x, int y)
@@ -443,6 +482,11 @@ public class VectorizedState : IDisposable
         Hunger[i] = 100f;
         IsEating[i] = false;
         BodyTemperature[i] = 20f; // reset to ambient
+        Stamina[i] = 100f;
+        TicksSinceLastMove[i] = 0;
+        IsStationary[i] = false;
+        PushCount[i] = 0;
+        TerraformCount[i] = 0;
         RespawnCount[i]++;
     }
 
@@ -477,6 +521,11 @@ public class VectorizedState : IDisposable
         Hunger = Resize(Hunger, newN); Hunger[newN - 1] = 100f;
         IsEating = Resize(IsEating, newN);
         BodyTemperature = Resize(BodyTemperature, newN); BodyTemperature[newN - 1] = 20f;
+        Stamina = Resize(Stamina, newN); Stamina[newN - 1] = 100f;
+        TicksSinceLastMove = Resize(TicksSinceLastMove, newN);
+        IsStationary = Resize(IsStationary, newN);
+        PushCount = Resize(PushCount, newN);
+        TerraformCount = Resize(TerraformCount, newN);
         RespawnCount = Resize(RespawnCount, newN);
 
         // Resize GPU tensor and assembly buffer
