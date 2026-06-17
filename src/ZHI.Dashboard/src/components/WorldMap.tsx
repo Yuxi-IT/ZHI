@@ -10,8 +10,13 @@ interface Props {
   agents: AgentSnapshot[]
   food: FoodTile[]
   corpses: CorpseTile[]
+  river: number[]
   trackedAgent?: number | null
   onTrackChange?: (id: number | null) => void
+  showScent?: boolean
+  showFoodScent?: boolean
+  showDirection?: boolean
+  showVision?: boolean
 }
 
 interface TooltipInfo {
@@ -20,7 +25,12 @@ interface TooltipInfo {
   y: number
 }
 
-export function WorldMap({ agents, food, corpses, trackedAgent: trackedProp, onTrackChange }: Props) {
+export function WorldMap({
+  agents, food, corpses, river,
+  trackedAgent: trackedProp, onTrackChange,
+  showScent = false, showFoodScent = false,
+  showDirection = false, showVision = false,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const camRef = useRef({ x: 0, y: 0, zoom: 1 })
   const dragRef = useRef({ dragging: false, lastX: 0, lastY: 0 })
@@ -91,6 +101,30 @@ export function WorldMap({ agents, food, corpses, trackedAgent: trackedProp, onT
       }
     }
 
+    // Water tiles (river)
+    if (river.length > 0) {
+      const startCol = Math.max(0, Math.floor(cam.x / cellSize))
+      const endCol = Math.min(GRID_W, Math.ceil((cam.x + w) / cellSize))
+      const startRow = Math.max(0, Math.floor(cam.y / cellSize))
+      const endRow = Math.min(GRID_H, Math.ceil((cam.y + h) / cellSize))
+      for (let gx = startCol; gx < endCol; gx++) {
+        for (let gy = startRow; gy < endRow; gy++) {
+          const val = river[gy * GRID_W + gx]
+          if (val === 0) continue
+          const px = gx * cellSize
+          const py = gy * cellSize
+          if (val === 2) {
+            // Deep water: dark blue
+            ctx.fillStyle = 'rgba(30, 64, 175, 0.6)'
+          } else {
+            // Shallow water: lighter blue
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.35)'
+          }
+          ctx.fillRect(px, py, cellSize, cellSize)
+        }
+      }
+    }
+
     // Corpses (render below food and agents)
     const corpseSize = Math.max(cellSize * 0.6, 2)
     for (const c of corpses) {
@@ -131,6 +165,43 @@ export function WorldMap({ agents, food, corpses, trackedAgent: trackedProp, onT
       }
     }
 
+    // Vision cones (render before agents so they appear behind)
+    if (showVision) {
+      for (const agent of agents) {
+        if (!agent.is_alive) continue
+        const cx = agent.x * cellSize + cellSize / 2
+        const cy = agent.y * cellSize + cellSize / 2
+        const dirAngles = [-Math.PI / 2, Math.PI / 2, Math.PI, 0] // up, down, left, right
+        const angle = dirAngles[agent.facing_direction] ?? 0
+        const visionR = 2.5 * cellSize
+
+        ctx.save()
+        ctx.translate(cx, cy)
+        ctx.rotate(angle)
+
+        // Semi-transparent扇形
+        ctx.beginPath()
+        ctx.moveTo(0, 0)
+        ctx.arc(0, 0, visionR, -Math.PI / 3, Math.PI / 3)
+        ctx.closePath()
+
+        if (agent.is_hiding) {
+          ctx.fillStyle = 'rgba(59, 130, 246, 0.06)'
+          ctx.strokeStyle = 'rgba(59, 130, 246, 0.15)'
+        } else {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.03)'
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)'
+        }
+        ctx.fill()
+        ctx.setLineDash([2, 2])
+        ctx.lineWidth = 0.5
+        ctx.stroke()
+        ctx.setLineDash([])
+
+        ctx.restore()
+      }
+    }
+
     // Agents
     for (const agent of agents) {
       if (!agent.is_alive) continue
@@ -140,6 +211,12 @@ export function WorldMap({ agents, food, corpses, trackedAgent: trackedProp, onT
 
       const hp = Math.max(0, Math.min(1, agent.existence / 100))
       const hue = hp * 120
+
+      // Dim hiding agents slightly
+      if (agent.is_hiding) {
+        ctx.globalAlpha = 0.6
+      }
+
       ctx.fillStyle = `hsl(${hue}, 70%, 50%)`
 
       if (agent.stress > 0.5) {
@@ -153,6 +230,38 @@ export function WorldMap({ agents, food, corpses, trackedAgent: trackedProp, onT
 
       ctx.shadowColor = 'transparent'
       ctx.shadowBlur = 0
+
+      // Facing direction arrow
+      if (showDirection && cellSize > 6) {
+        const dirAngles = [-Math.PI / 2, Math.PI / 2, Math.PI, 0]
+        const angle = dirAngles[agent.facing_direction] ?? Math.PI / 2
+        const arrowDist = r + 2
+        const arrowLen = Math.max(cellSize * 0.2, 2)
+
+        const ax = cx + Math.cos(angle) * arrowDist
+        const ay = cy + Math.sin(angle) * arrowDist
+
+        ctx.fillStyle = agent.is_hiding ? 'rgba(59, 130, 246, 0.8)' : 'rgba(255, 255, 255, 0.6)'
+        ctx.beginPath()
+        ctx.moveTo(ax + Math.cos(angle) * arrowLen, ay + Math.sin(angle) * arrowLen)
+        ctx.lineTo(ax + Math.cos(angle + 2.4) * arrowLen * 0.6, ay + Math.sin(angle + 2.4) * arrowLen * 0.6)
+        ctx.lineTo(ax + Math.cos(angle - 2.4) * arrowLen * 0.6, ay + Math.sin(angle - 2.4) * arrowLen * 0.6)
+        ctx.closePath()
+        ctx.fill()
+      }
+
+      // Hide indicator: dashed circle
+      if (agent.is_hiding) {
+        ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)'
+        ctx.lineWidth = 1
+        ctx.setLineDash([3, 3])
+        ctx.beginPath()
+        ctx.arc(cx, cy, r + 4, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.setLineDash([])
+      }
+
+      ctx.globalAlpha = 1
 
       // Tracked agent highlight
       if (agent.id === trackedAgent) {
@@ -186,7 +295,7 @@ export function WorldMap({ agents, food, corpses, trackedAgent: trackedProp, onT
       ? `${zoomPct}% | tracking #${trackedAgent} | alive ${aliveCount}/${agents.length}`
       : `${zoomPct}% | alive ${aliveCount}/${agents.length}`
     ctx.fillText(hudText, 8, 8)
-  }, [agents, food, corpses, trackedAgent])
+  }, [agents, food, corpses, river, trackedAgent, showScent, showFoodScent, showDirection, showVision])
 
   useEffect(() => {
     rafRef.current = requestAnimationFrame(draw)
@@ -212,12 +321,19 @@ export function WorldMap({ agents, food, corpses, trackedAgent: trackedProp, onT
       return {
         x: mx + 12, y: my - 10,
         text: [
-          `Agent #${agent.id}`,
-          `HP: ${agent.existence.toFixed(1)}  Stress: ${agent.stress.toFixed(2)}`,
+          `Agent #${agent.id}${agent.is_hiding ? ' [HIDDEN]' : ''}`,
+          `HP: ${agent.existence.toFixed(1)}  Stress: ${agent.stress.toFixed(2)}  Thirst: ${agent.thirst.toFixed(1)}`,
           `Age: ${agent.tick_count} ticks  Action: ${agent.last_action}`,
           `Eats: ${agent.eat_count}  Attacks: ${agent.attack_count}  Signals: ${agent.signal_count}`
         ]
       }
+    }
+
+    // Check water
+    if (river.length > 0) {
+      const rv = river[gy * GRID_W + gx]
+      if (rv === 1) return { x: mx + 12, y: my - 10, text: ['Shallow Water', 'Walkable, drinkable'] }
+      if (rv === 2) return { x: mx + 12, y: my - 10, text: ['Deep Water', 'Impassable'] }
     }
 
     // Check food (area-based for multi-cell BigFood)
@@ -246,7 +362,7 @@ export function WorldMap({ agents, food, corpses, trackedAgent: trackedProp, onT
     }
 
     return null
-  }, [agents, food, corpses])
+  }, [agents, food, corpses, river])
 
   useEffect(() => {
     const canvas = canvasRef.current

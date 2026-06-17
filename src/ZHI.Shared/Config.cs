@@ -11,6 +11,10 @@ public sealed class ZhiConfig
     public CosmosConfig Cosmos { get; set; } = new();
     public CorpseConfig Corpse { get; set; } = new();
     public ReproduceConfig Reproduce { get; set; } = new();
+    public HideConfig Hide { get; set; } = new();
+    public AgeDeathConfig AgeDeath { get; set; } = new();
+    public ThirstConfig Thirst { get; set; } = new();
+    public RiverConfig River { get; set; } = new();
     public int Port { get; set; } = 19816;
     public int DecisionIntervalMs { get; set; } = 200;
     public int DeathCount { get; set; } = 0;
@@ -89,6 +93,25 @@ public sealed class CorpseConfig
 {
     public float Energy { get; set; } = 20f;
     public int TTL { get; set; } = 300;
+    public float ScentAmount { get; set; } = 0.5f;
+}
+
+public sealed class HideConfig
+{
+    public float DecayMultiplier { get; set; } = 0.9f;
+    public int MinDuration { get; set; } = 5;
+    public int DetectionRange { get; set; } = 2;
+}
+
+public sealed class AgeDeathConfig
+{
+    public int Stage1Age { get; set; } = 5000;
+    public float Stage1Decay { get; set; } = 0.02f;
+    public int Stage2Age { get; set; } = 6000;
+    public float Stage2Decay { get; set; } = 0.05f;
+    public int Stage3Age { get; set; } = 7000;
+    public float Stage3Decay { get; set; } = 0.1f;
+    public int MaxAge { get; set; } = 8000;
 }
 
 public sealed class ReproduceConfig
@@ -99,4 +122,23 @@ public sealed class ReproduceConfig
     public float ChildStart { get; set; } = 40f;
     public float MutationScale { get; set; } = 0.3f;
     public int Cooldown { get; set; } = 500;
+}
+
+public sealed class ThirstConfig
+{
+    public float Initial { get; set; } = 100f;
+    public float DecayPerTick { get; set; } = 0.01f;
+    public float MoveCost { get; set; } = 0.05f;
+    public float AttackCost { get; set; } = 0.05f;
+    public float DrinkAmount { get; set; } = 5f;
+    public float DeathThreshold { get; set; } = 0f;
+    public float DamagePerTick { get; set; } = 0.2f; // HP loss per tick when thirsty (thirst=0)
+}
+
+public sealed class RiverConfig
+{
+    public int Width { get; set; } = 3;          // shallow water width
+    public int DeepWidth { get; set; } = 1;       // deep water center width
+    public int SoundRange { get; set; } = 10;     // water sound propagation range
+    public float SoundDecay { get; set; } = 0.9f; // per-cell sound decay
 }

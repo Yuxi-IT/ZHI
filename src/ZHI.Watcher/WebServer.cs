@@ -210,6 +210,7 @@ public class WebServer : IDisposable
                 y = v.PosY[i],
                 existence = v.Existence[i],
                 stress = v.Stress[i],
+                thirst = v.Thirst[i],
                 is_alive = v.Alive[i],
                 status = v.StatusMirror[i],
                 last_action = v.LastActionNameMirror[i],
@@ -220,7 +221,9 @@ public class WebServer : IDisposable
                 tick_count = v.TickCount[i],
                 attack_count = v.AttackCount[i],
                 eat_count = v.EatCount[i],
-                signal_count = v.SignalCount[i]
+                signal_count = v.SignalCount[i],
+                facing_direction = v.FacingDirection[i],
+                is_hiding = v.IsHiding[i]
             });
         }
 
@@ -239,6 +242,35 @@ public class WebServer : IDisposable
         foreach (var c in corpseSnap)
             corpses.Add(new { x = c.X, y = c.Y, ttl = c.TTL, energy = c.Energy });
 
+        // Serialize river grid as flat array (0=land, 1=shallow, 2=deep)
+        int gw = ToolDefinitions.GridWidth;
+        int gh = ToolDefinitions.GridHeight;
+        var river = new int[gw * gh];
+        for (int rx = 0; rx < gw; rx++)
+            for (int ry = 0; ry < gh; ry++)
+                river[ry * gw + rx] = v.RiverGrid[rx, ry];
+
+        // Compute energy source percentages
+        float totalEnergySrc = _engine.GenFoodEnergy + _engine.GenBigFoodEnergy + _engine.GenCorpseEnergy;
+        float foodPct = totalEnergySrc > 0 ? _engine.GenFoodEnergy / totalEnergySrc * 100f : 0;
+        float bigFoodPct = totalEnergySrc > 0 ? _engine.GenBigFoodEnergy / totalEnergySrc * 100f : 0;
+        float corpsePct = totalEnergySrc > 0 ? _engine.GenCorpseEnergy / totalEnergySrc * 100f : 0;
+
+        var stats = new
+        {
+            attack_rate = _engine.GenTotalTicks > 0 ? (float)_engine.GenAttacks / _engine.GenTotalTicks : 0f,
+            hide_usage_rate = _engine.GenTotalTicks > 0 ? (float)_engine.GenHidingTicks / (_engine.AgentCount * Math.Max(1, _engine.GenTotalTicks)) : 0f,
+            food_eaten = _engine.GenFoodEaten,
+            bigfood_eaten = _engine.GenBigFoodEaten,
+            corpses_eaten = _engine.GenCorpsesEaten,
+            energy_source = new
+            {
+                food_pct = foodPct,
+                bigfood_pct = bigFoodPct,
+                corpse_pct = corpsePct
+            }
+        };
+
         var payload = new
         {
             generation = _engine.Generation,
@@ -249,8 +281,10 @@ public class WebServer : IDisposable
             agents,
             food,
             corpses,
+            river,
             grid_width = ZHI.Shared.ToolDefinitions.GridWidth,
-            grid_height = ZHI.Shared.ToolDefinitions.GridHeight
+            grid_height = ZHI.Shared.ToolDefinitions.GridHeight,
+            stats
         };
 
         return JsonSerializer.Serialize(payload, new JsonSerializerOptions
@@ -349,6 +383,18 @@ public class WebServer : IDisposable
             });
 
             await BroadcastAsync(payload);
+
+            // Broadcast events if any
+            var events = _engine.TickEvents;
+            if (events.Count > 0)
+            {
+                var eventPayload = JsonSerializer.Serialize(new
+                {
+                    type = "events",
+                    data = events
+                }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
+                await BroadcastAsync(eventPayload);
+            }
         }
     }
 

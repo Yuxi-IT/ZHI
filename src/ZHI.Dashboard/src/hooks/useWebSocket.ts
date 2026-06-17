@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { AgentSnapshot, FoodTile, CorpseTile, LogMessage } from '../types';
+import type { AgentSnapshot, FoodTile, CorpseTile, LogMessage, WorldEvent, CosmosStats } from '../types';
 
 const WS_URL = import.meta.env.DEV
   ? 'ws://localhost:8088/ws'
@@ -12,7 +12,10 @@ export function useWebSocket() {
   const [agents, setAgents] = useState<AgentSnapshot[]>([]);
   const [food, setFood] = useState<FoodTile[]>([]);
   const [corpses, setCorpses] = useState<CorpseTile[]>([]);
+  const [river, setRiver] = useState<number[]>([]);
   const [logs, setLogs] = useState<LogMessage[]>([]);
+  const [events, setEvents] = useState<WorldEvent[]>([]);
+  const [stats, setStats] = useState<CosmosStats | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -41,6 +44,16 @@ export function useWebSocket() {
           setAgents(data.agents ?? []);
           setFood(data.food ?? []);
           setCorpses(data.corpses ?? []);
+          if (data.river) setRiver(data.river);
+          if (data.stats) setStats(data.stats);
+          break;
+        }
+        case 'events': {
+          const newEvents = msg.data as WorldEvent[];
+          setEvents(prev => {
+            const next = [...prev, ...newEvents];
+            return next.length > 200 ? next.slice(-200) : next;
+          });
           break;
         }
         case 'log':
@@ -61,5 +74,5 @@ export function useWebSocket() {
     };
   }, [connect]);
 
-  return { connected, generation, totalDeaths, agents, food, corpses, logs };
+  return { connected, generation, totalDeaths, agents, food, corpses, river, logs, events, stats };
 }

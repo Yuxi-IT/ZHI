@@ -143,6 +143,7 @@ function AgentCard({
             {pinned ? '◉' : '○'}
           </button>
           <span className="text-neutral-300 font-medium">#{agent.id}</span>
+          {agent.is_hiding && <span className="text-blue-400 text-[8px]">HIDDEN</span>}
         </div>
         <div className="flex items-center gap-1.5">
           <button
@@ -164,6 +165,12 @@ function AgentCard({
           <span>Stress</span>
           <span className={agent.stress > 1 ? 'text-red-400' : 'text-neutral-400'}>
             {agent.stress.toFixed(2)}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span>Thirst</span>
+          <span className={agent.thirst < 20 ? 'text-cyan-400' : 'text-neutral-400'}>
+            {agent.thirst.toFixed(1)}
           </span>
         </div>
         <div className="flex justify-between">

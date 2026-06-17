@@ -52,11 +52,18 @@ public class VectorizedState : IDisposable
     public string[] LastActionNameMirror;
     public DateTime[] BirthTimes;
     public int[] LastReproduceTick;
+    public bool[] IsHiding;
+    public int[] HideStartTick;
+    public int[] FacingDirection;  // 0=up, 1=down, 2=left, 3=right
+    public int[] SignalAge;        // ticks since last signal received
+    public float[] Thirst;         // 0=dehydrated, 100=fully hydrated
 
     // Grid state
     public List<FoodTile> FoodTiles;
     public List<CorpseTile> CorpseTiles;
     public float[,] ScentGrid; // [GridWidth, GridHeight]
+    public int[,] RiverGrid;   // [GridWidth, GridHeight] — 0=land, 1=shallow, 2=deep
+    public float[,] WaterSoundGrid; // [GridWidth, GridHeight] — sound intensity from water
 
     // GPU tensor for batch inference
     public Tensor StateMatrix;
@@ -85,10 +92,18 @@ public class VectorizedState : IDisposable
         LastActionNameMirror = new string[n];
         BirthTimes = new DateTime[n];
         LastReproduceTick = new int[n];
+        IsHiding = new bool[n];
+        HideStartTick = new int[n];
+        FacingDirection = new int[n]; // default 0 = up
+        SignalAge = new int[n]; // default 0
+        Thirst = new float[n];
+        for (int i = 0; i < n; i++) Thirst[i] = 100f;
 
         FoodTiles = new List<FoodTile>();
         CorpseTiles = new List<CorpseTile>();
         ScentGrid = new float[ToolDefinitions.GridWidth, ToolDefinitions.GridHeight];
+        RiverGrid = new int[ToolDefinitions.GridWidth, ToolDefinitions.GridHeight];
+        WaterSoundGrid = new float[ToolDefinitions.GridWidth, ToolDefinitions.GridHeight];
 
         StateMatrix = torch.zeros(n, ToolDefinitions.StateSize, device: device);
         _stateAssemblyBuffer = new float[n * ToolDefinitions.StateSize];
@@ -210,6 +225,23 @@ public class VectorizedState : IDisposable
             _stateAssemblyBuffer[baseIdx + 37] = Math.Min(foodVisible / 5f, 1f);
             _stateAssemblyBuffer[baseIdx + 38] = Math.Min(agentVisible / 8f, 1f);
             _stateAssemblyBuffer[baseIdx + 39] = Math.Min(scentHere / 10f, 1f);
+
+            // [40] hide state
+            _stateAssemblyBuffer[baseIdx + 40] = IsHiding[i] ? 1f : 0f;
+
+            // [41-42] facing direction (unit vector)
+            int fd = FacingDirection[i];
+            _stateAssemblyBuffer[baseIdx + 41] = fd == 2 ? -1f : fd == 3 ? 1f : 0f; // facing_x
+            _stateAssemblyBuffer[baseIdx + 42] = fd == 0 ? -1f : fd == 1 ? 1f : 0f; // facing_y
+
+            // [43] signal age (normalized, 0 = just received, 1 = old)
+            _stateAssemblyBuffer[baseIdx + 43] = Math.Min(SignalAge[i] / 20f, 1f);
+
+            // [44] thirst (normalized 0-1)
+            _stateAssemblyBuffer[baseIdx + 44] = Thirst[i] / 100f;
+
+            // [45] water sound intensity at current position (normalized)
+            _stateAssemblyBuffer[baseIdx + 45] = Math.Min(WaterSoundGrid[cx, cy] / 10f, 1f);
         }
 
         StateMatrix.Dispose();
@@ -233,6 +265,24 @@ public class VectorizedState : IDisposable
         return false;
     }
 
+    public bool IsShallowWater(int x, int y)
+    {
+        if (x < 0 || x >= ToolDefinitions.GridWidth || y < 0 || y >= ToolDefinitions.GridHeight) return false;
+        return RiverGrid[x, y] == 1;
+    }
+
+    public bool IsDeepWater(int x, int y)
+    {
+        if (x < 0 || x >= ToolDefinitions.GridWidth || y < 0 || y >= ToolDefinitions.GridHeight) return false;
+        return RiverGrid[x, y] == 2;
+    }
+
+    public bool IsAdjacentToWater(int x, int y)
+    {
+        return IsShallowWater(x - 1, y) || IsShallowWater(x + 1, y) ||
+               IsShallowWater(x, y - 1) || IsShallowWater(x, y + 1);
+    }
+
     private bool HasCorpseAt(int x, int y)
     {
         for (int i = 0; i < CorpseTiles.Count; i++)
@@ -248,7 +298,16 @@ public class VectorizedState : IDisposable
         for (int i = 0; i < N; i++)
         {
             if (i == excludeIdx || !Alive[i]) continue;
-            if (PosX[i] == x && PosY[i] == y) return true;
+            if (PosX[i] == x && PosY[i] == y)
+            {
+                // Hidden agents only visible within DetectionRange (2 cells)
+                if (IsHiding[i])
+                {
+                    int dist = Math.Abs(PosX[excludeIdx] - x) + Math.Abs(PosY[excludeIdx] - y);
+                    if (dist > 2) continue; // DetectionRange = 2
+                }
+                return true;
+            }
         }
         return false;
     }
@@ -275,6 +334,11 @@ public class VectorizedState : IDisposable
         LastActionNameMirror = Resize(LastActionNameMirror, newN); LastActionNameMirror[newN - 1] = "";
         BirthTimes = Resize(BirthTimes, newN); BirthTimes[newN - 1] = DateTime.UtcNow;
         LastReproduceTick = Resize(LastReproduceTick, newN); LastReproduceTick[newN - 1] = 0;
+        IsHiding = Resize(IsHiding, newN); IsHiding[newN - 1] = false;
+        HideStartTick = Resize(HideStartTick, newN); HideStartTick[newN - 1] = 0;
+        FacingDirection = Resize(FacingDirection, newN); FacingDirection[newN - 1] = 1; // default down
+        SignalAge = Resize(SignalAge, newN); SignalAge[newN - 1] = 0;
+        Thirst = Resize(Thirst, newN); Thirst[newN - 1] = 100f;
 
         // Resize GPU tensor and assembly buffer
         StateMatrix.Dispose();

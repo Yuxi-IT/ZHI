@@ -8,9 +8,9 @@ namespace ZHI.Core;
 
 /// <summary>
 /// GRU-based Actor-Critic with dual-head policy.
-/// Action head: 7 actions (Move×4, Eat, Attack, Signal)
+/// Action head: 8 actions (Move×4, Eat, Attack, Signal, Hide)
 /// Signal head: 4 signal values (only used when action=Signal)
-/// Architecture: GRU(37→128) → Linear(128→64) → Actor(64→7) + Signal(64→4) / Critic(64→1)
+/// Architecture: GRU(44→128) → Linear(128→64) → Actor(64→8) + Signal(64→4) / Critic(64→1)
 /// </summary>
 public class GRUBrain : Module
 {
