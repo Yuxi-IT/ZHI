@@ -249,29 +249,34 @@ public class VectorizedState : IDisposable
             int gridBase = baseIdx;
             int fd = FacingDirection[i];
             bool agentInPit = TerrainType[cx, cy] == ToolDefinitions.TerrainPit;
+            bool agentOnMound = TerrainType[cx, cy] == ToolDefinitions.TerrainMound;
             for (int dy = -R; dy <= R; dy++)
             {
                 for (int dx = -R; dx <= R; dx++)
                 {
                     int cellIdx = ((dy + R) * D + (dx + R)) * GridCh;
 
-                    // Pit vision: only 3×3 Chebyshev range
+                    // Pit vision: only 3×3 Chebyshev range (well-bottom effect)
                     if (agentInPit && Math.Max(Math.Abs(dx), Math.Abs(dy)) > 1)
                         continue;
 
-                    // Directional visibility: rotate offset to base (facing-up) frame
-                    int rdx, rdy;
-                    switch (fd)
+                    // Mound vision: full 7×7 omnidirectional (lookout tower)
+                    if (!agentOnMound)
                     {
-                        case 0: rdx = dx; rdy = dy; break;       // up
-                        case 1: rdx = -dx; rdy = -dy; break;     // down
-                        case 2: rdx = -dy; rdy = dx; break;      // left
-                        default: rdx = dy; rdy = -dx; break;     // right
+                        // Directional visibility: rotate offset to base (facing-up) frame
+                        int rdx, rdy;
+                        switch (fd)
+                        {
+                            case 0: rdx = dx; rdy = dy; break;       // up
+                            case 1: rdx = -dx; rdy = -dy; break;     // down
+                            case 2: rdx = -dy; rdy = dx; break;      // left
+                            default: rdx = dy; rdy = -dx; break;     // right
+                        }
+                        int maskCol = rdx + R, maskRow = rdy + R;
+                        if (maskCol < 0 || maskCol >= D || maskRow < 0 || maskRow >= D
+                            || !BaseVisionMask[maskRow, maskCol])
+                            continue;
                     }
-                    int maskCol = rdx + R, maskRow = rdy + R;
-                    if (maskCol < 0 || maskCol >= D || maskRow < 0 || maskRow >= D
-                        || !BaseVisionMask[maskRow, maskCol])
-                        continue;
 
                     int gx = cx + dx, gy = cy + dy;
                     if (gx < 0 || gx >= W || gy < 0 || gy >= H) continue;
@@ -324,18 +329,21 @@ public class VectorizedState : IDisposable
                     if (agentInPit && Math.Max(Math.Abs(dx), Math.Abs(dy)) > 1)
                         continue;
 
-                    int rdx2, rdy2;
-                    switch (fd)
+                    if (!agentOnMound)
                     {
-                        case 0: rdx2 = dx; rdy2 = dy; break;
-                        case 1: rdx2 = -dx; rdy2 = -dy; break;
-                        case 2: rdx2 = -dy; rdy2 = dx; break;
-                        default: rdx2 = dy; rdy2 = -dx; break;
+                        int rdx2, rdy2;
+                        switch (fd)
+                        {
+                            case 0: rdx2 = dx; rdy2 = dy; break;
+                            case 1: rdx2 = -dx; rdy2 = -dy; break;
+                            case 2: rdx2 = -dy; rdy2 = dx; break;
+                            default: rdx2 = dy; rdy2 = -dx; break;
+                        }
+                        int mc = rdx2 + R, mr = rdy2 + R;
+                        if (mc < 0 || mc >= D || mr < 0 || mr >= D
+                            || !BaseVisionMask[mr, mc])
+                            continue;
                     }
-                    int mc = rdx2 + R, mr = rdy2 + R;
-                    if (mc < 0 || mc >= D || mr < 0 || mr >= D
-                        || !BaseVisionMask[mr, mc])
-                        continue;
 
                     int gx = cx + dx, gy = cy + dy;
                     if (gx < 0 || gx >= W || gy < 0 || gy >= H) continue;

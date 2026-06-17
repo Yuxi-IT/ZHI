@@ -212,6 +212,7 @@ function AgentCard({
               const badges: string[] = []
               if (agent.is_stationary) badges.push('💤')
               if (ttype === 1) badges.push('🕳️')
+              if (ttype === 2) badges.push('🗼')
               if (agent.is_eating) badges.push('🍖')
               return <>{badges.join(' ')}{badges.length ? ' ' : ''}{agent.last_action || t('agents.none')}</>
             })()}

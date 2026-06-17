@@ -444,7 +444,7 @@ export function WorldMap({
     }
 
     // Vision range: directional 7×7 cone based on facing_direction
-    // Pit agents have reduced vision: 3×3 circle (well-bottom effect)
+    // Pit: 3×3 circle (well-bottom). Mound: full 7×7 omnidirectional (lookout).
     if (showVision) {
       // Base vision mask (facing up): 1=visible, 0=hidden
       const baseMask = [
@@ -458,17 +458,19 @@ export function WorldMap({
       ]
       for (const agent of agents) {
         if (!agent.is_alive) continue
-        const inPit = terrain?.[agent.y * gridW + agent.x] === 1
+        const ttype = terrain?.[agent.y * gridW + agent.x] ?? 0
+        const inPit = ttype === 1
+        const onMound = ttype === 2
         const R = 3
         const D = 7
         const fd = agent.facing_direction
         for (let dy = -R; dy <= R; dy++) {
           for (let dx = -R; dx <= R; dx++) {
-            // Pit: only 3×3 Chebyshev range, no directional mask
+            // Pit: only 3×3 Chebyshev range
             if (inPit) {
               if (Math.max(Math.abs(dx), Math.abs(dy)) > 1) continue
-            } else {
-              // Rotate offset to base (facing-up) frame
+            } else if (!onMound) {
+              // Normal: directional cone mask
               let rdx: number, rdy: number
               if (fd === 0) { rdx = dx; rdy = dy }
               else if (fd === 1) { rdx = -dx; rdy = -dy }
@@ -478,6 +480,7 @@ export function WorldMap({
               if (maskCol < 0 || maskCol >= D || maskRow < 0 || maskRow >= D) continue
               if (!baseMask[maskRow][maskCol]) continue
             }
+            // Mound: no mask — full 7×7 omnidirectional
 
             const gx = agent.x + dx
             const gy = agent.y + dy
@@ -486,6 +489,8 @@ export function WorldMap({
             const alpha = dist === 0 ? 0.08 : dist <= 2 ? 0.04 : 0.02
             ctx.fillStyle = inPit
               ? `rgba(180, 140, 100, ${alpha + 0.02})`
+              : onMound
+              ? `rgba(255, 215, 100, ${alpha + 0.02})`
               : `rgba(255, 255, 255, ${alpha})`
             ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize)
           }

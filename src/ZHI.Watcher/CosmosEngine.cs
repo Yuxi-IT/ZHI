@@ -333,6 +333,16 @@ public class CosmosEngine : IDisposable
                 }
         }
 
+        // 0d. Mound daytime cooling: high ground provides -3°C shade during hot hours
+        bool isDaytime = _gameTimeOfDay >= 6f && _gameTimeOfDay < 20f;
+        if (isDaytime)
+        {
+            for (int x = 0; x < W; x++)
+                for (int y = 0; y < H; y++)
+                    if (_v.TerrainType[x, y] == ToolDefinitions.TerrainMound)
+                        _v.TemperatureGrid[x, y] -= 3f;
+        }
+
         // 1. Stress damage: Existence -= Stress * StressDamage
         for (int i = 0; i < n; i++)
         {
