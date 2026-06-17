@@ -10,7 +10,7 @@ import { EventMonitor } from './components/EventMonitor'
 import { EventLog } from './components/EventLog'
 
 function App() {
-  const { generation, totalDeaths, agents, food, corpses, river, logs, events, stats, connected } = useWebSocket()
+  const { generation, totalDeaths, agents, food, corpses, river, scent, logs, events, stats, connected } = useWebSocket()
   const { stats: dbStats, loading } = useStats()
   const { history, record } = useEcoHistory()
   const [bottomTab, setBottomTab] = useState<'log' | 'charts' | 'events'>('log')
@@ -119,6 +119,7 @@ function App() {
               food={food}
               corpses={corpses}
               river={river}
+              scent={scent}
               trackedAgent={trackedAgent}
               onTrackChange={setTrackedAgent}
               showScent={showScent}

@@ -11,6 +11,7 @@ interface Props {
   food: FoodTile[]
   corpses: CorpseTile[]
   river: number[]
+  scent: number[]
   trackedAgent?: number | null
   onTrackChange?: (id: number | null) => void
   showScent?: boolean
@@ -26,7 +27,7 @@ interface TooltipInfo {
 }
 
 export function WorldMap({
-  agents, food, corpses, river,
+  agents, food, corpses, river, scent,
   trackedAgent: trackedProp, onTrackChange,
   showScent = false, showFoodScent = false,
   showDirection = false, showVision = false,
@@ -125,6 +126,23 @@ export function WorldMap({
       }
     }
 
+    // Scent heatmap (agent movement trails)
+    if (showScent && scent.length > 0) {
+      const startCol = Math.max(0, Math.floor(cam.x / cellSize))
+      const endCol = Math.min(GRID_W, Math.ceil((cam.x + w) / cellSize))
+      const startRow = Math.max(0, Math.floor(cam.y / cellSize))
+      const endRow = Math.min(GRID_H, Math.ceil((cam.y + h) / cellSize))
+      for (let gx = startCol; gx < endCol; gx++) {
+        for (let gy = startRow; gy < endRow; gy++) {
+          const val = scent[gy * GRID_W + gx]
+          if (val <= 0.01) continue
+          const alpha = Math.min(val / 10, 0.6)
+          ctx.fillStyle = `rgba(168, 85, 247, ${alpha})`
+          ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize)
+        }
+      }
+    }
+
     // Corpses (render below food and agents)
     const corpseSize = Math.max(cellSize * 0.6, 2)
     for (const c of corpses) {
@@ -165,35 +183,32 @@ export function WorldMap({
       }
     }
 
-    // Vision cones (render before agents so they appear behind)
+    // Vision range: 5×5 grid centered on agent (radius 2)
     if (showVision) {
       for (const agent of agents) {
         if (!agent.is_alive) continue
-        const cx = agent.x * cellSize + cellSize / 2
-        const cy = agent.y * cellSize + cellSize / 2
-        const dirAngles = [-Math.PI / 2, Math.PI / 2, Math.PI, 0] // up, down, left, right
-        const angle = dirAngles[agent.facing_direction] ?? 0
-        const visionR = 2.5 * cellSize
-
-        ctx.save()
-        ctx.translate(cx, cy)
-        ctx.rotate(angle)
-
-        // Semi-transparent扇形
-        ctx.beginPath()
-        ctx.moveTo(0, 0)
-        ctx.arc(0, 0, visionR, -Math.PI / 3, Math.PI / 3)
-        ctx.closePath()
-
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.03)'
+        const R = 2 // VisionRadius
+        for (let dy = -R; dy <= R; dy++) {
+          for (let dx = -R; dx <= R; dx++) {
+            const gx = agent.x + dx
+            const gy = agent.y + dy
+            if (gx < 0 || gx >= GRID_W || gy < 0 || gy >= GRID_H) continue
+            // Highlight color: center cell brighter, edges dimmer
+            const dist = Math.abs(dx) + Math.abs(dy)
+            const alpha = dist === 0 ? 0.08 : dist <= 2 ? 0.04 : 0.02
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`
+            ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize)
+          }
+        }
+        // Border around vision range
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)'
-        ctx.fill()
-        ctx.setLineDash([2, 2])
         ctx.lineWidth = 0.5
-        ctx.stroke()
+        ctx.setLineDash([2, 2])
+        ctx.strokeRect(
+          (agent.x - R) * cellSize, (agent.y - R) * cellSize,
+          (R * 2 + 1) * cellSize, (R * 2 + 1) * cellSize
+        )
         ctx.setLineDash([])
-
-        ctx.restore()
       }
     }
 
@@ -272,7 +287,7 @@ export function WorldMap({
       ? `${zoomPct}% | tracking #${trackedAgent} | alive ${aliveCount}/${agents.length}`
       : `${zoomPct}% | alive ${aliveCount}/${agents.length}`
     ctx.fillText(hudText, 8, 8)
-  }, [agents, food, corpses, river, trackedAgent, showScent, showFoodScent, showDirection, showVision])
+  }, [agents, food, corpses, river, scent, trackedAgent, showScent, showFoodScent, showDirection, showVision])
 
   useEffect(() => {
     rafRef.current = requestAnimationFrame(draw)

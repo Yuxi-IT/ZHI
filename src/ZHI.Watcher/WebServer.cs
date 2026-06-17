@@ -253,6 +253,12 @@ public class WebServer : IDisposable
             for (int ry = 0; ry < gh; ry++)
                 river[ry * gw + rx] = v.RiverGrid[rx, ry];
 
+        // Serialize scent grid as flat float array (agent movement trails)
+        var scent = new float[gw * gh];
+        for (int sx = 0; sx < gw; sx++)
+            for (int sy = 0; sy < gh; sy++)
+                scent[sy * gw + sx] = v.ScentGrid[sx, sy];
+
         // Compute energy source percentages
         float totalEnergySrc = _engine.GenFoodEnergy + _engine.GenBigFoodEnergy + _engine.GenCorpseEnergy;
         float foodPct = totalEnergySrc > 0 ? _engine.GenFoodEnergy / totalEnergySrc * 100f : 0;
@@ -284,6 +290,7 @@ public class WebServer : IDisposable
             food,
             corpses,
             river,
+            scent,
             grid_width = ZHI.Shared.ToolDefinitions.GridWidth,
             grid_height = ZHI.Shared.ToolDefinitions.GridHeight,
             stats

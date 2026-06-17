@@ -49,6 +49,7 @@ export interface CosmosState {
   food: FoodTile[]
   corpses: CorpseTile[]
   river: number[]  // flat array: 0=land, 1=shallow, 2=deep (row-major)
+  scent: number[]  // flat array: scent intensity per cell (row-major)
 }
 
 export interface LogMessage {
