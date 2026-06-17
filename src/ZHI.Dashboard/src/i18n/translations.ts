@@ -26,6 +26,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'toggle.vision': '视野',
     'toggle.signal': '信号',
     'toggle.temp': '温度',
+    'toggle.terrain': '地形',
     'toggle.trackRebirth': '追踪轮回',
     'toggle.trackRebirthTitle': '追踪的agent死亡后自动追踪其下一世',
 
@@ -192,6 +193,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'toggle.vision': 'Vision',
     'toggle.signal': 'Signal',
     'toggle.temp': 'Temp',
+    'toggle.terrain': 'Terrain',
     'toggle.trackRebirth': 'Rebirth Track',
     'toggle.trackRebirthTitle': 'Auto-track next life when tracked agent dies',
 

@@ -16,6 +16,7 @@ interface Props {
   temperatureGrid?: number[]
   terrain?: number[]
   showTemp?: boolean
+  showTerrain?: boolean
   events?: WorldEvent[]
   gridW?: number
   gridH?: number
@@ -45,7 +46,7 @@ interface FloatingText {
 }
 
 export function WorldMap({
-  agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, terrain, showTemp, events,
+  agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, terrain, showTemp, showTerrain = false, events,
   gridW = 64, gridH = 64, timeOfDay = 12,
   trackedAgent: trackedProp, onTrackChange,
   showScent = false, showFoodScent = false,
@@ -206,7 +207,7 @@ export function WorldMap({
     }
 
     // Terrain tiles (pit & mound)
-    if (terrain && terrain.length > 0) {
+    if (showTerrain && terrain && terrain.length > 0) {
       const startCol = Math.max(0, Math.floor(cam.x / cellSize))
       const endCol = Math.min(gridW, Math.ceil((cam.x + w) / cellSize))
       const startRow = Math.max(0, Math.floor(cam.y / cellSize))
@@ -504,7 +505,7 @@ export function WorldMap({
       ? `${zoomPct}% | tracking #${trackedAgent} | alive ${aliveCount}/${agents.length}`
       : `${zoomPct}% | alive ${aliveCount}/${agents.length}`
     ctx.fillText(hudText, 8, 8)
-  }, [agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, terrain, showTemp, gridW, gridH, timeOfDay, trackedAgent, showScent, showFoodScent, showDirection, showVision, showSignal])
+  }, [agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, terrain, showTemp, showTerrain, gridW, gridH, timeOfDay, trackedAgent, showScent, showFoodScent, showDirection, showVision, showSignal])
 
   useEffect(() => {
     let animating = true
