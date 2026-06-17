@@ -28,7 +28,6 @@ export interface FoodTile {
   y: number
   width: number
   height: number
-  ttl: number
   energy: number
   max_energy: number
   is_big: boolean
@@ -37,7 +36,6 @@ export interface FoodTile {
 export interface CorpseTile {
   x: number
   y: number
-  ttl: number
   energy: number
 }
 

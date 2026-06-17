@@ -440,14 +440,17 @@ public class CosmosEngine : IDisposable
             _v.SignalAge[i]++;
         }
 
-        // 5. Food TTL decay + food scent emission
+        // 5. Food natural decay + scent emission
         lock (_v.LockObj)
         {
+            float foodDecay = _config.Grid.FoodDecayPerTick;
+            float bigFoodDecay = _config.Grid.BigFoodDecayPerTick;
             for (int f = _v.FoodTiles.Count - 1; f >= 0; f--)
             {
                 var food = _v.FoodTiles[f];
-                food.TTL--;
-                if (food.TTL <= 0)
+                float decay = food.IsBig ? bigFoodDecay : foodDecay;
+                food.Energy -= decay;
+                if (food.Energy <= 0)
                     _v.FoodTiles.RemoveAt(f);
                 else
                 {
@@ -478,12 +481,12 @@ public class CosmosEngine : IDisposable
                 }
             }
 
-            // Corpse TTL decay + scent emission
+            // Corpse natural decay + scent emission
             for (int c = _v.CorpseTiles.Count - 1; c >= 0; c--)
             {
                 var corpse = _v.CorpseTiles[c];
-                corpse.TTL--;
-                if (corpse.TTL <= 0)
+                corpse.Energy -= _config.Corpse.DecayPerTick;
+                if (corpse.Energy <= 0)
                     _v.CorpseTiles.RemoveAt(c);
                 else
                 {
@@ -512,7 +515,6 @@ public class CosmosEngine : IDisposable
                         {
                             X = rx, Y = ry,
                             Width = 1, Height = 1,
-                            TTL = _config.Grid.FoodTTL,
                             Energy = _config.Grid.FoodEnergy,
                             IsBig = false
                         });
@@ -581,7 +583,6 @@ public class CosmosEngine : IDisposable
                     {
                         X = _v.PosX[i],
                         Y = _v.PosY[i],
-                        TTL = _config.Corpse.TTL,
                         Energy = _config.Corpse.Energy
                     });
             }
@@ -1134,7 +1135,6 @@ public class CosmosEngine : IDisposable
                     {
                         X = x, Y = y,
                         Width = 1, Height = 1,
-                        TTL = _config.Grid.FoodTTL,
                         Energy = _config.Grid.FoodEnergy,
                         IsBig = false
                     });
@@ -1159,7 +1159,6 @@ public class CosmosEngine : IDisposable
                     {
                         X = x, Y = y,
                         Width = 2, Height = 2,
-                        TTL = _config.Grid.BigFoodTTL,
                         Energy = _config.Grid.BigFoodEnergy,
                         IsBig = true
                     });

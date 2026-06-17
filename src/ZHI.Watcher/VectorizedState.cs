@@ -10,7 +10,6 @@ public struct FoodTile
     public int Y;
     public int Width;         // 1 for normal food, 2 for BigFood (2x2)
     public int Height;        // 1 for normal food, 2 for BigFood (2x2)
-    public int TTL;
     public float Energy;
     public bool IsBig;
 }
@@ -19,7 +18,6 @@ public struct CorpseTile
 {
     public int X;
     public int Y;
-    public int TTL;
     public float Energy;
 }
 

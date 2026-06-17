@@ -10,6 +10,7 @@ import { ChartsPanel } from './components/ChartsPanel'
 import { EventMonitor } from './components/EventMonitor'
 import { EventLog } from './components/EventLog'
 import { SettingsPanel } from './components/SettingsPanel'
+import { version } from '../package.json'
 
 function formatGameTime(hours: number): string {
   const h = Math.floor(hours)
@@ -90,7 +91,7 @@ function App() {
       {/* Header */}
       <header className="flex items-center gap-4 px-5 py-2 border-b border-neutral-800 shrink-0">
         <h1 className="text-sm font-normal tracking-[0.2em] text-neutral-400">ZHI</h1>
-        <span className="text-neutral-600">栀 · Cosmos V2.7</span>
+        <span className="text-neutral-600">栀 · Cosmos v{version}</span>
         <div className="flex items-center gap-3 ml-auto">
           <span className="text-[10px] text-neutral-500">Gen {generation}</span>
           <span className="text-[10px] text-neutral-500">|</span>

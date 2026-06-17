@@ -288,11 +288,11 @@ public class WebServer : IDisposable
         }
         var food = new List<object>(foodSnap.Length);
         foreach (var f in foodSnap)
-            food.Add(new { x = f.X, y = f.Y, width = f.Width, height = f.Height, ttl = f.TTL, energy = f.Energy, max_energy = f.IsBig ? _engine.CurrentConfig.Grid.BigFoodEnergy : _engine.CurrentConfig.Grid.FoodEnergy, is_big = f.IsBig });
+            food.Add(new { x = f.X, y = f.Y, width = f.Width, height = f.Height, energy = f.Energy, max_energy = f.IsBig ? _engine.CurrentConfig.Grid.BigFoodEnergy : _engine.CurrentConfig.Grid.FoodEnergy, is_big = f.IsBig });
 
         var corpses = new List<object>(corpseSnap.Length);
         foreach (var c in corpseSnap)
-            corpses.Add(new { x = c.X, y = c.Y, ttl = c.TTL, energy = c.Energy });
+            corpses.Add(new { x = c.X, y = c.Y, energy = c.Energy });
 
         // Serialize river grid as flat array (0=land, 1=shallow, 2=deep)
         int gw = ToolDefinitions.GridWidth;

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 
 interface ZhiConfig {
-  Grid: { Width: number; Height: number; InitialFood: number; InitialBigFood: number; FoodEnergy: number; BigFoodEnergy: number; FoodTTL: number; BigFoodTTL: number; MaxFood: number; FoodRespawnInterval: number; FoodPerTickEnergy: number; BigFoodPerTickEnergy: number; CorpsePerTickEnergy: number }
+  Grid: { Width: number; Height: number; InitialFood: number; InitialBigFood: number; FoodEnergy: number; BigFoodEnergy: number; FoodDecayPerTick: number; BigFoodDecayPerTick: number; MaxFood: number; FoodRespawnInterval: number; FoodPerTickEnergy: number; BigFoodPerTickEnergy: number; CorpsePerTickEnergy: number }
   Cosmos: { AgentCount: number; RespawnDelayTicks: number; MutationStd: number }
   Temperature: { MaxTemp: number; MinTemp: number; ColdThreshold: number; MaxColdDecay: number; HotThreshold: number; MaxThirstAccel: number; HuddleRange: number; HuddleWarmthPerAgent: number }
   Combat: { AttackRange: number; StressPerAttack: number; StressDamage: number; StressDecay: number; AttackCost: number }
@@ -100,11 +100,11 @@ export function SettingsPanel() {
           <NumberField label="食物补充间隔(tick)" value={config.Grid.FoodRespawnInterval} onChange={v => update('Grid', 'FoodRespawnInterval', v)} min={0} max={1000} />
         </Section>
 
-        <Section title="食物能量">
+        <Section title="食物能量与腐败">
           <NumberField label="普通食物能量" value={config.Grid.FoodEnergy} onChange={v => update('Grid', 'FoodEnergy', v)} min={1} max={200} step={1} />
           <NumberField label="大食物能量" value={config.Grid.BigFoodEnergy} onChange={v => update('Grid', 'BigFoodEnergy', v)} min={1} max={500} step={1} />
-          <NumberField label="普通食物TTL" value={config.Grid.FoodTTL} onChange={v => update('Grid', 'FoodTTL', v)} min={10} max={2000} />
-          <NumberField label="大食物TTL" value={config.Grid.BigFoodTTL} onChange={v => update('Grid', 'BigFoodTTL', v)} min={10} max={5000} />
+          <NumberField label="普通腐败率/tick" value={config.Grid.FoodDecayPerTick} onChange={v => update('Grid', 'FoodDecayPerTick', v)} min={0.001} max={1} step={0.005} />
+          <NumberField label="大食物腐败率/tick" value={config.Grid.BigFoodDecayPerTick} onChange={v => update('Grid', 'BigFoodDecayPerTick', v)} min={0.001} max={1} step={0.005} />
         </Section>
 
         <Section title="进食 (每tick能量提取)">

@@ -39,8 +39,8 @@ public sealed class GridConfig
     public int InitialBigFood { get; set; } = 10;
     public float FoodEnergy { get; set; } = 15f;
     public float BigFoodEnergy { get; set; } = 80f;
-    public int FoodTTL { get; set; } = 200;
-    public int BigFoodTTL { get; set; } = 400;
+    public float FoodDecayPerTick { get; set; } = 0.075f;     // natural spoilage (~200 ticks at 15 energy)
+    public float BigFoodDecayPerTick { get; set; } = 0.2f;     // natural spoilage (~400 ticks at 80 energy)
 
     // Eating: per-tick energy extraction (continuous model, multiple agents compete)
     public float FoodPerTickEnergy { get; set; } = 1.0f;     // ~15 ticks to deplete small food
@@ -104,7 +104,7 @@ public sealed class CosmosConfig
 public sealed class CorpseConfig
 {
     public float Energy { get; set; } = 20f;
-    public int TTL { get; set; } = 300;
+    public float DecayPerTick { get; set; } = 0.067f;  // natural decay (~300 ticks at 20 energy)
     public float ScentAmount { get; set; } = 0.5f;
 }
 

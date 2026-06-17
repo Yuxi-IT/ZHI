@@ -254,7 +254,7 @@ export function WorldMap({
     // Corpses (render below food and agents)
     const corpseSize = Math.max(cellSize * 0.6, 2)
     for (const c of corpses) {
-      const alpha = Math.max(0.3, c.ttl / 300)
+      const alpha = Math.max(0.2, Math.min(1, c.energy / 20))
       ctx.fillStyle = `rgba(148, 163, 184, ${alpha})`
       const cx = c.x * cellSize + cellSize / 2
       const cy = c.y * cellSize + cellSize / 2
@@ -270,10 +270,8 @@ export function WorldMap({
     // Food
     const foodSize = Math.max(cellSize * 0.7, 2)
     for (const f of food) {
-      const ttlAlpha = Math.max(0.3, f.ttl / 600)
       const energyRatio = f.max_energy > 0 ? f.energy / f.max_energy : 1
-      const energyAlpha = Math.max(0.25, energyRatio)
-      const alpha = Math.min(ttlAlpha, energyAlpha)
+      const alpha = Math.max(0.2, energyRatio)
       if (f.is_big) {
         const fw = (f.width || 2) * cellSize
         const fh = (f.height || 2) * cellSize
@@ -491,7 +489,7 @@ export function WorldMap({
         x: mx + 12, y: my - 10,
         text: [
           foodHere.is_big ? 'Big Food' : 'Food',
-          `Energy: ${foodHere.energy.toFixed(1)}  TTL: ${foodHere.ttl}`
+          `Energy: ${foodHere.energy.toFixed(1)} / ${foodHere.max_energy.toFixed(0)}`
         ]
       }
     }
@@ -501,7 +499,7 @@ export function WorldMap({
     if (corpseHere) {
       return {
         x: mx + 12, y: my - 10,
-        text: ['Corpse', `Energy: ${corpseHere.energy.toFixed(1)}  TTL: ${corpseHere.ttl}`]
+        text: ['Corpse', `Energy: ${corpseHere.energy.toFixed(1)}`]
       }
     }
 
