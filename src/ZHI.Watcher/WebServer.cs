@@ -288,7 +288,7 @@ public class WebServer : IDisposable
         }
         var food = new List<object>(foodSnap.Length);
         foreach (var f in foodSnap)
-            food.Add(new { x = f.X, y = f.Y, width = f.Width, height = f.Height, ttl = f.TTL, energy = f.Energy, is_big = f.IsBig });
+            food.Add(new { x = f.X, y = f.Y, width = f.Width, height = f.Height, ttl = f.TTL, energy = f.Energy, max_energy = f.IsBig ? _engine.CurrentConfig.Grid.BigFoodEnergy : _engine.CurrentConfig.Grid.FoodEnergy, is_big = f.IsBig });
 
         var corpses = new List<object>(corpseSnap.Length);
         foreach (var c in corpseSnap)

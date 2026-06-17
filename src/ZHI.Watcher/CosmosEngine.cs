@@ -456,17 +456,24 @@ public class CosmosEngine : IDisposable
                     int fw = food.Width > 0 ? food.Width : 1;
                     int fh = food.Height > 0 ? food.Height : 1;
                     int spreadRadius = _config.FoodScent.SpreadRadius;
-                    for (int fx = -spreadRadius; fx < fw + spreadRadius; fx++)
-                        for (int fy = -spreadRadius; fy < fh + spreadRadius; fy++)
+                    // Emit from each occupied cell as independent source
+                    for (int cellX = 0; cellX < fw; cellX++)
+                        for (int cellY = 0; cellY < fh; cellY++)
                         {
-                            int sx = food.X + fx;
-                            int sy = food.Y + fy;
-                            if (sx >= 0 && sx < W && sy >= 0 && sy < H)
-                            {
-                                float dist = MathF.Sqrt(fx * fx + fy * fy);
-                                float falloff = MathF.Max(0, 1f - dist / (spreadRadius + 1));
-                                _v.FoodScentGrid[sx, sy] += scentAmount * falloff;
-                            }
+                            int cx = food.X + cellX;
+                            int cy = food.Y + cellY;
+                            for (int dx = -spreadRadius; dx <= spreadRadius; dx++)
+                                for (int dy = -spreadRadius; dy <= spreadRadius; dy++)
+                                {
+                                    int sx = cx + dx;
+                                    int sy = cy + dy;
+                                    if (sx >= 0 && sx < W && sy >= 0 && sy < H)
+                                    {
+                                        float dist = MathF.Sqrt(dx * dx + dy * dy);
+                                        float falloff = MathF.Max(0, 1f - dist / (spreadRadius + 1));
+                                        _v.FoodScentGrid[sx, sy] += scentAmount * falloff;
+                                    }
+                                }
                         }
                 }
             }
@@ -495,23 +502,22 @@ public class CosmosEngine : IDisposable
             {
                 if (_v.FoodTiles.Count < _config.Grid.MaxFood)
                 {
-                    // Avoid spawning on deep water
-                    int rx, ry;
-                    int attempts = 0;
-                    do {
-                        rx = _rng.Next(W);
-                        ry = _rng.Next(H);
-                        attempts++;
-                    } while (_v.IsDeepWater(rx, ry) && attempts < 20);
-
-                    _v.FoodTiles.Add(new FoodTile
+                    for (int attempt = 0; attempt < 20; attempt++)
                     {
-                        X = rx, Y = ry,
-                        Width = 1, Height = 1,
-                        TTL = _config.Grid.FoodTTL,
-                        Energy = _config.Grid.FoodEnergy,
-                        IsBig = false
-                    });
+                        int rx = _rng.Next(W);
+                        int ry = _rng.Next(H);
+                        if (!IsValidFoodPlacement(rx, ry, 1, 1)) continue;
+
+                        _v.FoodTiles.Add(new FoodTile
+                        {
+                            X = rx, Y = ry,
+                            Width = 1, Height = 1,
+                            TTL = _config.Grid.FoodTTL,
+                            Energy = _config.Grid.FoodEnergy,
+                            IsBig = false
+                        });
+                        break;
+                    }
                 }
             }
         }
@@ -1084,6 +1090,31 @@ public class CosmosEngine : IDisposable
         }
     }
 
+    private bool IsValidFoodPlacement(int x, int y, int w, int h)
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        for (int fx = 0; fx < w; fx++)
+        {
+            for (int fy = 0; fy < h; fy++)
+            {
+                int tx = x + fx, ty = y + fy;
+                if (tx < 0 || tx >= W || ty < 0 || ty >= H) return false;
+                // No water tiles
+                if (_v.RiverGrid[tx, ty] > 0) return false;
+                // No overlap with existing food
+                foreach (var ft in _v.FoodTiles)
+                {
+                    int fw = ft.Width > 0 ? ft.Width : 1;
+                    int fh = ft.Height > 0 ? ft.Height : 1;
+                    if (tx >= ft.X && tx < ft.X + fw && ty >= ft.Y && ty < ft.Y + fh)
+                        return false;
+                }
+            }
+        }
+        return true;
+    }
+
     private void SpawnInitialFood()
     {
         int W = ToolDefinitions.GridWidth;
@@ -1092,17 +1123,26 @@ public class CosmosEngine : IDisposable
         // Spawn normal food
         for (int i = 0; i < _config.Grid.InitialFood; i++)
         {
-            int x = _rng.Next(W);
-            int y = _rng.Next(H);
-            lock (_v.LockObj)
-                _v.FoodTiles.Add(new FoodTile
-                {
-                    X = x, Y = y,
-                    Width = 1, Height = 1,
-                    TTL = _config.Grid.FoodTTL,
-                    Energy = _config.Grid.FoodEnergy,
-                    IsBig = false
-                });
+            bool placed = false;
+            for (int attempt = 0; attempt < 100; attempt++)
+            {
+                int x = _rng.Next(W);
+                int y = _rng.Next(H);
+                if (!IsValidFoodPlacement(x, y, 1, 1)) continue;
+                lock (_v.LockObj)
+                    _v.FoodTiles.Add(new FoodTile
+                    {
+                        X = x, Y = y,
+                        Width = 1, Height = 1,
+                        TTL = _config.Grid.FoodTTL,
+                        Energy = _config.Grid.FoodEnergy,
+                        IsBig = false
+                    });
+                placed = true;
+                break;
+            }
+            if (!placed)
+                Log($"[Cosmos] WARNING: Could not place food #{i} after 100 attempts");
         }
 
         // Spawn BigFood (2x2 multi-cell)
@@ -1113,16 +1153,7 @@ public class CosmosEngine : IDisposable
             {
                 int x = _rng.Next(W - 1);
                 int y = _rng.Next(H - 1);
-
-                // Check overlap with existing food
-                bool overlap = false;
-                for (int fx = 0; fx < 2 && !overlap; fx++)
-                    for (int fy = 0; fy < 2 && !overlap; fy++)
-                        if (_v.HasFoodAt(x + fx, y + fy, out _))
-                            overlap = true;
-
-                if (overlap) continue;
-
+                if (!IsValidFoodPlacement(x, y, 2, 2)) continue;
                 lock (_v.LockObj)
                     _v.FoodTiles.Add(new FoodTile
                     {

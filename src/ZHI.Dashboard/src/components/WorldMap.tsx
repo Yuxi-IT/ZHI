@@ -270,7 +270,10 @@ export function WorldMap({
     // Food
     const foodSize = Math.max(cellSize * 0.7, 2)
     for (const f of food) {
-      const alpha = Math.max(0.4, f.ttl / 500)
+      const ttlAlpha = Math.max(0.3, f.ttl / 600)
+      const energyRatio = f.max_energy > 0 ? f.energy / f.max_energy : 1
+      const energyAlpha = Math.max(0.25, energyRatio)
+      const alpha = Math.min(ttlAlpha, energyAlpha)
       if (f.is_big) {
         const fw = (f.width || 2) * cellSize
         const fh = (f.height || 2) * cellSize

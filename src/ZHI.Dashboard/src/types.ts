@@ -30,6 +30,7 @@ export interface FoodTile {
   height: number
   ttl: number
   energy: number
+  max_energy: number
   is_big: boolean
 }
 
