@@ -15,9 +15,9 @@ public static class ToolDefinitions
 {
     public const int ActionCount = 7;
     public const int SignalValues = 4;
-    public const int StateSize = 37;
-    public const int GridWidth = 20;
-    public const int GridHeight = 20;
+    public const int StateSize = 40;
+    public const int GridWidth = 64;
+    public const int GridHeight = 64;
     public const int VisionRadius = 2; // 5×5 window = radius 2
 
     public static readonly string[] ActionNames =

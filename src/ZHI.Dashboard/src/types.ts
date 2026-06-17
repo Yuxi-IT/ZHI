@@ -19,6 +19,7 @@ export interface FoodTile {
   x: number
   y: number
   ttl: number
+  is_big: boolean
 }
 
 export interface CosmosState {

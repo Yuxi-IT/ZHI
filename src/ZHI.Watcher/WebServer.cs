@@ -219,7 +219,7 @@ public class WebServer : IDisposable
 
         var food = new List<object>(v.FoodTiles.Count);
         foreach (var f in v.FoodTiles)
-            food.Add(new { x = f.X, y = f.Y, ttl = f.TTL });
+            food.Add(new { x = f.X, y = f.Y, ttl = f.TTL, is_big = f.IsBig });
 
         var payload = new
         {

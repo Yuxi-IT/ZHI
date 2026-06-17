@@ -24,11 +24,14 @@ public sealed class ExistenceConfig
 
 public sealed class GridConfig
 {
-    public int Width { get; set; } = 20;
-    public int Height { get; set; } = 20;
-    public int MaxFood { get; set; } = 30;
-    public float FoodSpawnChance { get; set; } = 0.05f;
+    public int Width { get; set; } = 64;
+    public int Height { get; set; } = 64;
+    public int MaxFood { get; set; } = 500;
+    public float FoodSpawnChance { get; set; } = 0.1f;
     public int FoodTTL { get; set; } = 100;
+    public float BigFoodChance { get; set; } = 0.02f;
+    public float BigFoodBonus { get; set; } = 40f;
+    public int BigFoodMinAgents { get; set; } = 2;
 }
 
 public sealed class CombatConfig
@@ -42,7 +45,7 @@ public sealed class CombatConfig
 
 public sealed class SignalConfig
 {
-    public float Cost { get; set; } = 2.0f;
+    public float Cost { get; set; } = 0.25f;
     public int NumValues { get; set; } = 4;
 }
 
@@ -61,7 +64,7 @@ public sealed class NetworkConfig
 
 public sealed class CosmosConfig
 {
-    public int AgentCount { get; set; } = 16;
+    public int AgentCount { get; set; } = 64;
     public int EliteCount { get; set; } = 2;
     public float MutationRate { get; set; } = 0.1f;
     public float MutationStd { get; set; } = 0.02f;

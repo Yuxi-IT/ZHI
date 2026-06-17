@@ -7,7 +7,7 @@ using static TorchSharp.torch;
 namespace ZHI.Watcher;
 
 /// <summary>
-/// 空间化网格生态系统引擎 — 20×20 grid, 7 actions, Stress combat, Scent trails
+/// 空间化网格生态系统引擎 — 128×128 grid, 7 actions, Stress combat, Scent trails
 /// </summary>
 public class CosmosEngine : IDisposable
 {
@@ -122,6 +122,8 @@ public class CosmosEngine : IDisposable
             _v.Alive[i] = true;
             _v.LastAction[i] = 0;
             _v.LastSignalReceived[i] = -1;
+            for (int ch = 0; ch < ToolDefinitions.SignalValues; ch++)
+                _v.SignalMemory[i, ch] = 0f;
             _v.TickCount[i] = 0;
             _v.AttackCount[i] = 0;
             _v.EatCount[i] = 0;
@@ -199,7 +201,15 @@ public class CosmosEngine : IDisposable
             for (int y = 0; y < H; y++)
                 _v.ScentGrid[x, y] *= scentDecay;
 
-        // 5. Food TTL & spawning
+        // 4b. Signal memory decay
+        for (int i = 0; i < n; i++)
+        {
+            if (!_v.Alive[i]) continue;
+            for (int ch = 0; ch < ToolDefinitions.SignalValues; ch++)
+                _v.SignalMemory[i, ch] *= 0.9f;
+        }
+
+        // 5. Food TTL & spawning + food scent emission
         for (int f = _v.FoodTiles.Count - 1; f >= 0; f--)
         {
             var food = _v.FoodTiles[f];
@@ -207,7 +217,10 @@ public class CosmosEngine : IDisposable
             if (food.TTL <= 0)
                 _v.FoodTiles.RemoveAt(f);
             else
+            {
                 _v.FoodTiles[f] = food;
+                _v.ScentGrid[food.X, food.Y] += 0.3f;
+            }
         }
         TrySpawnFood();
 
@@ -328,6 +341,9 @@ public class CosmosEngine : IDisposable
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
 
+        // Collect eat attempts for BigFood cooperative resolution
+        var eatAttempts = new List<int>();
+
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
@@ -355,24 +371,7 @@ public class CosmosEngine : IDisposable
                     break;
 
                 case ZhiAction.Eat:
-                    bool ate = false;
-                    for (int f = 0; f < _v.FoodTiles.Count; f++)
-                    {
-                        if (_v.FoodTiles[f].X == _v.PosX[i] && _v.FoodTiles[f].Y == _v.PosY[i])
-                        {
-                            _v.FoodTiles.RemoveAt(f);
-                            _v.Existence[i] += _config.Existence.EatBonus;
-                            _v.EatCount[i]++;
-                            rewards[i] += 3.0f;
-                            ate = true;
-                            break;
-                        }
-                    }
-                    if (!ate)
-                    {
-                        _v.Existence[i] -= _config.Existence.EatFailPenalty;
-                        rewards[i] -= 1.0f;
-                    }
+                    eatAttempts.Add(i);
                     break;
 
                 case ZhiAction.Attack:
@@ -384,6 +383,98 @@ public class CosmosEngine : IDisposable
                     break;
             }
         }
+
+        // Resolve eat attempts (normal food: solo; BigFood: need multiple agents)
+        ResolveEatAttempts(eatAttempts, rewards);
+    }
+
+    private void ResolveEatAttempts(List<int> eaters, float[] rewards)
+    {
+        var consumed = new HashSet<int>();
+        int minAgents = _config.Grid.BigFoodMinAgents;
+
+        // Group eaters by position
+        var byPos = new Dictionary<(int x, int y), List<int>>();
+        foreach (int i in eaters)
+        {
+            var pos = (_v.PosX[i], _v.PosY[i]);
+            if (!byPos.TryGetValue(pos, out var list))
+            {
+                list = new List<int>();
+                byPos[pos] = list;
+            }
+            list.Add(i);
+        }
+
+        foreach (var (pos, agents) in byPos)
+        {
+            // Find food at this position
+            int foodIdx = -1;
+            for (int f = 0; f < _v.FoodTiles.Count; f++)
+            {
+                if (consumed.Contains(f)) continue;
+                if (_v.FoodTiles[f].X == pos.x && _v.FoodTiles[f].Y == pos.y)
+                {
+                    foodIdx = f;
+                    break;
+                }
+            }
+
+            if (foodIdx < 0)
+            {
+                // No food here — all eaters fail
+                foreach (int i in agents)
+                {
+                    _v.Existence[i] -= _config.Existence.EatFailPenalty;
+                    rewards[i] -= 1.0f;
+                }
+                continue;
+            }
+
+            var tile = _v.FoodTiles[foodIdx];
+
+            if (tile.IsBig)
+            {
+                if (agents.Count >= minAgents)
+                {
+                    // Cooperative eat succeeds — all participants get bonus
+                    consumed.Add(foodIdx);
+                    foreach (int i in agents)
+                    {
+                        _v.Existence[i] += _config.Grid.BigFoodBonus;
+                        _v.EatCount[i]++;
+                        rewards[i] += 8.0f;
+                    }
+                }
+                else
+                {
+                    // Not enough agents — eat fails but no penalty (they tried)
+                    foreach (int i in agents)
+                        rewards[i] -= 0.5f;
+                }
+            }
+            else
+            {
+                // Normal food — first eater gets it
+                consumed.Add(foodIdx);
+                int winner = agents[0];
+                _v.Existence[winner] += _config.Existence.EatBonus;
+                _v.EatCount[winner]++;
+                rewards[winner] += 3.0f;
+
+                // Others at same position fail
+                for (int k = 1; k < agents.Count; k++)
+                {
+                    _v.Existence[agents[k]] -= _config.Existence.EatFailPenalty;
+                    rewards[agents[k]] -= 1.0f;
+                }
+            }
+        }
+
+        // Remove consumed food tiles (reverse order)
+        var sorted = consumed.OrderByDescending(x => x).ToList();
+        foreach (int idx in sorted)
+            _v.FoodTiles.RemoveAt(idx);
     }
 
     private void ProcessAttack(int attacker)
@@ -432,7 +523,10 @@ public class CosmosEngine : IDisposable
             int dx = Math.Abs(_v.PosX[j] - sx);
             int dy = Math.Abs(_v.PosY[j] - sy);
             if (dx <= R && dy <= R)
+            {
                 _v.LastSignalReceived[j] = signalValue;
+                _v.SignalMemory[j, signalValue] = 1.0f;
+            }
         }
     }
 
@@ -467,7 +561,8 @@ public class CosmosEngine : IDisposable
             }
             if (!occupied)
             {
-                _v.FoodTiles.Add(new FoodTile { X = x, Y = y, TTL = _config.Grid.FoodTTL });
+                bool isBig = _rng.NextDouble() < _config.Grid.BigFoodChance;
+                _v.FoodTiles.Add(new FoodTile { X = x, Y = y, TTL = _config.Grid.FoodTTL, IsBig = isBig });
                 return;
             }
         }
