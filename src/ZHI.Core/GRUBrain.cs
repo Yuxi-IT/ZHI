@@ -72,9 +72,9 @@ public class GRUBrain : Module
 
         for (int i = 0; i < N; i++)
         {
-            bool isHiding = stateData[i * S + 140] > 0.5f;
-            float hunger = stateData[i * S + 144]; // normalized 0-1
-            float thirst = stateData[i * S + 145]; // normalized 0-1
+            bool isHiding = stateData[i * S + 165] > 0.5f;
+            float hunger = stateData[i * S + 169]; // normalized 0-1
+            float thirst = stateData[i * S + 170]; // normalized 0-1
             bool critical = hunger < 0.35f || thirst < 0.45f;
             int b = i * A;
 

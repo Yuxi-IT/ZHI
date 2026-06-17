@@ -74,6 +74,7 @@ public class VectorizedState : IDisposable
     private int[] _agentGrid;      // [W*H] → agent index or -1
     private byte[] _foodGrid;      // [W*H] → 0=empty, 1=food, 2=bigfood
     private bool[] _corpseGrid;    // [W*H] → has corpse
+    private bool[] _bushGrid;      // [W*H] → has bush (static per generation)
 
     // GPU tensor for batch inference
     public Tensor StateMatrix;
@@ -127,6 +128,7 @@ public class VectorizedState : IDisposable
         _agentGrid = new int[gridSize];
         _foodGrid = new byte[gridSize];
         _corpseGrid = new bool[gridSize];
+        _bushGrid = new bool[gridSize];
 
         StateMatrix = torch.zeros(n, ToolDefinitions.StateSize, device: device);
         _stateAssemblyBuffer = new float[n * ToolDefinitions.StateSize];
@@ -198,7 +200,7 @@ public class VectorizedState : IDisposable
 
     public void BuildStateMatrix()
     {
-        int S = ToolDefinitions.StateSize; // 163
+        int S = ToolDefinitions.StateSize; // 188
         int R = ToolDefinitions.VisionRadius;
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
@@ -213,14 +215,14 @@ public class VectorizedState : IDisposable
             int cx = PosX[i];
             int cy = PosY[i];
 
-            // [0-124] 5×5 grid × 5 channels (one-hot)
+            // [0-149] 5×5 grid × 6 channels (one-hot): food, bigfood, corpse, agent, self, bush
             int gridBase = baseIdx;
             for (int dy = -R; dy <= R; dy++)
             {
                 for (int dx = -R; dx <= R; dx++)
                 {
                     int gx = cx + dx, gy = cy + dy;
-                    int cellIdx = ((dy + R) * 5 + (dx + R)) * 5;
+                    int cellIdx = ((dy + R) * 5 + (dx + R)) * 6;
 
                     if (gx < 0 || gx >= W || gy < 0 || gy >= H) continue;
 
@@ -228,35 +230,37 @@ public class VectorizedState : IDisposable
                     bool hasCorpse = HasCorpseAt(gx, gy);
                     bool hasAgent = HasOtherAgentAt(i, gx, gy);
                     bool isSelf = (dx == 0 && dy == 0);
+                    bool hasBush = IsBushAt(gx, gy);
 
                     _stateAssemblyBuffer[gridBase + cellIdx + 0] = (hasFood && !isBigFood) ? 1f : 0f;
                     _stateAssemblyBuffer[gridBase + cellIdx + 1] = isBigFood ? 1f : 0f;
                     _stateAssemblyBuffer[gridBase + cellIdx + 2] = hasCorpse ? 1f : 0f;
                     _stateAssemblyBuffer[gridBase + cellIdx + 3] = (hasAgent && !isSelf) ? 1f : 0f;
                     _stateAssemblyBuffer[gridBase + cellIdx + 4] = isSelf ? 1f : 0f;
+                    _stateAssemblyBuffer[gridBase + cellIdx + 5] = hasBush ? 1f : 0f;
                 }
             }
 
-            // [125-128] self state
-            _stateAssemblyBuffer[baseIdx + 125] = Existence[i] / 100f;
-            _stateAssemblyBuffer[baseIdx + 126] = Stress[i] / 5f;
-            _stateAssemblyBuffer[baseIdx + 127] = LastAction[i] / 6f;
-            _stateAssemblyBuffer[baseIdx + 128] = Math.Min(TickCount[i] / 200f, 1f);
+            // [150-153] self state
+            _stateAssemblyBuffer[baseIdx + 150] = Existence[i] / 100f;
+            _stateAssemblyBuffer[baseIdx + 151] = Stress[i] / 5f;
+            _stateAssemblyBuffer[baseIdx + 152] = LastAction[i] / 6f;
+            _stateAssemblyBuffer[baseIdx + 153] = Math.Min(TickCount[i] / 200f, 1f);
 
-            // [129-132] signal memory (4 channels, each decaying independently)
-            _stateAssemblyBuffer[baseIdx + 129] = SignalMemory[i, 0];
-            _stateAssemblyBuffer[baseIdx + 130] = SignalMemory[i, 1];
-            _stateAssemblyBuffer[baseIdx + 131] = SignalMemory[i, 2];
-            _stateAssemblyBuffer[baseIdx + 132] = SignalMemory[i, 3];
+            // [154-157] signal memory (4 channels, each decaying independently)
+            _stateAssemblyBuffer[baseIdx + 154] = SignalMemory[i, 0];
+            _stateAssemblyBuffer[baseIdx + 155] = SignalMemory[i, 1];
+            _stateAssemblyBuffer[baseIdx + 156] = SignalMemory[i, 2];
+            _stateAssemblyBuffer[baseIdx + 157] = SignalMemory[i, 3];
 
-            // [133-136] scent gradient (no dynamic normalization — signals ∈ [0,1])
+            // [158-161] scent gradient
             float scentHere = ScentGrid[cx, cy];
-            _stateAssemblyBuffer[baseIdx + 133] = (cy > 0) ? ScentGrid[cx, cy - 1] - scentHere : 0f;
-            _stateAssemblyBuffer[baseIdx + 134] = (cy < H - 1) ? ScentGrid[cx, cy + 1] - scentHere : 0f;
-            _stateAssemblyBuffer[baseIdx + 135] = (cx < W - 1) ? ScentGrid[cx + 1, cy] - scentHere : 0f;
-            _stateAssemblyBuffer[baseIdx + 136] = (cx > 0) ? ScentGrid[cx - 1, cy] - scentHere : 0f;
+            _stateAssemblyBuffer[baseIdx + 158] = (cy > 0) ? ScentGrid[cx, cy - 1] - scentHere : 0f;
+            _stateAssemblyBuffer[baseIdx + 159] = (cy < H - 1) ? ScentGrid[cx, cy + 1] - scentHere : 0f;
+            _stateAssemblyBuffer[baseIdx + 160] = (cx < W - 1) ? ScentGrid[cx + 1, cy] - scentHere : 0f;
+            _stateAssemblyBuffer[baseIdx + 161] = (cx > 0) ? ScentGrid[cx - 1, cy] - scentHere : 0f;
 
-            // [137-139] local stats (using spatial grids for O(1) lookup)
+            // [162-164] local stats
             int foodVisible = 0;
             int agentVisible = 0;
             for (int dy = -R; dy <= R; dy++)
@@ -280,31 +284,31 @@ public class VectorizedState : IDisposable
                     }
                 }
             }
-            _stateAssemblyBuffer[baseIdx + 137] = Math.Min(foodVisible / 5f, 1f);
-            _stateAssemblyBuffer[baseIdx + 138] = Math.Min(agentVisible / 8f, 1f);
-            _stateAssemblyBuffer[baseIdx + 139] = Math.Min(scentHere / 10f, 1f);
+            _stateAssemblyBuffer[baseIdx + 162] = Math.Min(foodVisible / 5f, 1f);
+            _stateAssemblyBuffer[baseIdx + 163] = Math.Min(agentVisible / 8f, 1f);
+            _stateAssemblyBuffer[baseIdx + 164] = Math.Min(scentHere / 10f, 1f);
 
-            // [140] hide state
-            _stateAssemblyBuffer[baseIdx + 140] = IsHiding[i] ? 1f : 0f;
+            // [165] hide state
+            _stateAssemblyBuffer[baseIdx + 165] = IsHiding[i] ? 1f : 0f;
 
-            // [141-142] facing direction (unit vector)
+            // [166-167] facing direction (unit vector)
             int fd = FacingDirection[i];
-            _stateAssemblyBuffer[baseIdx + 141] = fd == 2 ? -1f : fd == 3 ? 1f : 0f;
-            _stateAssemblyBuffer[baseIdx + 142] = fd == 0 ? -1f : fd == 1 ? 1f : 0f;
+            _stateAssemblyBuffer[baseIdx + 166] = fd == 2 ? -1f : fd == 3 ? 1f : 0f;
+            _stateAssemblyBuffer[baseIdx + 167] = fd == 0 ? -1f : fd == 1 ? 1f : 0f;
 
-            // [143] signal age (normalized)
-            _stateAssemblyBuffer[baseIdx + 143] = Math.Min(SignalAge[i] / 20f, 1f);
+            // [168] signal age (normalized)
+            _stateAssemblyBuffer[baseIdx + 168] = Math.Min(SignalAge[i] / 20f, 1f);
 
-            // [144] hunger (normalized 0-1)
-            _stateAssemblyBuffer[baseIdx + 144] = Hunger[i] / 100f;
+            // [169] hunger (normalized 0-1)
+            _stateAssemblyBuffer[baseIdx + 169] = Hunger[i] / 100f;
 
-            // [145] thirst (normalized 0-1)
-            _stateAssemblyBuffer[baseIdx + 145] = Thirst[i] / 100f;
+            // [170] thirst (normalized 0-1)
+            _stateAssemblyBuffer[baseIdx + 170] = Thirst[i] / 100f;
 
-            // [146] water sound intensity at current position (normalized)
-            _stateAssemblyBuffer[baseIdx + 146] = Math.Min(WaterSoundGrid[cx, cy] / 10f, 1f);
+            // [171] water sound intensity at current position (normalized)
+            _stateAssemblyBuffer[baseIdx + 171] = Math.Min(WaterSoundGrid[cx, cy] / 10f, 1f);
 
-            // [147-162] signal field gradient: 4 channels × 4 directions
+            // [172-187] signal field gradient: 4 channels × 4 directions
             for (int ch = 0; ch < 4; ch++)
             {
                 float sigHere = SignalField[cx, cy, ch];
@@ -313,11 +317,10 @@ public class VectorizedState : IDisposable
                 float sigE = (cx < W - 1) ? SignalField[cx + 1, cy, ch] - sigHere : 0f;
                 float sigW = (cx > 0) ? SignalField[cx - 1, cy, ch] - sigHere : 0f;
 
-                // No dynamic normalization — signals ∈ [0,1], gradient ∈ [-1,1]
-                _stateAssemblyBuffer[baseIdx + 147 + ch * 4 + 0] = sigN;
-                _stateAssemblyBuffer[baseIdx + 147 + ch * 4 + 1] = sigS;
-                _stateAssemblyBuffer[baseIdx + 147 + ch * 4 + 2] = sigE;
-                _stateAssemblyBuffer[baseIdx + 147 + ch * 4 + 3] = sigW;
+                _stateAssemblyBuffer[baseIdx + 172 + ch * 4 + 0] = sigN;
+                _stateAssemblyBuffer[baseIdx + 172 + ch * 4 + 1] = sigS;
+                _stateAssemblyBuffer[baseIdx + 172 + ch * 4 + 2] = sigE;
+                _stateAssemblyBuffer[baseIdx + 172 + ch * 4 + 3] = sigW;
             }
         }
 
@@ -354,6 +357,16 @@ public class VectorizedState : IDisposable
         return IsShallowWater(x - 1, y) || IsShallowWater(x + 1, y) ||
                IsShallowWater(x, y - 1) || IsShallowWater(x, y + 1);
     }
+
+    public bool IsBushAt(int x, int y)
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        if (x < 0 || x >= W || y < 0 || y >= H) return false;
+        return _bushGrid[x * H + y];
+    }
+
+    public void SetBushGrid(bool[] grid) => _bushGrid = grid;
 
     private bool HasCorpseAt(int x, int y)
     {

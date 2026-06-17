@@ -11,6 +11,7 @@ interface Props {
   food: FoodTile[]
   corpses: CorpseTile[]
   river: number[]
+  bush: number[]
   trackedAgent?: number | null
   onTrackChange?: (id: number | null) => void
   showScent?: boolean
@@ -26,7 +27,7 @@ interface TooltipInfo {
 }
 
 export function WorldMap({
-  agents, food, corpses, river,
+  agents, food, corpses, river, bush,
   trackedAgent: trackedProp, onTrackChange,
   showScent = false, showFoodScent = false,
   showDirection = false, showVision = false,
@@ -121,6 +122,29 @@ export function WorldMap({
             ctx.fillStyle = 'rgba(59, 130, 246, 0.35)'
           }
           ctx.fillRect(px, py, cellSize, cellSize)
+        }
+      }
+    }
+
+    // Bush tiles
+    if (bush.length > 0) {
+      const startCol = Math.max(0, Math.floor(cam.x / cellSize))
+      const endCol = Math.min(GRID_W, Math.ceil((cam.x + w) / cellSize))
+      const startRow = Math.max(0, Math.floor(cam.y / cellSize))
+      const endRow = Math.min(GRID_H, Math.ceil((cam.y + h) / cellSize))
+      for (let gx = startCol; gx < endCol; gx++) {
+        for (let gy = startRow; gy < endRow; gy++) {
+          if (bush[gy * GRID_W + gx] === 0) continue
+          const px = gx * cellSize
+          const py = gy * cellSize
+          ctx.fillStyle = 'rgba(34, 197, 94, 0.15)'
+          ctx.fillRect(px, py, cellSize, cellSize)
+          // Subtle border for bush tiles
+          if (cellSize > 6) {
+            ctx.strokeStyle = 'rgba(34, 197, 94, 0.25)'
+            ctx.lineWidth = 0.5
+            ctx.strokeRect(px + 0.5, py + 0.5, cellSize - 1, cellSize - 1)
+          }
         }
       }
     }
@@ -295,7 +319,7 @@ export function WorldMap({
       ? `${zoomPct}% | tracking #${trackedAgent} | alive ${aliveCount}/${agents.length}`
       : `${zoomPct}% | alive ${aliveCount}/${agents.length}`
     ctx.fillText(hudText, 8, 8)
-  }, [agents, food, corpses, river, trackedAgent, showScent, showFoodScent, showDirection, showVision])
+  }, [agents, food, corpses, river, bush, trackedAgent, showScent, showFoodScent, showDirection, showVision])
 
   useEffect(() => {
     rafRef.current = requestAnimationFrame(draw)
@@ -336,6 +360,11 @@ export function WorldMap({
       if (rv === 2) return { x: mx + 12, y: my - 10, text: ['Deep Water', 'Impassable'] }
     }
 
+    // Check bush
+    if (bush.length > 0 && bush[gy * GRID_W + gx] === 1) {
+      return { x: mx + 12, y: my - 10, text: ['Bush (灌木丛)', 'Effective hiding spot'] }
+    }
+
     // Check food (area-based for multi-cell BigFood)
     const foodHere = food.find(f => {
       const fw = f.width || 1
@@ -362,7 +391,7 @@ export function WorldMap({
     }
 
     return null
-  }, [agents, food, corpses, river])
+  }, [agents, food, corpses, river, bush])
 
   useEffect(() => {
     const canvas = canvasRef.current

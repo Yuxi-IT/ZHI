@@ -253,6 +253,12 @@ public class WebServer : IDisposable
             for (int ry = 0; ry < gh; ry++)
                 river[ry * gw + rx] = v.RiverGrid[rx, ry];
 
+        // Serialize bush grid as flat array (0=empty, 1=bush)
+        var bush = new int[gw * gh];
+        for (int bx = 0; bx < gw; bx++)
+            for (int by = 0; by < gh; by++)
+                bush[by * gw + bx] = v.IsBushAt(bx, by) ? 1 : 0;
+
         // Compute energy source percentages
         float totalEnergySrc = _engine.GenFoodEnergy + _engine.GenBigFoodEnergy + _engine.GenCorpseEnergy;
         float foodPct = totalEnergySrc > 0 ? _engine.GenFoodEnergy / totalEnergySrc * 100f : 0;
@@ -285,6 +291,7 @@ public class WebServer : IDisposable
             food,
             corpses,
             river,
+            bush,
             grid_width = ZHI.Shared.ToolDefinitions.GridWidth,
             grid_height = ZHI.Shared.ToolDefinitions.GridHeight,
             stats

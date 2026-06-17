@@ -49,6 +49,7 @@ export interface CosmosState {
   food: FoodTile[]
   corpses: CorpseTile[]
   river: number[]  // flat array: 0=land, 1=shallow, 2=deep (row-major)
+  bush: number[]   // flat array: 0=empty, 1=bush (row-major)
 }
 
 export interface LogMessage {

@@ -163,6 +163,7 @@ public class CosmosEngine : IDisposable
         Array.Clear(_v.RiverGrid);
         Array.Clear(_v.WaterSoundGrid);
         GenerateRiver();
+        GenerateBushes();
         ComputeWaterSound();
         SpawnInitialFood();
 
@@ -252,6 +253,9 @@ public class CosmosEngine : IDisposable
             {
                 decay *= _config.Hide.DecayMultiplier;
                 decay *= 1.0f + (_v.HideStartTick[i] > 0 ? (_globalTick - _v.HideStartTick[i]) / 200f * 0.4f : 0f);
+                // Open area hiding: extra metabolic penalty (bush = effective, open = costly)
+                if (!_v.IsBushAt(_v.PosX[i], _v.PosY[i]))
+                    decay *= _config.Bush.OpenHideMetabolicMult;
                 _genHidingTicks++;
             }
 
@@ -367,8 +371,15 @@ public class CosmosEngine : IDisposable
             {
                 if (_v.FoodTiles.Count < _config.Grid.MaxFood)
                 {
-                    int rx = _rng.Next(W);
-                    int ry = _rng.Next(H);
+                    // Avoid spawning on deep water
+                    int rx, ry;
+                    int attempts = 0;
+                    do {
+                        rx = _rng.Next(W);
+                        ry = _rng.Next(H);
+                        attempts++;
+                    } while (_v.IsDeepWater(rx, ry) && attempts < 20);
+
                     _v.FoodTiles.Add(new FoodTile
                     {
                         X = rx, Y = ry,
@@ -658,6 +669,18 @@ public class CosmosEngine : IDisposable
                         _v.IsHiding[i] = true;
                         _v.HideStartTick[i] = _globalTick;
                         _tickEvents.Add(new WorldEvent { Type = "hide_enter", AgentId = i, Tick = _globalTick });
+                    }
+                    // Soft constraint: bush = effective hide, open = metabolic penalty + reward penalty
+                    if (!_v.IsBushAt(_v.PosX[i], _v.PosY[i]))
+                    {
+                        // Open area hiding: extra metabolic cost + reward penalty
+                        _v.Existence[i] -= _config.Bush.OpenHideRewardPenalty;
+                        rewards[i] -= _config.Bush.OpenHideRewardPenalty;
+                    }
+                    else
+                    {
+                        // Bush hiding: small reward for valid tactical choice
+                        rewards[i] += _config.Bush.BushHideReward;
                     }
                     break;
             }
@@ -950,6 +973,61 @@ public class CosmosEngine : IDisposable
         }
 
         Log($"[River] Generated {(horizontal ? "H" : "V")} river, width={riverWidth}, deep={deepWidth}");
+    }
+
+    private void GenerateBushes()
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        int gridSize = W * H;
+        var bushGrid = new bool[gridSize];
+        int totalBushes = 0;
+
+        int clusterCount = _config.Bush.ClusterCount;
+        int minSize = _config.Bush.MinClusterSize;
+        int maxSize = _config.Bush.MaxClusterSize;
+
+        for (int c = 0; c < clusterCount; c++)
+        {
+            // Random seed for this cluster
+            int cx = _rng.Next(W);
+            int cy = _rng.Next(H);
+
+            // Skip if seed is on deep water
+            if (_v.IsDeepWater(cx, cy)) continue;
+
+            int clusterSize = _rng.Next(minSize, maxSize + 1);
+            int placed = 0;
+
+            // Random walk to fill cluster
+            int x = cx, y = cy;
+            for (int step = 0; step < clusterSize * 3 && placed < clusterSize; step++)
+            {
+                // Random walk step
+                int dir = _rng.Next(4);
+                switch (dir)
+                {
+                    case 0: y = Math.Max(0, y - 1); break;
+                    case 1: y = Math.Min(H - 1, y + 1); break;
+                    case 2: x = Math.Max(0, x - 1); break;
+                    case 3: x = Math.Min(W - 1, x + 1); break;
+                }
+
+                // Skip deep water tiles
+                if (_v.IsDeepWater(x, y)) continue;
+
+                int key = x * H + y;
+                if (!bushGrid[key])
+                {
+                    bushGrid[key] = true;
+                    placed++;
+                    totalBushes++;
+                }
+            }
+        }
+
+        _v.SetBushGrid(bushGrid);
+        Log($"[Bush] Generated {totalBushes} bush tiles in {clusterCount} clusters");
     }
 
     private void ComputeWaterSound()
