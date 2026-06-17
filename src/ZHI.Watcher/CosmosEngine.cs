@@ -718,9 +718,9 @@ public class CosmosEngine : IDisposable
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
 
-        // Track which foods/corpses are claimed this tick (prevents double-eat)
-        var claimedFood = new HashSet<int>();
-        var claimedCorpses = new HashSet<int>();
+        // Track depleted food/corpse indices for cleanup
+        var depletedFood = new HashSet<int>();
+        var depletedCorpses = new HashSet<int>();
 
         for (int i = 0; i < n; i++)
         {
@@ -759,7 +759,7 @@ public class CosmosEngine : IDisposable
                     break;
 
                 case ZhiAction.Eat:
-                    ProcessEat(i, claimedFood, claimedCorpses, rewards);
+                    ProcessEat(i, rewards, depletedFood, depletedCorpses);
                     break;
 
                 case ZhiAction.Attack:
@@ -787,252 +787,113 @@ public class CosmosEngine : IDisposable
             }
         }
 
-        // Remove consumed food and corpses
-        if (claimedFood.Count > 0 || claimedCorpses.Count > 0)
+        // Cleanup depleted foods and corpses
+        if (depletedFood.Count > 0 || depletedCorpses.Count > 0)
         {
             lock (_v.LockObj)
             {
-                var sortedFood = claimedFood.OrderByDescending(x => x).ToList();
+                var sortedFood = depletedFood.OrderByDescending(x => x).ToList();
                 foreach (int idx in sortedFood)
                     _v.FoodTiles.RemoveAt(idx);
 
-                var sortedCorpses = claimedCorpses.OrderByDescending(x => x).ToList();
+                var sortedCorpses = depletedCorpses.OrderByDescending(x => x).ToList();
                 foreach (int idx in sortedCorpses)
                     _v.CorpseTiles.RemoveAt(idx);
             }
         }
     }
 
-    private int FindFoodAt(int px, int py, HashSet<int>? claimed = null)
-    {
-        for (int f = 0; f < _v.FoodTiles.Count; f++)
-        {
-            if (claimed?.Contains(f) == true) continue;
-            var ft = _v.FoodTiles[f];
-            int fw = ft.Width > 0 ? ft.Width : 1;
-            int fh = ft.Height > 0 ? ft.Height : 1;
-            if (px >= ft.X && px < ft.X + fw && py >= ft.Y && py < ft.Y + fh)
-                return f;
-        }
-        return -1;
-    }
-
-    private int FindCorpseAt(int px, int py, HashSet<int>? claimed = null)
-    {
-        for (int c = 0; c < _v.CorpseTiles.Count; c++)
-        {
-            if (claimed?.Contains(c) == true) continue;
-            if (_v.CorpseTiles[c].X == px && _v.CorpseTiles[c].Y == py)
-                return c;
-        }
-        return -1;
-    }
-
-    // Count agents currently eating the same big food (including self)
-    private int CountBigFoodEaters(int foodIdx, int selfIdx)
-    {
-        var ft = _v.FoodTiles[foodIdx];
-        if (!ft.IsBig) return 1;
-        int fw = ft.Width > 0 ? ft.Width : 1;
-        int fh = ft.Height > 0 ? ft.Height : 1;
-        int count = 0;
-        for (int i = 0; i < _v.N; i++)
-        {
-            if (!_v.Alive[i]) continue;
-            if (_v.EatTargetType[i] != 3) continue; // not eating big food
-            int px = _v.PosX[i], py = _v.PosY[i];
-            if (px >= ft.X && px < ft.X + fw && py >= ft.Y && py < ft.Y + fh)
-            {
-                // Check this agent is actually eating right now
-                if (_v.EatTargetX[i] == px && _v.EatTargetY[i] == py)
-                    count++;
-            }
-        }
-        return Math.Max(1, count);
-    }
-
-    private void ProcessEat(int i, HashSet<int> claimedFood, HashSet<int> claimedCorpses, float[] rewards)
+    private void ProcessEat(int i, float[] rewards, HashSet<int> depletedFood, HashSet<int> depletedCorpses)
     {
         int px = _v.PosX[i];
         int py = _v.PosY[i];
 
-        int foodIdx = FindFoodAt(px, py, claimedFood);
-        int corpseIdx = foodIdx < 0 ? FindCorpseAt(px, py, claimedCorpses) : -1;
+        float extracted = 0f;
+        string foodType = "";
 
-        // Determine target type
-        byte targetType = 0; // 0=none, 1=small_food, 2=corpse, 3=big_food
-        int targetIdx = -1;
-        if (foodIdx >= 0)
+        lock (_v.LockObj)
         {
-            targetType = _v.FoodTiles[foodIdx].IsBig ? (byte)3 : (byte)1;
-            targetIdx = foodIdx;
-        }
-        else if (corpseIdx >= 0)
-        {
-            targetType = 2;
-            targetIdx = corpseIdx;
+            // Check food tiles at position
+            for (int f = _v.FoodTiles.Count - 1; f >= 0; f--)
+            {
+                var ft = _v.FoodTiles[f];
+                int fw = ft.Width > 0 ? ft.Width : 1;
+                int fh = ft.Height > 0 ? ft.Height : 1;
+                if (px < ft.X || px >= ft.X + fw || py < ft.Y || py >= ft.Y + fh)
+                    continue;
+
+                float perTick = ft.IsBig ? _config.Grid.BigFoodPerTickEnergy : _config.Grid.FoodPerTickEnergy;
+                extracted = MathF.Min(perTick, ft.Energy);
+                ft.Energy -= extracted;
+                foodType = ft.IsBig ? "BigFood" : "Food";
+
+                if (ft.Energy <= 0.001f)
+                {
+                    depletedFood.Add(f);
+                    if (ft.IsBig) _genBigFoodEaten++;
+                    else _genFoodEaten++;
+                }
+                else
+                    _v.FoodTiles[f] = ft;
+
+                break;
+            }
+
+            // Check corpse tiles if no food found
+            if (extracted <= 0f)
+            {
+                for (int c = _v.CorpseTiles.Count - 1; c >= 0; c--)
+                {
+                    var ct = _v.CorpseTiles[c];
+                    if (ct.X != px || ct.Y != py) continue;
+
+                    float perTick = _config.Grid.CorpsePerTickEnergy;
+                    extracted = MathF.Min(perTick, ct.Energy);
+                    ct.Energy -= extracted;
+                    foodType = "Corpse";
+
+                    if (ct.Energy <= 0.001f)
+                    {
+                        depletedCorpses.Add(c);
+                        _genCorpsesEaten++;
+                    }
+                    else
+                        _v.CorpseTiles[c] = ct;
+
+                    break;
+                }
+            }
         }
 
-        if (targetType == 0)
+        if (extracted <= 0f)
         {
-            // Nothing to eat here
-            _v.EatProgress[i] = 0f;
-            _v.EatTargetType[i] = 0;
-            _v.EatTargetX[i] = -1;
-            _v.EatTargetY[i] = -1;
             rewards[i] -= 0.25f;
             return;
         }
 
-        // Check if continuing same target or switching
-        bool sameTarget = _v.EatTargetType[i] == targetType
-            && _v.EatTargetX[i] == px
-            && _v.EatTargetY[i] == py;
+        float hungerBefore = _v.Hunger[i];
+        _v.Hunger[i] = MathF.Min(100f, _v.Hunger[i] + extracted);
+        float hungerDelta = _v.Hunger[i] - hungerBefore;
+        if (hungerDelta > 0) rewards[i] += hungerDelta * 0.05f;
 
-        if (!sameTarget)
+        _v.EatCount[i]++;
+        switch (foodType)
         {
-            _v.EatProgress[i] = 0f;
-            _v.EatTargetType[i] = targetType;
-            _v.EatTargetX[i] = px;
-            _v.EatTargetY[i] = py;
-        }
-
-        // Determine required ticks
-        int requiredTicks;
-        if (targetType == 1) // small food
-            requiredTicks = _config.Grid.SmallFoodEatTicks;
-        else if (targetType == 2) // corpse
-            requiredTicks = _config.Grid.CorpseEatTicks;
-        else // big food — tick rate depends on concurrent eaters
-        {
-            int eaters = CountBigFoodEaters(foodIdx, i);
-            eaters = Math.Min(eaters, _config.Grid.BigFoodMaxEaters);
-            requiredTicks = eaters >= 2 ? _config.Grid.BigFoodCoopTicks : _config.Grid.BigFoodSoloTicks;
-        }
-
-        // Advance progress (1 tick worth)
-        _v.EatProgress[i] += 1.0f / Math.Max(1, requiredTicks);
-
-        if (_v.EatProgress[i] < 1.0f) return; // Not done yet
-
-        // --- Consume ---
-        if (targetType == 1) // Small food
-        {
-            claimedFood.Add(foodIdx);
-            float hungerBefore = _v.Hunger[i];
-            _v.Hunger[i] = MathF.Min(100f, _v.Hunger[i] + _config.Hunger.EatRestore);
-            float hungerDelta = _v.Hunger[i] - hungerBefore;
-            if (hungerDelta > 0) rewards[i] += hungerDelta * 0.05f;
-            _v.EatCount[i]++;
-            _v.FoodEatCount[i]++;
-            _tickEvents.Add(new WorldEvent { Type = "eat", AgentId = i, FoodType = "Food", Value = _config.Hunger.EatRestore, Tick = _globalTick });
-            _genFoodEaten++;
-            _genFoodEnergy += _v.FoodTiles[foodIdx].Energy;
-            // Reset progress
-            _v.EatProgress[i] = 0f;
-            _v.EatTargetType[i] = 0;
-        }
-        else if (targetType == 2) // Corpse
-        {
-            claimedCorpses.Add(corpseIdx);
-            float corpseRestore = _config.Hunger.EatRestore * 0.8f;
-            float hungerBefore = _v.Hunger[i];
-            _v.Hunger[i] = MathF.Min(100f, _v.Hunger[i] + corpseRestore);
-            float hungerDelta = _v.Hunger[i] - hungerBefore;
-            if (hungerDelta > 0) rewards[i] += hungerDelta * 0.05f;
-            _v.EatCount[i]++;
-            _v.CorpseEatCount[i]++;
-            _tickEvents.Add(new WorldEvent { Type = "eat", AgentId = i, FoodType = "Corpse", Value = corpseRestore, Tick = _globalTick });
-            _genCorpsesEaten++;
-            _genCorpseEnergy += _v.CorpseTiles[corpseIdx].Energy;
-            _v.EatProgress[i] = 0f;
-            _v.EatTargetType[i] = 0;
-        }
-        else // Big food
-        {
-            // Gather all agents currently eating this same big food
-            var eaters = new List<int> { i };
-            for (int j = 0; j < _v.N; j++)
-            {
-                if (j == i || !_v.Alive[j]) continue;
-                if (_v.EatTargetType[j] == 3
-                    && _v.EatTargetX[j] == _v.PosX[j]
-                    && _v.EatTargetY[j] == _v.PosY[j]
-                    && FindFoodAt(_v.PosX[j], _v.PosY[j]) == foodIdx)
-                {
-                    eaters.Add(j);
-                }
-            }
-            // Cap at max eaters
-            if (eaters.Count > _config.Grid.BigFoodMaxEaters)
-                eaters = eaters.Take(_config.Grid.BigFoodMaxEaters).ToList();
-            // Sort by first-contact (lower EatTargetX/Y doesn't track order; use order in list as proxy)
-            // The first agent in eaters list is the one who triggered consumption
-
-            int totalEaters = eaters.Count;
-            float bigFoodEnergy = _v.FoodTiles[foodIdx].Energy;
-
-            if (totalEaters == 1)
-            {
-                // Solo: 70% energy
-                float energyShare = bigFoodEnergy * _config.Grid.BigFoodSoloEnergyRatio;
-                float hungerBefore = _v.Hunger[i];
-                _v.Hunger[i] = MathF.Min(100f, _v.Hunger[i] + energyShare);
-                float hungerDelta = _v.Hunger[i] - hungerBefore;
-                if (hungerDelta > 0) rewards[i] += hungerDelta * 0.05f;
-                _v.EatCount[i]++;
+            case "BigFood":
                 _v.BigFoodEatCount[i]++;
-                _tickEvents.Add(new WorldEvent { Type = "eat", AgentId = i, FoodType = "BigFood", Value = energyShare, Tick = _globalTick });
-                _genBigFoodEnergy += energyShare;
-            }
-            else if (totalEaters == 2)
-            {
-                // 50% each
-                float share = bigFoodEnergy * 0.5f;
-                foreach (int eater in eaters)
-                {
-                    float hungerBefore = _v.Hunger[eater];
-                    _v.Hunger[eater] = MathF.Min(100f, _v.Hunger[eater] + share);
-                    float hungerDelta = _v.Hunger[eater] - hungerBefore;
-                    if (hungerDelta > 0) rewards[eater] += hungerDelta * 0.05f;
-                    _v.EatCount[eater]++;
-                    _v.BigFoodEatCount[eater]++;
-                    _tickEvents.Add(new WorldEvent { Type = "eat", AgentId = eater, FoodType = "BigFood", Value = share, Tick = _globalTick });
-                }
-                _genBigFoodEnergy += bigFoodEnergy;
-            }
-            else // 3 eaters
-            {
-                // 34/33/33 split (first eater gets 34%)
-                float share0 = bigFoodEnergy * 0.34f;
-                float shareN = bigFoodEnergy * 0.33f;
-                for (int k = 0; k < eaters.Count; k++)
-                {
-                    int eater = eaters[k];
-                    float share = k == 0 ? share0 : shareN;
-                    float hungerBefore = _v.Hunger[eater];
-                    _v.Hunger[eater] = MathF.Min(100f, _v.Hunger[eater] + share);
-                    float hungerDelta = _v.Hunger[eater] - hungerBefore;
-                    if (hungerDelta > 0) rewards[eater] += hungerDelta * 0.05f;
-                    _v.EatCount[eater]++;
-                    _v.BigFoodEatCount[eater]++;
-                    _tickEvents.Add(new WorldEvent { Type = "eat", AgentId = eater, FoodType = "BigFood", Value = share, Tick = _globalTick });
-                }
-                _genBigFoodEnergy += bigFoodEnergy;
-            }
-
-            _genBigFoodEaten++;
-            claimedFood.Add(foodIdx);
-
-            // Reset progress for all eaters
-            foreach (int eater in eaters)
-            {
-                _v.EatProgress[eater] = 0f;
-                _v.EatTargetType[eater] = 0;
-                _v.EatTargetX[eater] = -1;
-                _v.EatTargetY[eater] = -1;
-            }
+                _genBigFoodEnergy += extracted;
+                break;
+            case "Corpse":
+                _v.CorpseEatCount[i]++;
+                _genCorpseEnergy += extracted;
+                break;
+            default:
+                _v.FoodEatCount[i]++;
+                _genFoodEnergy += extracted;
+                break;
         }
+
+        _tickEvents.Add(new WorldEvent { Type = "eat", AgentId = i, FoodType = foodType, Value = extracted, Tick = _globalTick });
     }
 
     private void ProcessAttack(int attacker)
@@ -1067,8 +928,8 @@ public class CosmosEngine : IDisposable
         {
             float hpRatio = Math.Clamp(_v.Existence[attacker] / 100f, 0.2f, 1.5f);
             float damage = 20f * hpRatio;
-            // Eating targets take 110% damage
-            if (_v.EatTargetType[bestTarget] > 0) damage *= 1.1f;
+            // Targets standing on food take 110% damage (eating vulnerability)
+            if (HasFoodOrCorpseAt(_v.PosX[bestTarget], _v.PosY[bestTarget])) damage *= 1.1f;
             _v.Stress[bestTarget] += _config.Combat.StressPerAttack;
             _v.Existence[bestTarget] -= damage;
             _v.LastActionNameMirror[attacker] = $"attack#{bestTarget}";
@@ -1285,6 +1146,26 @@ public class CosmosEngine : IDisposable
         for (int i = 0; i < _v.N; i++)
             if (_v.Alive[i]) count++;
         return count;
+    }
+
+    private bool HasFoodOrCorpseAt(int px, int py)
+    {
+        lock (_v.LockObj)
+        {
+            foreach (var ft in _v.FoodTiles)
+            {
+                int fw = ft.Width > 0 ? ft.Width : 1;
+                int fh = ft.Height > 0 ? ft.Height : 1;
+                if (px >= ft.X && px < ft.X + fw && py >= ft.Y && py < ft.Y + fh)
+                    return true;
+            }
+            foreach (var ct in _v.CorpseTiles)
+            {
+                if (ct.X == px && ct.Y == py)
+                    return true;
+            }
+        }
+        return false;
     }
 
     private int CountNearbyAgents(int agentIdx, int range)

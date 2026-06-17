@@ -42,13 +42,10 @@ public sealed class GridConfig
     public int FoodTTL { get; set; } = 200;
     public int BigFoodTTL { get; set; } = 400;
 
-    // Eating progress (multi-tick)
-    public int SmallFoodEatTicks { get; set; } = 16;
-    public int CorpseEatTicks { get; set; } = 20;
-    public int BigFoodSoloTicks { get; set; } = 40;
-    public int BigFoodCoopTicks { get; set; } = 20;
-    public int BigFoodMaxEaters { get; set; } = 3;
-    public float BigFoodSoloEnergyRatio { get; set; } = 0.7f;
+    // Eating: per-tick energy extraction (continuous model, multiple agents compete)
+    public float FoodPerTickEnergy { get; set; } = 1.0f;     // ~15 ticks to deplete small food
+    public float BigFoodPerTickEnergy { get; set; } = 2.0f;   // ~40 ticks solo, faster with competition
+    public float CorpsePerTickEnergy { get; set; } = 1.0f;    // ~20 ticks to deplete corpse
 
     // Food respawning
     public int FoodRespawnInterval { get; set; } = 10;
@@ -146,7 +143,7 @@ public sealed class HungerConfig
 {
     public float Initial { get; set; } = 100f;
     public float DecayRate { get; set; } = 0.05f;       // 2000 ticks to empty
-    public float EatRestore { get; set; } = 30f;         // per eat action
+    // hunger restored by per-tick food energy extraction
     public float PenaltyStart { get; set; } = 60f;       // continuous ramp begins here
     public float MaxPenalty { get; set; } = 0.25f;       // HP/tick at hunger=0
 }

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 
 interface ZhiConfig {
-  Grid: { Width: number; Height: number; InitialFood: number; InitialBigFood: number; FoodEnergy: number; BigFoodEnergy: number; FoodTTL: number; BigFoodTTL: number; MaxFood: number; FoodRespawnInterval: number; SmallFoodEatTicks: number; CorpseEatTicks: number; BigFoodSoloTicks: number; BigFoodCoopTicks: number; BigFoodMaxEaters: number; BigFoodSoloEnergyRatio: number }
+  Grid: { Width: number; Height: number; InitialFood: number; InitialBigFood: number; FoodEnergy: number; BigFoodEnergy: number; FoodTTL: number; BigFoodTTL: number; MaxFood: number; FoodRespawnInterval: number; FoodPerTickEnergy: number; BigFoodPerTickEnergy: number; CorpsePerTickEnergy: number }
   Cosmos: { AgentCount: number; RespawnDelayTicks: number; MutationStd: number }
   Temperature: { MaxTemp: number; MinTemp: number; ColdThreshold: number; MaxColdDecay: number; HotThreshold: number; MaxThirstAccel: number; HuddleRange: number; HuddleWarmthPerAgent: number }
   Combat: { AttackRange: number; StressPerAttack: number; StressDamage: number; StressDecay: number; AttackCost: number }
-  Hunger: { DecayRate: number; EatRestore: number; PenaltyStart: number; MaxPenalty: number; Initial: number }
+  Hunger: { DecayRate: number; PenaltyStart: number; MaxPenalty: number; Initial: number }
   Thirst: { DecayRate: number; DrinkRestore: number; PenaltyStart: number; MaxPenalty: number; Initial: number }
   River: { Width: number; DeepWidth: number; FordChance: number; SoundRange: number; SoundDecay: number }
   Existence: { DecayPerTick: number; Initial: number }
@@ -107,13 +107,10 @@ export function SettingsPanel() {
           <NumberField label="大食物TTL" value={config.Grid.BigFoodTTL} onChange={v => update('Grid', 'BigFoodTTL', v)} min={10} max={5000} />
         </Section>
 
-        <Section title="进食">
-          <NumberField label="普通食物(tick)" value={config.Grid.SmallFoodEatTicks} onChange={v => update('Grid', 'SmallFoodEatTicks', v)} min={1} max={100} />
-          <NumberField label="尸体(tick)" value={config.Grid.CorpseEatTicks} onChange={v => update('Grid', 'CorpseEatTicks', v)} min={1} max={100} />
-          <NumberField label="大食物单人(tick)" value={config.Grid.BigFoodSoloTicks} onChange={v => update('Grid', 'BigFoodSoloTicks', v)} min={1} max={200} />
-          <NumberField label="大食物合作(tick)" value={config.Grid.BigFoodCoopTicks} onChange={v => update('Grid', 'BigFoodCoopTicks', v)} min={1} max={100} />
-          <NumberField label="大食物最大食者" value={config.Grid.BigFoodMaxEaters} onChange={v => update('Grid', 'BigFoodMaxEaters', v)} min={1} max={10} />
-          <NumberField label="大食物单人能量比" value={config.Grid.BigFoodSoloEnergyRatio} onChange={v => update('Grid', 'BigFoodSoloEnergyRatio', v)} min={0.1} max={1} step={0.05} />
+        <Section title="进食 (每tick能量提取)">
+          <NumberField label="普通食物/tick" value={config.Grid.FoodPerTickEnergy} onChange={v => update('Grid', 'FoodPerTickEnergy', v)} min={0.1} max={20} step={0.1} />
+          <NumberField label="大食物/tick" value={config.Grid.BigFoodPerTickEnergy} onChange={v => update('Grid', 'BigFoodPerTickEnergy', v)} min={0.1} max={50} step={0.1} />
+          <NumberField label="尸体/tick" value={config.Grid.CorpsePerTickEnergy} onChange={v => update('Grid', 'CorpsePerTickEnergy', v)} min={0.1} max={20} step={0.1} />
         </Section>
 
         <Section title="温度">
@@ -141,7 +138,6 @@ export function SettingsPanel() {
 
         <Section title="生理">
           <NumberField label="饥饿衰减" value={config.Hunger.DecayRate} onChange={v => update('Hunger', 'DecayRate', v)} min={0} max={1} step={0.01} />
-          <NumberField label="进食恢复" value={config.Hunger.EatRestore} onChange={v => update('Hunger', 'EatRestore', v)} min={1} max={100} />
           <NumberField label="口渴衰减" value={config.Thirst.DecayRate} onChange={v => update('Thirst', 'DecayRate', v)} min={0} max={1} step={0.01} />
           <NumberField label="饮水恢复" value={config.Thirst.DrinkRestore} onChange={v => update('Thirst', 'DrinkRestore', v)} min={1} max={100} />
           <NumberField label="HP衰减" value={config.Existence.DecayPerTick} onChange={v => update('Existence', 'DecayPerTick', v)} min={0} max={2} step={0.01} />
