@@ -109,6 +109,20 @@ function App() {
               <span className="text-[10px] text-neutral-500">
                 AvgLife {dbStats.avg_alive_seconds_recent_10.toFixed(0)}s
               </span>
+              <span className="text-[10px] text-neutral-500">|</span>
+              <span className="text-[10px] text-neutral-400">
+                Night {((dbStats.night_death_rate ?? 0) * 100).toFixed(0)}%
+              </span>
+              <span className="text-[10px] text-neutral-500">|</span>
+              <span className="text-[10px] text-neutral-500">
+                Atk {dbStats.avg_attacks_per_life?.toFixed(1) ?? "0"}
+              </span>
+              <span className="text-[10px] text-neutral-500">
+                Eat {dbStats.avg_eats_per_life?.toFixed(1) ?? "0"}
+              </span>
+              <span className="text-[10px] text-neutral-500">
+                Sig {dbStats.avg_signals_per_life?.toFixed(1) ?? "0"}
+              </span>
             </>
           )}
           <div className="flex items-center gap-2">

@@ -10,6 +10,16 @@ public class DeathRecord
     public string Cause { get; set; } = "";
     public float StressAtDeath { get; set; }
     public float ExistenceAtDeath { get; set; }
+    public float HungerAtDeath { get; set; }
+    public float ThirstAtDeath { get; set; }
+    public float Temperature { get; set; }
+    public float TimeOfDay { get; set; }
+    public int PosX { get; set; }
+    public int PosY { get; set; }
+    public int AttackCount { get; set; }
+    public int EatCount { get; set; }
+    public int SignalCount { get; set; }
+    public int RespawnCount { get; set; }
     public string PreDeathStatesJson { get; set; } = "[]";
     public DateTime DeathTime { get; set; }
     public double AliveSeconds { get; set; }
@@ -78,7 +88,6 @@ public class Blackbox : IDisposable
 
         if (hasOldCpuColumn)
         {
-            // Migrate old schema: rename cpu_at_death → stress_at_death, drop mem_at_death
             migrateCmd.CommandText = """
                 ALTER TABLE deaths RENAME COLUMN cpu_at_death TO stress_at_death;
                 ALTER TABLE deaths DROP COLUMN mem_at_death;
@@ -94,7 +103,17 @@ public class Blackbox : IDisposable
                 cause TEXT NOT NULL,
                 stress_at_death REAL NOT NULL,
                 existence_at_death REAL NOT NULL,
-                pre_death_states TEXT NOT NULL,
+                hunger_at_death REAL NOT NULL DEFAULT 0,
+                thirst_at_death REAL NOT NULL DEFAULT 0,
+                temperature REAL NOT NULL DEFAULT 20,
+                time_of_day REAL NOT NULL DEFAULT 12,
+                pos_x INTEGER NOT NULL DEFAULT 0,
+                pos_y INTEGER NOT NULL DEFAULT 0,
+                attack_count INTEGER NOT NULL DEFAULT 0,
+                eat_count INTEGER NOT NULL DEFAULT 0,
+                signal_count INTEGER NOT NULL DEFAULT 0,
+                respawn_count INTEGER NOT NULL DEFAULT 0,
+                pre_death_states TEXT NOT NULL DEFAULT '{}',
                 death_time TEXT NOT NULL,
                 alive_seconds REAL NOT NULL
             );
@@ -132,19 +151,61 @@ public class Blackbox : IDisposable
             CREATE INDEX IF NOT EXISTS idx_deaths_gen ON deaths(generation);
             """;
         migrateCmd.ExecuteNonQuery();
+
+        // Migrate existing DBs: add any missing columns
+        var newColumns = new (string Name, string Type)[]
+        {
+            ("hunger_at_death", "REAL NOT NULL DEFAULT 0"),
+            ("thirst_at_death", "REAL NOT NULL DEFAULT 0"),
+            ("temperature", "REAL NOT NULL DEFAULT 20"),
+            ("time_of_day", "REAL NOT NULL DEFAULT 12"),
+            ("pos_x", "INTEGER NOT NULL DEFAULT 0"),
+            ("pos_y", "INTEGER NOT NULL DEFAULT 0"),
+            ("attack_count", "INTEGER NOT NULL DEFAULT 0"),
+            ("eat_count", "INTEGER NOT NULL DEFAULT 0"),
+            ("signal_count", "INTEGER NOT NULL DEFAULT 0"),
+            ("respawn_count", "INTEGER NOT NULL DEFAULT 0"),
+        };
+
+        foreach (var col in newColumns)
+        {
+            try
+            {
+                using var addCmd = _db.CreateCommand();
+                addCmd.CommandText = $"ALTER TABLE deaths ADD COLUMN {col.Name} {col.Type}";
+                addCmd.ExecuteNonQuery();
+            }
+            catch (SqliteException) { /* column already exists */ }
+        }
     }
 
     public void RecordDeath(DeathRecord record)
     {
         using var cmd = _db.CreateCommand();
         cmd.CommandText = """
-            INSERT INTO deaths (generation, cause, stress_at_death, existence_at_death, pre_death_states, death_time, alive_seconds)
-            VALUES (@gen, @cause, @stress, @exist, @states, @time, @alive)
+            INSERT INTO deaths (generation, cause, stress_at_death, existence_at_death,
+                hunger_at_death, thirst_at_death, temperature, time_of_day,
+                pos_x, pos_y, attack_count, eat_count, signal_count, respawn_count,
+                pre_death_states, death_time, alive_seconds)
+            VALUES (@gen, @cause, @stress, @exist,
+                @hunger, @thirst, @temp, @tod,
+                @px, @py, @atk, @eat, @sig, @resp,
+                @states, @time, @alive)
             """;
         cmd.Parameters.AddWithValue("@gen", record.Generation);
         cmd.Parameters.AddWithValue("@cause", record.Cause);
         cmd.Parameters.AddWithValue("@stress", record.StressAtDeath);
         cmd.Parameters.AddWithValue("@exist", record.ExistenceAtDeath);
+        cmd.Parameters.AddWithValue("@hunger", record.HungerAtDeath);
+        cmd.Parameters.AddWithValue("@thirst", record.ThirstAtDeath);
+        cmd.Parameters.AddWithValue("@temp", record.Temperature);
+        cmd.Parameters.AddWithValue("@tod", record.TimeOfDay);
+        cmd.Parameters.AddWithValue("@px", record.PosX);
+        cmd.Parameters.AddWithValue("@py", record.PosY);
+        cmd.Parameters.AddWithValue("@atk", record.AttackCount);
+        cmd.Parameters.AddWithValue("@eat", record.EatCount);
+        cmd.Parameters.AddWithValue("@sig", record.SignalCount);
+        cmd.Parameters.AddWithValue("@resp", record.RespawnCount);
         cmd.Parameters.AddWithValue("@states", record.PreDeathStatesJson);
         cmd.Parameters.AddWithValue("@time", record.DeathTime.ToString("O"));
         cmd.Parameters.AddWithValue("@alive", record.AliveSeconds);
@@ -303,9 +364,19 @@ public class Blackbox : IDisposable
             Cause = reader.GetString(2),
             StressAtDeath = reader.GetFloat(3),
             ExistenceAtDeath = reader.GetFloat(4),
-            PreDeathStatesJson = reader.GetString(5),
-            DeathTime = DateTime.Parse(reader.GetString(6)),
-            AliveSeconds = reader.GetDouble(7)
+            HungerAtDeath = reader.GetFloat(5),
+            ThirstAtDeath = reader.GetFloat(6),
+            Temperature = reader.GetFloat(7),
+            TimeOfDay = reader.GetFloat(8),
+            PosX = reader.GetInt32(9),
+            PosY = reader.GetInt32(10),
+            AttackCount = reader.GetInt32(11),
+            EatCount = reader.GetInt32(12),
+            SignalCount = reader.GetInt32(13),
+            RespawnCount = reader.GetInt32(14),
+            PreDeathStatesJson = reader.GetString(15),
+            DeathTime = DateTime.Parse(reader.GetString(16)),
+            AliveSeconds = reader.GetDouble(17)
         };
     }
 
@@ -335,6 +406,18 @@ public class Blackbox : IDisposable
         result.CauseDistribution = all.GroupBy(d => d.Cause)
             .ToDictionary(g => g.Key, g => g.Count());
 
+        // Aggregate stats from new dimensions
+        result.AvgHungerAtDeath = all.Average(d => d.HungerAtDeath);
+        result.AvgThirstAtDeath = all.Average(d => d.ThirstAtDeath);
+        result.AvgTemperatureAtDeath = all.Average(d => d.Temperature);
+        result.AvgAttacksPerLife = all.Average(d => d.AttackCount);
+        result.AvgEatsPerLife = all.Average(d => d.EatCount);
+        result.AvgSignalsPerLife = all.Average(d => d.SignalCount);
+
+        // Night death rate (time 0-6 or 20-24 = night)
+        var nightDeaths = all.Count(d => d.TimeOfDay < 6f || d.TimeOfDay >= 20f);
+        result.NightDeathRate = all.Count > 0 ? (float)nightDeaths / all.Count : 0f;
+
         // Per-generation data
         result.Generations = all.Select(d => new GenerationStat
         {
@@ -360,6 +443,13 @@ public class StatsResult
     public float SuicideRateRecent_10 { get; set; }
     public double AvgAliveSecondsAll { get; set; }
     public double AvgAliveSecondsRecent_10 { get; set; }
+    public double AvgHungerAtDeath { get; set; }
+    public double AvgThirstAtDeath { get; set; }
+    public double AvgTemperatureAtDeath { get; set; }
+    public double AvgAttacksPerLife { get; set; }
+    public double AvgEatsPerLife { get; set; }
+    public double AvgSignalsPerLife { get; set; }
+    public float NightDeathRate { get; set; }
     public Dictionary<string, int> CauseDistribution { get; set; } = new();
     public List<GenerationStat> Generations { get; set; } = new();
 }

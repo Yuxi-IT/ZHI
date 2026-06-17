@@ -77,6 +77,13 @@ export interface StatsData {
   suicide_rate_recent_10: number
   avg_alive_seconds_all: number
   avg_alive_seconds_recent_10: number
+  avg_hunger_at_death: number
+  avg_thirst_at_death: number
+  avg_temperature_at_death: number
+  avg_attacks_per_life: number
+  avg_eats_per_life: number
+  avg_signals_per_life: number
+  night_death_rate: number
   cause_distribution: Record<string, number>
   generations: GenerationStat[]
 }
