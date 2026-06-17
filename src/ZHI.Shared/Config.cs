@@ -17,6 +17,7 @@ public sealed class ZhiConfig
     public HungerConfig Hunger { get; set; } = new();
     public RiverConfig River { get; set; } = new();
     public TemperatureConfig Temperature { get; set; } = new();
+    public StaminaConfig Stamina { get; set; } = new();
     public int Port { get; set; } = 19816;
     public int DecisionIntervalMs { get; set; } = 200;
     public int DeathCount { get; set; } = 0;
@@ -171,6 +172,23 @@ public sealed class TemperatureConfig
     public float AgentBodyHeat { get; set; } = 2f;   // °C per agent on own cell (half on 8 neighbors), scaled by HP ratio
     public float RiverCooling { get; set; } = 5f;     // °C cooling from deep water on own cell
     public int RiverCoolingRange { get; set; } = 2;   // cooling falloff distance (Chebyshev)
+}
+
+public sealed class StaminaConfig
+{
+    public float MaxStamina { get; set; } = 100f;
+    public float MoveCost { get; set; } = 0.5f;
+    public float AttackCost { get; set; } = 5f;
+    public float PushCost { get; set; } = 10f;
+    public float TerraformCost { get; set; } = 20f;
+    public float BaseRecovery { get; set; } = 1f;         // per tick when well-fed
+    public float StationaryRecoveryBonus { get; set; } = 2f; // multiplier when stationary
+    public float LowStaminaThreshold { get; set; } = 10f;   // cannot push/terraform below this
+    public int StationaryTicksRequired { get; set; } = 5;   // ticks without movement
+    public float StationaryDamageMult { get; set; } = 1.2f; // 120% damage taken when stationary
+    public float StationarySelfHeat { get; set; } = 3f;     // own cell heat bonus
+    public float StationaryNeighborHeat { get; set; } = 2f; // neighbor cell heat bonus
+    public float StationaryHpRecoveryBonus { get; set; } = 0.1f; // bonus HP/tick when stationary
 }
 
 
