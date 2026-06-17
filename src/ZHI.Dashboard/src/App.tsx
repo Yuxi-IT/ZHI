@@ -14,7 +14,8 @@ function formatGameTime(hours: number): string {
   const m = Math.floor((hours - h) * 60)
   const hh = h.toString().padStart(2, '0')
   const mm = m.toString().padStart(2, '0')
-  return `☀ ${hh}:${mm}`
+  const icon = hours >= 6 && hours < 20 ? '☀' : '🌙'
+  return `${icon} ${hh}:${mm}`
 }
 
 function App() {
@@ -158,6 +159,7 @@ function App() {
               foodScent={foodScent}
               gridW={gridW}
               gridH={gridH}
+              timeOfDay={timeOfDay}
               showDirection={showDirection}
               showVision={showVision}
               showSignal={showSignal}

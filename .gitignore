@@ -45,3 +45,4 @@ config.json
 # Misc
 *.tmp
 *.swp
+CLAUDE.md

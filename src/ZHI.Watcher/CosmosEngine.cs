@@ -252,8 +252,8 @@ public class CosmosEngine : IDisposable
         _tickEvents.Clear();
         _genTotalTicks++;
 
-        // 0. Game time & temperature
-        _gameTimeOfDay = (_globalTick % 3600) / 150f;
+        // 0. Game time & temperature (start at 08:00 = tick offset 1200)
+        _gameTimeOfDay = ((_globalTick + 1200) % 3600) / 150f;
         float hourAngle = (_gameTimeOfDay - 8f) * MathF.PI / 12f;
         _temperature = 20f + 15f * MathF.Sin(hourAngle);
 
@@ -514,13 +514,13 @@ public class CosmosEngine : IDisposable
 
         // Extract to CPU
         long[] actionsArr = new long[n];
-        actions.cpu().data<long>().CopyTo(actionsArr);
+        using (var cpuActs = actions.cpu()) cpuActs.data<long>().CopyTo(actionsArr);
         long[] signalArr = new long[n];
-        signalValues.cpu().data<long>().CopyTo(signalArr);
+        using (var cpuSigs = signalValues.cpu()) cpuSigs.data<long>().CopyTo(signalArr);
         float[] logProbsArr = new float[n];
-        logProbs.cpu().data<float>().CopyTo(logProbsArr);
+        using (var cpuLp = logProbs.cpu()) cpuLp.data<float>().CopyTo(logProbsArr);
         float[] valuesArr = new float[n];
-        values.cpu().data<float>().CopyTo(valuesArr);
+        using (var cpuVals = values.cpu()) cpuVals.data<float>().CopyTo(valuesArr);
 
         // 8. Process actions
         float[] rewards = new float[n];
@@ -571,7 +571,7 @@ public class CosmosEngine : IDisposable
         {
             using var intrinsic = _rnd!.ComputeIntrinsicReward(_v.StateMatrix);
             float[] intrinsicArr = new float[n];
-            intrinsic.cpu().data<float>().CopyTo(intrinsicArr);
+            using (var cpuIntr = intrinsic.cpu()) cpuIntr.data<float>().CopyTo(intrinsicArr);
             for (int i = 0; i < n; i++)
                 if (_v.Alive[i]) rewards[i] += intrinsicArr[i];
         }

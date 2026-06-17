@@ -15,6 +15,7 @@ interface Props {
   events?: WorldEvent[]
   gridW?: number
   gridH?: number
+  timeOfDay?: number
   trackedAgent?: number | null
   onTrackChange?: (id: number | null) => void
   showScent?: boolean
@@ -41,7 +42,7 @@ interface FloatingText {
 
 export function WorldMap({
   agents, food, corpses, river, scent, foodScent, signalField, events,
-  gridW = 64, gridH = 64,
+  gridW = 64, gridH = 64, timeOfDay = 12,
   trackedAgent: trackedProp, onTrackChange,
   showScent = false, showFoodScent = false,
   showDirection = false, showVision = false,
@@ -408,6 +409,13 @@ export function WorldMap({
     ctx.globalAlpha = 1
 
     ctx.restore()
+
+    // Day/night overlay (peak night at 2AM, full day 8AM-8PM)
+    const nightAlpha = Math.max(0, Math.cos((timeOfDay - 2) * Math.PI / 12)) * 0.35
+    if (nightAlpha > 0.01) {
+      ctx.fillStyle = `rgba(8, 12, 40, ${nightAlpha})`
+      ctx.fillRect(0, 0, w, h)
+    }
 
     // HUD
     ctx.fillStyle = 'rgba(255,255,255,0.4)'
