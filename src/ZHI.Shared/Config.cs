@@ -42,9 +42,13 @@ public sealed class GridConfig
     public int FoodTTL { get; set; } = 200;
     public int BigFoodTTL { get; set; } = 400;
 
-    // BigFood cooperative eating
-    public int BigFoodEatTime { get; set; } = 5;
-    public int BigFoodMinAgents { get; set; } = 2;
+    // Eating progress (multi-tick)
+    public int SmallFoodEatTicks { get; set; } = 16;
+    public int CorpseEatTicks { get; set; } = 20;
+    public int BigFoodSoloTicks { get; set; } = 40;
+    public int BigFoodCoopTicks { get; set; } = 20;
+    public int BigFoodMaxEaters { get; set; } = 3;
+    public float BigFoodSoloEnergyRatio { get; set; } = 0.7f;
 
     // Food respawning
     public int FoodRespawnInterval { get; set; } = 10;

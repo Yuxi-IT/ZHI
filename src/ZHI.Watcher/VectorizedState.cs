@@ -12,7 +12,6 @@ public struct FoodTile
     public int Height;        // 1 for normal food, 2 for BigFood (2x2)
     public int TTL;
     public float Energy;
-    public int EatTime;       // Ticks needed to consume (BigFood uses this)
     public bool IsBig;
 }
 
@@ -72,6 +71,12 @@ public class VectorizedState : IDisposable
     public float[] Hunger;         // 0=starving, 100=fully fed
     public int[] RespawnCount;     // how many times this agent slot has respawned
 
+    // Eating progress (multi-tick eating)
+    public float[] EatProgress;    // 0 = not eating, accumulates toward 1.0
+    public byte[] EatTargetType;   // 0=none, 1=small_food, 2=corpse, 3=big_food
+    public int[] EatTargetX;       // position of target being eaten
+    public int[] EatTargetY;
+
     // Grid state
     public List<FoodTile> FoodTiles;
     public List<CorpseTile> CorpseTiles;
@@ -121,7 +126,11 @@ public class VectorizedState : IDisposable
         Thirst = new float[n];
         Hunger = new float[n];
         RespawnCount = new int[n];
-        for (int i = 0; i < n; i++) { Thirst[i] = 100f; Hunger[i] = 100f; }
+        EatProgress = new float[n];
+        EatTargetType = new byte[n];
+        EatTargetX = new int[n];
+        EatTargetY = new int[n];
+        for (int i = 0; i < n; i++) { Thirst[i] = 100f; Hunger[i] = 100f; EatTargetX[i] = -1; EatTargetY[i] = -1; }
 
         FoodTiles = new List<FoodTile>();
         CorpseTiles = new List<CorpseTile>();
@@ -435,6 +444,10 @@ public class VectorizedState : IDisposable
         SignalAge[i] = 0;
         Thirst[i] = 100f;
         Hunger[i] = 100f;
+        EatProgress[i] = 0f;
+        EatTargetType[i] = 0;
+        EatTargetX[i] = -1;
+        EatTargetY[i] = -1;
         RespawnCount[i]++;
     }
 
@@ -467,6 +480,10 @@ public class VectorizedState : IDisposable
         SignalAge = Resize(SignalAge, newN); SignalAge[newN - 1] = 0;
         Thirst = Resize(Thirst, newN); Thirst[newN - 1] = 100f;
         Hunger = Resize(Hunger, newN); Hunger[newN - 1] = 100f;
+        EatProgress = Resize(EatProgress, newN);
+        EatTargetType = Resize(EatTargetType, newN);
+        EatTargetX = Resize(EatTargetX, newN); EatTargetX[newN - 1] = -1;
+        EatTargetY = Resize(EatTargetY, newN); EatTargetY[newN - 1] = -1;
         RespawnCount = Resize(RespawnCount, newN);
 
         // Resize GPU tensor and assembly buffer
