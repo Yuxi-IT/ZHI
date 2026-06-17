@@ -1369,6 +1369,16 @@ public class CosmosEngine : IDisposable
         int fordChance = _config.River.FordChance;
         int riverCount = _config.River.Count;
 
+        // Guard: clamp river width so Random.Next(min, max) doesn't fail
+        int maxRiverWidth = Math.Min(W, H) / 2 - 2;
+        if (riverWidth > maxRiverWidth)
+        {
+            riverWidth = Math.Max(1, maxRiverWidth);
+            if (deepWidth > riverWidth) deepWidth = riverWidth;
+            Log($"[River] Width clamped to {riverWidth} (grid too small for configured width)");
+        }
+        if (riverWidth < 1) return;
+
         for (int r = 0; r < riverCount; r++)
         {
             bool horizontal = _rng.Next(2) == 0;
