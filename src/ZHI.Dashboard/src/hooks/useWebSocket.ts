@@ -20,6 +20,7 @@ export function useWebSocket() {
   const [river, setRiver] = useState<number[]>([]);
   const [scent, setScent] = useState<number[]>([]);
   const [foodScent, setFoodScent] = useState<number[]>([]);
+  const [temperatureGrid, setTemperatureGrid] = useState<number[]>([]);
   const [signalField, setSignalField] = useState<number[]>([]);
   const [stats, setStats] = useState<CosmosStats | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -58,6 +59,7 @@ export function useWebSocket() {
           if (data.river) setRiver(data.river);
           if (data.scent) setScent(data.scent);
           if (data.food_scent) setFoodScent(data.food_scent);
+          if (data.temperature_grid) setTemperatureGrid(data.temperature_grid);
           if (data.signal_field) setSignalField(data.signal_field);
           if (data.stats) setStats(data.stats);
           break;
@@ -74,5 +76,5 @@ export function useWebSocket() {
     };
   }, [connect]);
 
-  return { connected, generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, signalField, stats };
+  return { connected, generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, signalField, stats };
 }

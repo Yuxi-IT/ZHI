@@ -314,6 +314,12 @@ public class WebServer : IDisposable
             for (int sy = 0; sy < gh; sy++)
                 foodScent[sy * gw + sx] = v.FoodScentGrid[sx, sy];
 
+        // Serialize temperature grid as flat float array
+        var tempGrid = new float[gw * gh];
+        for (int tx = 0; tx < gw; tx++)
+            for (int ty = 0; ty < gh; ty++)
+                tempGrid[ty * gw + tx] = v.TemperatureGrid[tx, ty];
+
         // Serialize signal field as flat float array (max of 4 channels per cell)
         var signalField = new float[gw * gh];
         for (int sx = 0; sx < gw; sx++)
@@ -361,6 +367,7 @@ public class WebServer : IDisposable
             river,
             scent,
             food_scent = foodScent,
+            temperature_grid = tempGrid,
             signal_field = signalField,
             grid_width = ZHI.Shared.ToolDefinitions.GridWidth,
             grid_height = ZHI.Shared.ToolDefinitions.GridHeight,

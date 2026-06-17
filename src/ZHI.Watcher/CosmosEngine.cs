@@ -279,6 +279,29 @@ public class CosmosEngine : IDisposable
         float hourAngle = (_gameTimeOfDay - 8f) * MathF.PI / 12f;
         _temperature = 20f + 15f * MathF.Sin(hourAngle);
 
+        // 0b. Compute temperature grid: base + agent body heat
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        for (int x = 0; x < W; x++)
+            for (int y = 0; y < H; y++)
+                _v.TemperatureGrid[x, y] = _temperature;
+
+        float bodyHeat = _config.Temperature.AgentBodyHeat;
+        for (int i = 0; i < n; i++)
+        {
+            if (!_v.Alive[i]) continue;
+            int ax = _v.PosX[i], ay = _v.PosY[i];
+            _v.TemperatureGrid[ax, ay] += bodyHeat;
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+                    int nx = ax + dx, ny = ay + dy;
+                    if (nx >= 0 && nx < W && ny >= 0 && ny < H)
+                        _v.TemperatureGrid[nx, ny] += bodyHeat * 0.5f;
+                }
+        }
+
         // 1. Stress damage: Existence -= Stress * StressDamage
         for (int i = 0; i < n; i++)
         {
@@ -328,43 +351,31 @@ public class CosmosEngine : IDisposable
                 _v.Existence[i] = MathF.Min(_v.Existence[i] + 0.2f, _config.Existence.Initial);
         }
 
-        // 3b. Temperature effects
-        if (_temperature < _config.Temperature.ColdThreshold)
+        // 3b. Temperature effects (use local temperature per agent)
+        for (int i = 0; i < n; i++)
         {
-            // Cold: extra HP decay, mitigated by huddling (nearby agents provide warmth)
-            float coldRatio = 1f - (_temperature - _config.Temperature.MinTemp)
-                / (_config.Temperature.ColdThreshold - _config.Temperature.MinTemp);
-            float baseColdDecay = coldRatio * _config.Temperature.MaxColdDecay;
-            int huddleRange = (int)_config.Temperature.HuddleRange;
+            if (!_v.Alive[i]) continue;
+            float localTemp = _v.TemperatureGrid[_v.PosX[i], _v.PosY[i]];
 
-            for (int i = 0; i < n; i++)
+            if (localTemp < _config.Temperature.ColdThreshold)
             {
-                if (!_v.Alive[i]) continue;
-                int neighbors = CountNearbyAgents(i, huddleRange);
-                float warmthBonus = neighbors * _config.Temperature.HuddleWarmthPerAgent;
-                float effectiveDecay = MathF.Max(0, baseColdDecay * (1f - warmthBonus / 15f));
-                _v.Existence[i] -= effectiveDecay;
+                float coldRatio = 1f - (localTemp - _config.Temperature.MinTemp)
+                    / (_config.Temperature.ColdThreshold - _config.Temperature.MinTemp);
+                float coldDecay = coldRatio * _config.Temperature.MaxColdDecay;
+                _v.Existence[i] -= coldDecay;
             }
-        }
 
-        // 3c. Hot temperature: thirst accelerates
-        if (_temperature > _config.Temperature.HotThreshold)
-        {
-            float hotRatio = (_temperature - _config.Temperature.HotThreshold)
-                / (_config.Temperature.MaxTemp - _config.Temperature.HotThreshold);
-            float thirstMult = 1f + hotRatio * (_config.Temperature.MaxThirstAccel - 1f);
-
-            for (int i = 0; i < n; i++)
+            if (localTemp > _config.Temperature.HotThreshold)
             {
-                if (!_v.Alive[i]) continue;
+                float hotRatio = (localTemp - _config.Temperature.HotThreshold)
+                    / (_config.Temperature.MaxTemp - _config.Temperature.HotThreshold);
+                float thirstMult = 1f + hotRatio * (_config.Temperature.MaxThirstAccel - 1f);
                 _v.Thirst[i] = MathF.Max(0f, _v.Thirst[i]
                     - _config.Thirst.DecayRate * thirstMult);
             }
         }
 
         // 4. Scent decay
-        int W = ToolDefinitions.GridWidth;
-        int H = ToolDefinitions.GridHeight;
         float scentDecay = _config.Scent.DecayRate;
         for (int x = 0; x < W; x++)
             for (int y = 0; y < H; y++)

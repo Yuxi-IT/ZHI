@@ -76,6 +76,7 @@ public class VectorizedState : IDisposable
     public float[,] FoodScentGrid; // [GridWidth, GridHeight] — food/corpse scent
     public int[,] RiverGrid;       // [GridWidth, GridHeight] — 0=land, 1=shallow, 2=deep
     public float[,] WaterSoundGrid; // [GridWidth, GridHeight] — sound intensity from water
+    public float[,] TemperatureGrid; // [GridWidth, GridHeight] — local temperature with body heat
     public float[,,] SignalField;   // [GridWidth, GridHeight, 4] — spatial signal persistence
 
     // Spatial query grids (rebuilt each tick, pre-allocated once)
@@ -128,6 +129,7 @@ public class VectorizedState : IDisposable
         FoodScentGrid = new float[W, H];
         RiverGrid = new int[W, H];
         WaterSoundGrid = new float[W, H];
+        TemperatureGrid = new float[W, H];
         SignalField = new float[W, H, 4];
 
         // Spatial query grids (pre-allocated, cleared each tick)

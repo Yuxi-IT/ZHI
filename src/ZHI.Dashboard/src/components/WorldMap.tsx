@@ -12,6 +12,8 @@ interface Props {
   scent: number[]
   foodScent?: number[]
   signalField?: number[]
+  temperatureGrid?: number[]
+  showTemp?: boolean
   events?: WorldEvent[]
   gridW?: number
   gridH?: number
@@ -41,7 +43,7 @@ interface FloatingText {
 }
 
 export function WorldMap({
-  agents, food, corpses, river, scent, foodScent, signalField, events,
+  agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, showTemp, events,
   gridW = 64, gridH = 64, timeOfDay = 12,
   trackedAgent: trackedProp, onTrackChange,
   showScent = false, showFoodScent = false,
@@ -251,6 +253,28 @@ export function WorldMap({
       }
     }
 
+    // Temperature heatmap (orange-blue gradient)
+    if (showTemp && temperatureGrid && temperatureGrid.length > 0) {
+      const startCol = Math.max(0, Math.floor(cam.x / cellSize))
+      const endCol = Math.min(gridW, Math.ceil((cam.x + w) / cellSize))
+      const startRow = Math.max(0, Math.floor(cam.y / cellSize))
+      const endRow = Math.min(gridH, Math.ceil((cam.y + h) / cellSize))
+      for (let gx = startCol; gx < endCol; gx++) {
+        for (let gy = startRow; gy < endRow; gy++) {
+          const t = temperatureGrid[gy * gridW + gx]
+          let r: number, g: number, b: number
+          if (t < 5)       { r = 59;   g = 130;  b = 246 }  // blue
+          else if (t < 15) { const s = (t - 5) / 10;  r = Math.round(59 + s * (148 - 59));  g = Math.round(130 + s * (163 - 130)); b = Math.round(246 + s * (230 - 246)) }
+          else if (t < 25) { const s = (t - 15) / 10; r = Math.round(148 + s * (74 - 148));  g = Math.round(163 + s * (222 - 163)); b = Math.round(230 + s * (222 - 230)) }
+          else if (t < 35) { const s = (t - 25) / 10; r = Math.round(74 + s * (239 - 74));   g = Math.round(222 + s * (68 - 222));  b = Math.round(222 + s * (68 - 222)) }
+          else             { r = 239;  g = 68;   b = 68 }    // red
+          const alpha = 0.25
+          ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`
+          ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize)
+        }
+      }
+    }
+
     // Corpses (render below food and agents)
     const corpseSize = Math.max(cellSize * 0.6, 2)
     for (const c of corpses) {
@@ -427,7 +451,7 @@ export function WorldMap({
       ? `${zoomPct}% | tracking #${trackedAgent} | alive ${aliveCount}/${agents.length}`
       : `${zoomPct}% | alive ${aliveCount}/${agents.length}`
     ctx.fillText(hudText, 8, 8)
-  }, [agents, food, corpses, river, scent, foodScent, signalField, gridW, gridH, timeOfDay, trackedAgent, showScent, showFoodScent, showDirection, showVision, showSignal])
+  }, [agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, showTemp, gridW, gridH, timeOfDay, trackedAgent, showScent, showFoodScent, showDirection, showVision, showSignal])
 
   useEffect(() => {
     let animating = true

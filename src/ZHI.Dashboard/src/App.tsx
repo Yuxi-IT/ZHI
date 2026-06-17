@@ -30,7 +30,7 @@ function tempColor(t: number): string {
 }
 
 function App() {
-  const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, signalField, stats, connected } = useWebSocket()
+  const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, signalField, stats, connected } = useWebSocket()
   const { logs, events, clearEvents } = useLogSocket()
   const { stats: dbStats, loading } = useStats()
   const { history, record } = useEcoHistory()
@@ -46,6 +46,7 @@ function App() {
   const [showDirection, setShowDirection] = useState(true)
   const [showVision, setShowVision] = useState(true)
   const [showSignal, setShowSignal] = useState(false)
+  const [showTemp, setShowTemp] = useState(false)
 
   const aliveCount = agents.filter(a => a.is_alive).length
 
@@ -164,6 +165,12 @@ function App() {
             >
               信号
             </button>
+            <button
+              onClick={() => setShowTemp(v => !v)}
+              className={`px-1.5 py-0.5 text-[9px] rounded border ${showTemp ? 'border-orange-600 text-orange-400 bg-orange-900/20' : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'}`}
+            >
+              温度
+            </button>
             <span className="text-neutral-700 text-[9px] mx-1">|</span>
             <button
               onClick={() => setTrackNextGen(v => !v)}
@@ -199,6 +206,8 @@ function App() {
               showDirection={showDirection}
               showVision={showVision}
               showSignal={showSignal}
+              temperatureGrid={temperatureGrid}
+              showTemp={showTemp}
             />
           </div>
           <div className="shrink-0 border-r border-neutral-800 flex flex-col overflow-hidden" style={{ height: bottomHeight }}>

@@ -54,6 +54,7 @@ export interface CosmosState {
   river: number[]  // flat array: 0=land, 1=shallow, 2=deep (row-major)
   scent: number[]  // flat array: agent movement scent (row-major)
   food_scent: number[]  // flat array: food/corpse scent (row-major)
+  temperature_grid: number[]  // flat array: local temperature per cell (row-major)
   signal_field: number[]  // flat array: max signal intensity per cell (row-major)
 }
 
