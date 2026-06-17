@@ -16,8 +16,10 @@ interface Props {
   temperatureGrid?: number[]
   terrain?: number[]
   terrainTtl?: number[]
+  riverFlow?: number[]
   showTemp?: boolean
   showTerrain?: boolean
+  showFlow?: boolean
   events?: WorldEvent[]
   gridW?: number
   gridH?: number
@@ -47,7 +49,7 @@ interface FloatingText {
 }
 
 export function WorldMap({
-  agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, terrain, terrainTtl, showTemp, showTerrain = false, events,
+  agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, terrain, terrainTtl, riverFlow, showTemp, showTerrain = false, showFlow = false, events,
   gridW = 64, gridH = 64, timeOfDay = 12,
   trackedAgent: trackedProp, onTrackChange,
   showScent = false, showFoodScent = false,
@@ -128,6 +130,18 @@ export function WorldMap({
           color: '#94a3b8',
           startTime: now,
         })
+        continue
+      } else if (ev.type === 'dam_built') {
+        const agent = agents.find(a => a.id === ev.agent_id)
+        if (agent) {
+          floatingTextsRef.current.push({
+            id: floatingIdRef.current++,
+            x: agent.x, y: agent.y,
+            text: 'DAM',
+            color: '#a3e635',
+            startTime: now,
+          })
+        }
         continue
       } else {
         continue
@@ -282,6 +296,35 @@ export function WorldMap({
               ctx.restore()
             }
           }
+        }
+      }
+    }
+
+    // River flow direction arrows
+    if (showFlow && riverFlow && riverFlow.length > 0 && cellSize > 8) {
+      const startCol = Math.max(0, Math.floor(cam.x / cellSize))
+      const endCol = Math.min(gridW, Math.ceil((cam.x + w) / cellSize))
+      const startRow = Math.max(0, Math.floor(cam.y / cellSize))
+      const endRow = Math.min(gridH, Math.ceil((cam.y + h) / cellSize))
+      // 8-direction angles: 1=N(↑,-π/2), 2=NE(↗,-π/4), 3=E(→,0), 4=SE(↘,π/4), 5=S(↓,π/2), 6=SW(↙,3π/4), 7=W(←,π), 8=NW(↖,-3π/4)
+      const dirAngles = [0, -Math.PI / 2, -Math.PI / 4, 0, Math.PI / 4, Math.PI / 2, 3 * Math.PI / 4, Math.PI, -3 * Math.PI / 4]
+      for (let gx = startCol; gx < endCol; gx++) {
+        for (let gy = startRow; gy < endRow; gy++) {
+          const flow = riverFlow[gy * gridW + gx]
+          if (flow <= 0 || flow > 8) continue
+          const cx = gx * cellSize + cellSize / 2
+          const cy = gy * cellSize + cellSize / 2
+          const angle = dirAngles[flow]
+          const arrowLen = cellSize * 0.3
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.moveTo(cx + Math.cos(angle) * arrowLen, cy + Math.sin(angle) * arrowLen)
+          ctx.lineTo(cx + Math.cos(angle + 2.5) * arrowLen * 0.5, cy + Math.sin(angle + 2.5) * arrowLen * 0.5)
+          ctx.lineTo(cx + Math.cos(angle - 2.5) * arrowLen * 0.5, cy + Math.sin(angle - 2.5) * arrowLen * 0.5)
+          ctx.closePath()
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.35)'
+          ctx.fill()
         }
       }
     }
@@ -554,7 +597,7 @@ export function WorldMap({
       ? `${zoomPct}% | tracking #${trackedAgent} | alive ${aliveCount}/${agents.length}`
       : `${zoomPct}% | alive ${aliveCount}/${agents.length}`
     ctx.fillText(hudText, 8, 8)
-  }, [agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, terrain, terrainTtl, showTemp, showTerrain, gridW, gridH, timeOfDay, trackedAgent, showScent, showFoodScent, showDirection, showVision, showSignal])
+  }, [agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, terrain, terrainTtl, showTemp, showTerrain, showFlow, riverFlow, gridW, gridH, timeOfDay, trackedAgent, showScent, showFoodScent, showDirection, showVision, showSignal])
 
   useEffect(() => {
     let animating = true
@@ -629,7 +672,7 @@ export function WorldMap({
         lines.push(t('map.mound'), t('map.moundDesc'))
         if (ttl > 0) lines.push(`${t('map.ttl')}: ${ttl}t`)
       } else if (tv === 3) {
-        lines.push(t('map.floodWater'), ttl > 0 ? `${t('map.dryIn')} ${ttl}t` : t('map.floodPermanent'))
+        lines.push(t('map.floodWater'), t('map.floodPermanent'))
       }
     }
 

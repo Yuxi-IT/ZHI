@@ -19,9 +19,10 @@ const EVENT_COLORS: Record<string, string> = {
   terraform: 'text-stone-400',
   flood: 'text-blue-400',
   weather: 'text-neutral-400',
+  dam_built: 'text-lime-400',
 }
 
-const FILTER_TYPES: WorldEventType[] = ['death', 'attack', 'respawn', 'eat', 'signal', 'push', 'terraform', 'flood', 'weather']
+const FILTER_TYPES: WorldEventType[] = ['death', 'attack', 'respawn', 'eat', 'signal', 'push', 'terraform', 'flood', 'weather', 'dam_built']
 
 const FILTER_COLORS: Record<string, string> = {
   death: 'border-neutral-500 text-neutral-400',
@@ -33,6 +34,7 @@ const FILTER_COLORS: Record<string, string> = {
   terraform: 'border-stone-600 text-stone-400',
   flood: 'border-blue-600 text-blue-400',
   weather: 'border-neutral-600 text-neutral-400',
+  dam_built: 'border-lime-600 text-lime-400',
 }
 
 export function EventMonitor({ events, energySource, onClear }: Props) {
@@ -96,6 +98,8 @@ export function EventMonitor({ events, energySource, onClear }: Props) {
         return t('events.flooded')
       case 'weather':
         return t('events.weathered', { type: e.food_type ?? '?' })
+      case 'dam_built':
+        return t('events.damBuilt')
       default:
         return JSON.stringify(e)
     }

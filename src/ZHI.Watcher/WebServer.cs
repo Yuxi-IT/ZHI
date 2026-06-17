@@ -349,6 +349,12 @@ public class WebServer : IDisposable
             for (int ty = 0; ty < gh; ty++)
                 terrainTtl[ty * gw + tx] = v.TerrainTTL[tx, ty];
 
+        // Serialize river flow as flat int array (0=none, 1-8=directions)
+        var riverFlow = new int[gw * gh];
+        for (int fx = 0; fx < gw; fx++)
+            for (int fy = 0; fy < gh; fy++)
+                riverFlow[fy * gw + fx] = v.RiverFlow[fx, fy];
+
         // Compute energy source percentages
         float totalEnergySrc = _engine.GenFoodEnergy + _engine.GenBigFoodEnergy + _engine.GenCorpseEnergy;
         float foodPct = totalEnergySrc > 0 ? _engine.GenFoodEnergy / totalEnergySrc * 100f : 0;
@@ -389,6 +395,7 @@ public class WebServer : IDisposable
             signal_field = signalField,
             terrain,
             terrain_ttl = terrainTtl,
+            river_flow = riverFlow,
             grid_width = ZHI.Shared.ToolDefinitions.GridWidth,
             grid_height = ZHI.Shared.ToolDefinitions.GridHeight,
             stats

@@ -1338,15 +1338,25 @@ public class CosmosEngine : IDisposable
         if (_v.Stamina[i] < _config.Stamina.LowStaminaThreshold)
             return;
 
-        // Cannot terraform on any water (river or flooded pit)
-        if (_v.IsAnyWater(px, py))
+        // Cannot terraform on river water (deep/shallow) — DynamicWater is allowed (fill to Mound)
+        if (_v.RiverGrid[px, py] > 0)
         {
             _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - _config.Stamina.TerraformCost * 0.5f);
             return;
         }
 
         byte current = _v.GetTerrainAt(px, py);
-        byte next = (byte)((current + 1) % 3); // 0→1→2→0 (DynamicWater=3 is handled by IsAnyWater above)
+        byte next;
+
+        // v4.2 state machine: Flat→Pit→Mound→Flat, DynamicWater→Mound (fill water to dam)
+        if (current == ToolDefinitions.TerrainDynamicWater)
+            next = ToolDefinitions.TerrainMound;
+        else if (current == ToolDefinitions.TerrainFlat)
+            next = ToolDefinitions.TerrainPit;
+        else if (current == ToolDefinitions.TerrainPit)
+            next = ToolDefinitions.TerrainMound;
+        else // Mound → Flat
+            next = ToolDefinitions.TerrainFlat;
 
         // Cannot create Mound on a cell with any agent
         if (next == ToolDefinitions.TerrainMound && _v.HasAnyAgentAt(px, py))
@@ -1355,8 +1365,9 @@ public class CosmosEngine : IDisposable
             return;
         }
 
+        bool wasWater = current == ToolDefinitions.TerrainDynamicWater;
         _v.TerrainType[px, py] = next;
-        // Reset TTL when creating Pit or Mound
+        // Set TTL: Pit/Mound get full lifespan, DynamicWater is permanent(-1), Flat is 0
         if (next == ToolDefinitions.TerrainPit || next == ToolDefinitions.TerrainMound)
             _v.TerrainTTL[px, py] = ToolDefinitions.TerrainTTL;
         else
@@ -1369,7 +1380,8 @@ public class CosmosEngine : IDisposable
                              next == ToolDefinitions.TerrainMound ? "mound" : "flat";
         _tickEvents.Add(new WorldEvent
         {
-            Type = "terraform", AgentId = i,
+            Type = wasWater ? "dam_built" : "terraform",
+            AgentId = i,
             FoodType = terrainName,
             Tick = _globalTick
         });
@@ -1394,8 +1406,9 @@ public class CosmosEngine : IDisposable
     }
 
     /// <summary>
-    /// Per-tick terrain physics: weathering (TTL decay), flooding (pit → dynamic water),
-    /// and evaporation (isolated dynamic water → flat).
+    /// Per-tick terrain physics v4.2:
+    /// - Weathering: Pit/Mound TTL decrement → Flat when expired (DynamicWater is permanent, -1 TTL).
+    /// - Flooding: only Pit floods (Mound/Flat block water). DynamicWater is permanent.
     /// </summary>
     private void SettleTerrainPhysics()
     {
@@ -1407,45 +1420,30 @@ public class CosmosEngine : IDisposable
             for (int y = 0; y < H; y++)
             {
                 byte type = _v.TerrainType[x, y];
+                int ttl = _v.TerrainTTL[x, y];
 
-                // 1. Weathering: decrement TTL, revert to Flat when expired
-                if (_v.TerrainTTL[x, y] > 0)
+                // 1. Weathering: only Pit and Mound decay (TTL > 0 means active lifespan)
+                if ((type == ToolDefinitions.TerrainPit || type == ToolDefinitions.TerrainMound) && ttl > 0)
                 {
-                    _v.TerrainTTL[x, y]--;
-                    if (_v.TerrainTTL[x, y] == 0)
+                    _v.TerrainTTL[x, y] = --ttl;
+                    if (ttl == 0)
                     {
-                        if (type == ToolDefinitions.TerrainDynamicWater)
+                        _v.TerrainType[x, y] = ToolDefinitions.TerrainFlat;
+                        _tickEvents.Add(new WorldEvent
                         {
-                            // Dynamic water evaporated — revert to Flat
-                            _v.TerrainType[x, y] = ToolDefinitions.TerrainFlat;
-                            _tickEvents.Add(new WorldEvent
-                            {
-                                Type = "weather", AgentId = -1,
-                                FoodType = "flood_dried",
-                                Value = x * 1000 + y,
-                                Tick = _globalTick
-                            });
-                        }
-                        else if (type == ToolDefinitions.TerrainPit || type == ToolDefinitions.TerrainMound)
-                        {
-                            // Pit or Mound weathered away
-                            _v.TerrainType[x, y] = ToolDefinitions.TerrainFlat;
-                            _tickEvents.Add(new WorldEvent
-                            {
-                                Type = "weather", AgentId = -1,
-                                FoodType = type == ToolDefinitions.TerrainPit ? "pit" : "mound",
-                                Value = x * 1000 + y,
-                                Tick = _globalTick
-                            });
-                        }
+                            Type = "weather", AgentId = -1,
+                            FoodType = type == ToolDefinitions.TerrainPit ? "pit" : "mound",
+                            Value = x * 1000 + y,
+                            Tick = _globalTick
+                        });
                     }
                 }
 
-                // 2. Flooding: Pit adjacent to water → DynamicWater
+                // 2. Flooding: only Pit can be flooded. Mound and Flat block water.
                 if (type == ToolDefinitions.TerrainPit && HasAdjacentWater(x, y))
                 {
                     _v.TerrainType[x, y] = ToolDefinitions.TerrainDynamicWater;
-                    _v.TerrainTTL[x, y] = ToolDefinitions.DynamicWaterTTL; // 100-tick evaporation timer
+                    _v.TerrainTTL[x, y] = ToolDefinitions.PermaWaterTTL; // permanent, no evaporation
                     _tickEvents.Add(new WorldEvent
                     {
                         Type = "flood", AgentId = -1,
@@ -1454,35 +1452,30 @@ public class CosmosEngine : IDisposable
                         Tick = _globalTick
                     });
                 }
-
-                // 3. Evaporation: isolated dynamic water keeps its TTL (handled in step 1).
-                // If connected to river (adjacent to permanent water), clear TTL → becomes permanent.
-                if (type == ToolDefinitions.TerrainDynamicWater && HasAdjacentWater(x, y))
-                {
-                    // Check if adjacent water is permanent river (not another DynamicWater)
-                    bool hasPermanentWater = false;
-                    for (int dx = -1; dx <= 1 && !hasPermanentWater; dx++)
-                    {
-                        for (int dy = -1; dy <= 1 && !hasPermanentWater; dy++)
-                        {
-                            if (dx == 0 && dy == 0) continue;
-                            int nx = x + dx, ny = y + dy;
-                            if (nx >= 0 && nx < W && ny >= 0 && ny < H
-                                && _v.RiverGrid[nx, ny] > 0)
-                                hasPermanentWater = true;
-                        }
-                    }
-                    if (hasPermanentWater)
-                    {
-                        // Connected to river — stabilize as permanent shallow water
-                        _v.TerrainTTL[x, y] = 0;
-                    }
-                }
             }
         }
     }
 
     // PLACEHOLDER_FOOD
+
+    /// <summary>Convert dx,dy delta to 8-direction byte: 1=N, 2=NE, 3=E, 4=SE, 5=S, 6=SW, 7=W, 8=NW.</summary>
+    private static byte DeltaToFlowDir(int dx, int dy)
+    {
+        // clamp to -1,0,1 and normalize
+        int sx = Math.Sign(dx), sy = Math.Sign(dy);
+        return (sx, sy) switch
+        {
+            (0, -1) => 1,  // N
+            (1, -1) => 2,  // NE
+            (1, 0) => 3,   // E
+            (1, 1) => 4,   // SE
+            (0, 1) => 5,   // S
+            (-1, 1) => 6,  // SW
+            (-1, 0) => 7,  // W
+            (-1, -1) => 8, // NW
+            _ => 0
+        };
+    }
 
     private void GenerateRiver()
     {
@@ -1510,47 +1503,69 @@ public class CosmosEngine : IDisposable
             if (horizontal)
             {
                 int yCenter = _rng.Next(riverWidth, H - riverWidth - 1);
+                int prevY = yCenter;
                 for (int x = 0; x < W; x++)
                 {
                     yCenter += _rng.Next(-1, 2);
                     yCenter = Math.Clamp(yCenter, riverWidth, H - riverWidth - 1);
 
+                    // Flow direction: always E (3) for horizontal river, with ± vertical component
+                    int dx = 1, dy = Math.Sign(yCenter - prevY);
+                    byte flowDir = dy != 0 ? DeltaToFlowDir(dx, dy) : (byte)3;
+
                     bool isFord = _rng.Next(100) < fordChance;
 
-                    for (int dy = -riverWidth / 2; dy <= riverWidth / 2; dy++)
+                    for (int dy2 = -riverWidth / 2; dy2 <= riverWidth / 2; dy2++)
                     {
-                        int y = yCenter + dy;
+                        int y = yCenter + dy2;
                         if (y < 0 || y >= H) continue;
 
-                        int distFromCenter = Math.Abs(dy);
+                        int distFromCenter = Math.Abs(dy2);
                         if (!isFord && distFromCenter < deepWidth)
                             _v.RiverGrid[x, y] = 2; // deep
                         else if (_v.RiverGrid[x, y] == 0) // don't overwrite existing deep water
                             _v.RiverGrid[x, y] = 1; // shallow
+
+                        // Propagate flow direction to all cells in river band
+                        if (_v.RiverFlow[x, y] == 0)
+                            _v.RiverFlow[x, y] = flowDir;
                     }
+
+                    prevY = yCenter;
                 }
             }
             else
             {
                 int xCenter = _rng.Next(riverWidth, W - riverWidth - 1);
+                int prevX = xCenter;
                 for (int y = 0; y < H; y++)
                 {
                     xCenter += _rng.Next(-1, 2);
                     xCenter = Math.Clamp(xCenter, riverWidth, W - riverWidth - 1);
 
+                    // Flow direction: always S (5) for vertical river, with ± horizontal component
+                    int dx = Math.Sign(xCenter - prevX), dy = 1;
+                    byte flowDir = dx != 0 ? DeltaToFlowDir(dx, dy) : (byte)5;
+
                     bool isFord = _rng.Next(100) < fordChance;
 
-                    for (int dx = -riverWidth / 2; dx <= riverWidth / 2; dx++)
+                    for (int dx2 = -riverWidth / 2; dx2 <= riverWidth / 2; dx2++)
                     {
-                        int x = xCenter + dx;
+                        int x = xCenter + dx2;
                         if (x < 0 || x >= W) continue;
 
-                        int distFromCenter = Math.Abs(dx);
+                        int distFromCenter = Math.Abs(dx2);
                         if (!isFord && distFromCenter < deepWidth)
                             _v.RiverGrid[x, y] = 2; // deep
                         else if (_v.RiverGrid[x, y] == 0) // don't overwrite existing deep water
                             _v.RiverGrid[x, y] = 1; // shallow
+
+                        // Propagate flow direction to all cells in river band
+                        if (_v.RiverFlow[x, y] == 0)
+                            _v.RiverFlow[x, y] = flowDir;
                     }
+
+                    prevX = xCenter;
                 }
             }
         }

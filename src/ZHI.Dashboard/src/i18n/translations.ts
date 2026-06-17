@@ -27,6 +27,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'toggle.signal': '信号',
     'toggle.temp': '温度',
     'toggle.terrain': '地形',
+    'toggle.flow': '水流',
     'toggle.trackRebirth': '追踪轮回',
     'toggle.trackRebirthTitle': '追踪的agent死亡后自动追踪其下一世',
 
@@ -72,6 +73,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'events.terraform': '地形',
     'events.flood': '淹没',
     'events.weather': '风化',
+    'events.dam_built': '填水造坝',
     'events.autoScrollOn': '自动滚动: ON',
     'events.autoScrollOff': '自动滚动: OFF',
     'events.clearAll': '清除所有事件',
@@ -86,6 +88,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'events.terraformed': '#{id} 改变了地形',
     'events.flooded': '坑被河水淹没',
     'events.weathered': '{type} 风化了',
+    'events.damBuilt': '#{id} 在水上填土造坝',
 
     // Settings
     'settings.loading': '加载配置...',
@@ -202,6 +205,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'toggle.signal': 'Signal',
     'toggle.temp': 'Temp',
     'toggle.terrain': 'Terrain',
+    'toggle.flow': 'Flow',
     'toggle.trackRebirth': 'Rebirth Track',
     'toggle.trackRebirthTitle': 'Auto-track next life when tracked agent dies',
 
@@ -247,6 +251,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'events.terraform': 'Terraform',
     'events.flood': 'Flood',
     'events.weather': 'Weather',
+    'events.dam_built': 'Dam Built',
     'events.autoScrollOn': 'Auto-scroll: ON',
     'events.autoScrollOff': 'Auto-scroll: OFF',
     'events.clearAll': 'Clear all events',
@@ -261,6 +266,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'events.terraformed': '#{id} terraformed',
     'events.flooded': 'Pit flooded by river',
     'events.weathered': '{type} weathered away',
+    'events.damBuilt': '#{id} built a dam over water',
 
     // Settings
     'settings.loading': 'Loading config...',

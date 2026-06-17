@@ -24,6 +24,7 @@ export function useWebSocket() {
   const [signalField, setSignalField] = useState<number[]>([]);
   const [terrain, setTerrain] = useState<number[]>([]);
   const [terrainTtl, setTerrainTtl] = useState<number[]>([]);
+  const [riverFlow, setRiverFlow] = useState<number[]>([]);
   const [stats, setStats] = useState<CosmosStats | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -65,6 +66,7 @@ export function useWebSocket() {
           if (data.signal_field) setSignalField(data.signal_field);
           if (data.terrain) setTerrain(data.terrain);
           if (data.terrain_ttl) setTerrainTtl(data.terrain_ttl);
+          if (data.river_flow) setRiverFlow(data.river_flow);
           if (data.stats) setStats(data.stats);
           break;
         }
@@ -80,5 +82,5 @@ export function useWebSocket() {
     };
   }, [connect]);
 
-  return { connected, generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, signalField, terrain, terrainTtl, stats };
+  return { connected, generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, signalField, terrain, terrainTtl, riverFlow, stats };
 }

@@ -29,8 +29,11 @@ public static class ToolDefinitions
     public const byte TerrainMound = 2;
     public const byte TerrainDynamicWater = 3; // flooded pit — shallow water from terrain physics
 
-    public const int TerrainTTL = 800;        // default pit/mound lifespan in ticks
-    public const int DynamicWaterTTL = 100;    // isolated floodwater evaporation timer
+    public const int TerrainTTL = 2000;       // pit/mound lifespan in ticks (v4.2: extended to ~33 min)
+    public const int PermaWaterTTL = -1;       // sentinel for permanent water (no weathering)
+
+    // River flow directions (8-direction compass)
+    // 0=none, 1=N, 2=NE, 3=E, 4=SE, 5=S, 6=SW, 7=W, 8=NW
 
     public static readonly string[] ActionNames =
     [

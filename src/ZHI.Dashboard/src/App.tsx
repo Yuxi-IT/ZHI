@@ -31,7 +31,7 @@ function tempColor(t: number): string {
 }
 
 function AppInner() {
-  const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, signalField, terrain, terrainTtl, stats, connected } = useWebSocket()
+  const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, signalField, terrain, terrainTtl, riverFlow, stats, connected } = useWebSocket()
   const { logs, events, clearEvents } = useLogSocket()
   const { stats: dbStats, loading } = useStats()
   const { history, record } = useEcoHistory()
@@ -49,6 +49,7 @@ function AppInner() {
   const [showSignal, setShowSignal] = useState(false)
   const [showTemp, setShowTemp] = useState(false)
   const [showTerrain, setShowTerrain] = useState(false)
+  const [showFlow, setShowFlow] = useState(false)
 
   const aliveCount = agents.filter(a => a.is_alive).length
 
@@ -189,6 +190,12 @@ function AppInner() {
             >
               {t('toggle.terrain')}
             </button>
+            <button
+              onClick={() => setShowFlow(v => !v)}
+              className={`px-1.5 py-0.5 text-[9px] rounded border ${showFlow ? 'border-sky-600 text-sky-400 bg-sky-900/20' : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'}`}
+            >
+              {t('toggle.flow')}
+            </button>
             <span className="text-neutral-700 text-[9px] mx-1">|</span>
             <button
               onClick={() => setTrackNextGen(v => !v)}
@@ -229,6 +236,8 @@ function AppInner() {
               terrain={terrain}
               terrainTtl={terrainTtl}
               showTerrain={showTerrain}
+              riverFlow={riverFlow}
+              showFlow={showFlow}
             />
           </div>
           <div className="shrink-0 border-r border-neutral-800 flex flex-col overflow-hidden" style={{ height: bottomHeight }}>

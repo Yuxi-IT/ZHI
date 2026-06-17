@@ -86,7 +86,8 @@ public class VectorizedState : IDisposable
     public float[,] TemperatureGrid; // [GridWidth, GridHeight] — local temperature with body heat
     public float[,,] SignalField;   // [GridWidth, GridHeight, 4] — spatial signal persistence
     public byte[,] TerrainType;     // [GridWidth, GridHeight] — 0=Flat, 1=Pit, 2=Mound, 3=DynamicWater
-    public int[,] TerrainTTL;       // [GridWidth, GridHeight] — remaining lifespan (0=permanent/inactive)
+    public int[,] TerrainTTL;       // [GridWidth, GridHeight] — remaining lifespan, -1=permanent
+    public byte[,] RiverFlow;       // [GridWidth, GridHeight] — 0=none, 1-8=8-direction flow
 
     // Spatial query grids (rebuilt each tick, pre-allocated once)
     private int[] _agentGrid;      // [W*H] → agent index or -1
@@ -149,6 +150,7 @@ public class VectorizedState : IDisposable
         SignalField = new float[W, H, 4];
         TerrainType = new byte[W, H];
         TerrainTTL = new int[W, H];
+        RiverFlow = new byte[W, H];
 
         // Spatial query grids (pre-allocated, cleared each tick)
         int gridSize = W * H;
