@@ -15,6 +15,7 @@ interface Props {
   signalField?: number[]
   temperatureGrid?: number[]
   terrain?: number[]
+  terrainTtl?: number[]
   showTemp?: boolean
   showTerrain?: boolean
   events?: WorldEvent[]
@@ -46,7 +47,7 @@ interface FloatingText {
 }
 
 export function WorldMap({
-  agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, terrain, showTemp, showTerrain = false, events,
+  agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, terrain, terrainTtl, showTemp, showTerrain = false, events,
   gridW = 64, gridH = 64, timeOfDay = 12,
   trackedAgent: trackedProp, onTrackChange,
   showScent = false, showFoodScent = false,
@@ -105,6 +106,29 @@ export function WorldMap({
       } else if (ev.type === 'respawn') {
         text = 'RESPAWN'
         color = '#a78bfa'
+      } else if (ev.type === 'flood') {
+        // Decode grid position from event value
+        const fx = Math.floor((ev.value ?? 0) / 1000)
+        const fy = (ev.value ?? 0) % 1000
+        floatingTextsRef.current.push({
+          id: floatingIdRef.current++,
+          x: fx, y: fy,
+          text: 'FLOOD',
+          color: '#60a5fa',
+          startTime: now,
+        })
+        continue
+      } else if (ev.type === 'weather') {
+        const fx = Math.floor((ev.value ?? 0) / 1000)
+        const fy = (ev.value ?? 0) % 1000
+        floatingTextsRef.current.push({
+          id: floatingIdRef.current++,
+          x: fx, y: fy,
+          text: 'WEATHER',
+          color: '#94a3b8',
+          startTime: now,
+        })
+        continue
       } else {
         continue
       }
@@ -206,7 +230,7 @@ export function WorldMap({
       }
     }
 
-    // Terrain tiles (pit & mound)
+    // Terrain tiles (pit, mound, dynamic water)
     if (showTerrain && terrain && terrain.length > 0) {
       const startCol = Math.max(0, Math.floor(cam.x / cellSize))
       const endCol = Math.min(gridW, Math.ceil((cam.x + w) / cellSize))
@@ -214,7 +238,8 @@ export function WorldMap({
       const endRow = Math.min(gridH, Math.ceil((cam.y + h) / cellSize))
       for (let gx = startCol; gx < endCol; gx++) {
         for (let gy = startRow; gy < endRow; gy++) {
-          const t = terrain[gy * gridW + gx]
+          const idx = gy * gridW + gx
+          const t = terrain[idx]
           if (t === 0) continue
           const px = gx * cellSize, py = gy * cellSize
           if (t === 1) {
@@ -232,6 +257,30 @@ export function WorldMap({
             ctx.beginPath()
             ctx.arc(px + cellSize / 2, py + cellSize / 2, cellSize * 0.35, 0, Math.PI * 2)
             ctx.fill()
+          } else if (t === 3) {
+            // Dynamic water (flooded pit): lighter blue, same as shallow
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.3)'
+            ctx.fillRect(px, py, cellSize, cellSize)
+          }
+          // TTL warning: add crack lines when TTL < 200
+          if (terrainTtl && (t === 1 || t === 2)) {
+            const ttl = terrainTtl[idx]
+            if (ttl > 0 && ttl < 200) {
+              const fadeRatio = 1 - ttl / 200
+              ctx.save()
+              ctx.globalAlpha = fadeRatio * 0.4
+              ctx.strokeStyle = '#666'
+              ctx.lineWidth = 0.5
+              ctx.beginPath()
+              ctx.moveTo(px + 3, py + 3)
+              ctx.lineTo(px + cellSize / 2, py + cellSize / 2)
+              ctx.moveTo(px + cellSize - 3, py + 3)
+              ctx.lineTo(px + cellSize / 2, py + cellSize / 2)
+              ctx.moveTo(px + cellSize / 2, py + cellSize / 2)
+              ctx.lineTo(px + cellSize / 2, py + cellSize - 3)
+              ctx.stroke()
+              ctx.restore()
+            }
           }
         }
       }
@@ -505,7 +554,7 @@ export function WorldMap({
       ? `${zoomPct}% | tracking #${trackedAgent} | alive ${aliveCount}/${agents.length}`
       : `${zoomPct}% | alive ${aliveCount}/${agents.length}`
     ctx.fillText(hudText, 8, 8)
-  }, [agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, terrain, showTemp, showTerrain, gridW, gridH, timeOfDay, trackedAgent, showScent, showFoodScent, showDirection, showVision, showSignal])
+  }, [agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, terrain, terrainTtl, showTemp, showTerrain, gridW, gridH, timeOfDay, trackedAgent, showScent, showFoodScent, showDirection, showVision, showSignal])
 
   useEffect(() => {
     let animating = true
@@ -572,8 +621,16 @@ export function WorldMap({
     // Check terrain
     if (showTerrain && terrain && terrain.length > 0 && gx + gy * gridW < terrain.length) {
       const tv = terrain[gy * gridW + gx]
-      if (tv === 1) { lines.push(t('map.pit'), t('map.pitDesc')) }
-      else if (tv === 2) { lines.push(t('map.mound'), t('map.moundDesc')) }
+      const ttl = terrainTtl?.[gy * gridW + gx] ?? 0
+      if (tv === 1) {
+        lines.push(t('map.pit'), t('map.pitDesc'))
+        if (ttl > 0) lines.push(`${t('map.ttl')}: ${ttl}t`)
+      } else if (tv === 2) {
+        lines.push(t('map.mound'), t('map.moundDesc'))
+        if (ttl > 0) lines.push(`${t('map.ttl')}: ${ttl}t`)
+      } else if (tv === 3) {
+        lines.push(t('map.floodWater'), ttl > 0 ? `${t('map.dryIn')} ${ttl}t` : t('map.floodPermanent'))
+      }
     }
 
     // Check corpse
@@ -591,7 +648,7 @@ export function WorldMap({
     if (lines.length === 0) return null
 
     return { x: mx + 12, y: my - 10, text: lines }
-  }, [agents, food, corpses, river, t, showTemp, temperatureGrid, terrain, showTerrain, gridW])
+  }, [agents, food, corpses, river, t, showTemp, temperatureGrid, terrain, terrainTtl, showTerrain, gridW])
 
   useEffect(() => {
     const canvas = canvasRef.current

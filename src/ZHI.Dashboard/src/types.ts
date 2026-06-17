@@ -62,7 +62,8 @@ export interface CosmosState {
   food_scent: number[]  // flat array: food/corpse scent (row-major)
   temperature_grid: number[]  // flat array: local temperature per cell (row-major)
   signal_field: number[]  // flat array: max signal intensity per cell (row-major)
-  terrain: number[]  // flat array: 0=flat, 1=pit, 2=mound (row-major)
+  terrain: number[]  // flat array: 0=flat, 1=pit, 2=mound, 3=dynamicWater (row-major)
+  terrain_ttl: number[]  // flat array: remaining TTL per cell (row-major)
 }
 
 export interface LogMessage {
@@ -99,7 +100,7 @@ export type WsMessage =
   | ({ type: 'cosmos'; data: CosmosState })
   | LogMessage
 
-export type WorldEventType = 'eat' | 'attack' | 'death' | 'reproduce' | 'signal' | 'respawn' | 'push' | 'terraform'
+export type WorldEventType = 'eat' | 'attack' | 'death' | 'reproduce' | 'signal' | 'respawn' | 'push' | 'terraform' | 'flood' | 'weather'
 
 export interface WorldEvent {
   type: WorldEventType

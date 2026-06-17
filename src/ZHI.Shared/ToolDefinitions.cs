@@ -27,6 +27,10 @@ public static class ToolDefinitions
     public const byte TerrainFlat = 0;
     public const byte TerrainPit = 1;
     public const byte TerrainMound = 2;
+    public const byte TerrainDynamicWater = 3; // flooded pit — shallow water from terrain physics
+
+    public const int TerrainTTL = 800;        // default pit/mound lifespan in ticks
+    public const int DynamicWaterTTL = 100;    // isolated floodwater evaporation timer
 
     public static readonly string[] ActionNames =
     [

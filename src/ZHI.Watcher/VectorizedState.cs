@@ -85,7 +85,8 @@ public class VectorizedState : IDisposable
     public float[,] WaterSoundGrid; // [GridWidth, GridHeight] — sound intensity from water
     public float[,] TemperatureGrid; // [GridWidth, GridHeight] — local temperature with body heat
     public float[,,] SignalField;   // [GridWidth, GridHeight, 4] — spatial signal persistence
-    public byte[,] TerrainGrid;     // [GridWidth, GridHeight] — 0=Flat, 1=Pit, 2=Mound
+    public byte[,] TerrainType;     // [GridWidth, GridHeight] — 0=Flat, 1=Pit, 2=Mound, 3=DynamicWater
+    public int[,] TerrainTTL;       // [GridWidth, GridHeight] — remaining lifespan (0=permanent/inactive)
 
     // Spatial query grids (rebuilt each tick, pre-allocated once)
     private int[] _agentGrid;      // [W*H] → agent index or -1
@@ -146,7 +147,8 @@ public class VectorizedState : IDisposable
         WaterSoundGrid = new float[W, H];
         TemperatureGrid = new float[W, H];
         SignalField = new float[W, H, 4];
-        TerrainGrid = new byte[W, H];
+        TerrainType = new byte[W, H];
+        TerrainTTL = new int[W, H];
 
         // Spatial query grids (pre-allocated, cleared each tick)
         int gridSize = W * H;
@@ -271,8 +273,9 @@ public class VectorizedState : IDisposable
                     bool hasCorpse = HasCorpseAt(gx, gy);
                     bool hasAgent = HasOtherAgentAt(i, gx, gy);
                     bool isSelf = (dx == 0 && dy == 0);
-                    byte terrain = TerrainGrid[gx, gy];
-                    float terrainNorm = terrain == 1 ? 0.5f : terrain == 2 ? 1f : 0f;
+                    byte terrain = TerrainType[gx, gy];
+                    // Flat=0, Pit=0.33, Mound=0.66, Water=1.0
+                    float terrainNorm = terrain == 1 ? 0.33f : terrain == 2 ? 0.66f : terrain >= 3 || RiverGrid[gx, gy] > 0 ? 1f : 0f;
 
                     _stateAssemblyBuffer[gridBase + cellIdx + 0] = (hasFood && !isBigFood) ? 1f : 0f;
                     _stateAssemblyBuffer[gridBase + cellIdx + 1] = isBigFood ? 1f : 0f;
@@ -404,19 +407,45 @@ public class VectorizedState : IDisposable
 
     public bool IsAdjacentToWater(int x, int y)
     {
-        return IsShallowWater(x - 1, y) || IsShallowWater(x + 1, y) ||
-               IsShallowWater(x, y - 1) || IsShallowWater(x, y + 1);
+        return IsAnyWater(x - 1, y) || IsAnyWater(x + 1, y) ||
+               IsAnyWater(x, y - 1) || IsAnyWater(x, y + 1);
     }
 
     public byte GetTerrainAt(int x, int y)
     {
         if (x < 0 || x >= ToolDefinitions.GridWidth || y < 0 || y >= ToolDefinitions.GridHeight) return 0;
-        return TerrainGrid[x, y];
+        return TerrainType[x, y];
     }
 
     public bool IsMoundAt(int x, int y)
     {
         return GetTerrainAt(x, y) == ToolDefinitions.TerrainMound;
+    }
+
+    /// <summary>True if cell is any kind of water (river shallow/deep or dynamic floodwater).</summary>
+    public bool IsAnyWater(int x, int y)
+    {
+        if (x < 0 || x >= ToolDefinitions.GridWidth || y < 0 || y >= ToolDefinitions.GridHeight) return false;
+        return RiverGrid[x, y] > 0 || TerrainType[x, y] == ToolDefinitions.TerrainDynamicWater;
+    }
+
+    /// <summary>Count adjacent (Moore 8) cells of a given terrain type, excluding self.</summary>
+    public int CountAdjacentTerrain(int x, int y, byte terrainType)
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        int count = 0;
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                if (dx == 0 && dy == 0) continue;
+                int nx = x + dx, ny = y + dy;
+                if (nx >= 0 && nx < W && ny >= 0 && ny < H && TerrainType[nx, ny] == terrainType)
+                    count++;
+            }
+        }
+        return count;
     }
 
     public bool HasAnyAgentAt(int x, int y)
@@ -456,7 +485,7 @@ public class VectorizedState : IDisposable
             PosX[i] = rng.Next(W);
             PosY[i] = rng.Next(H);
             attempts++;
-        } while (IsDeepWater(PosX[i], PosY[i]) && attempts < 50);
+        } while ((IsDeepWater(PosX[i], PosY[i]) || TerrainType[PosX[i], PosY[i]] == ToolDefinitions.TerrainDynamicWater) && attempts < 50);
 
         Existence[i] = 100f;
         Stress[i] = 0f;

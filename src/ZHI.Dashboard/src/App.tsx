@@ -31,7 +31,7 @@ function tempColor(t: number): string {
 }
 
 function AppInner() {
-  const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, signalField, terrain, stats, connected } = useWebSocket()
+  const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, signalField, terrain, terrainTtl, stats, connected } = useWebSocket()
   const { logs, events, clearEvents } = useLogSocket()
   const { stats: dbStats, loading } = useStats()
   const { history, record } = useEcoHistory()
@@ -227,6 +227,7 @@ function AppInner() {
               temperatureGrid={temperatureGrid}
               showTemp={showTemp}
               terrain={terrain}
+              terrainTtl={terrainTtl}
               showTerrain={showTerrain}
             />
           </div>

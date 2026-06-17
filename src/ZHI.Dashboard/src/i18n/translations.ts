@@ -70,6 +70,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     'events.signal': '信号',
     'events.push': '推挤',
     'events.terraform': '地形',
+    'events.flood': '淹没',
+    'events.weather': '风化',
     'events.autoScrollOn': '自动滚动: ON',
     'events.autoScrollOff': '自动滚动: OFF',
     'events.clearAll': '清除所有事件',
@@ -82,6 +84,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     'events.respawned': '#{id} 复活',
     'events.pushed': '#{id} 推了 {type}',
     'events.terraformed': '#{id} 改变了地形',
+    'events.flooded': '坑被河水淹没',
+    'events.weathered': '{type} 风化了',
 
     // Settings
     'settings.loading': '加载配置...',
@@ -165,6 +169,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     'map.pitDesc': '夜间减伤30%，移动多耗力',
     'map.mound': '土包',
     'map.moundDesc': '不可通行，阻挡视野',
+    'map.ttl': '风化',
+    'map.floodWater': '水坑（被淹没的坑）',
+    'map.dryIn': '将在',
+    'map.floodPermanent': '永久浅水（已连通河流）',
 
   },
 
@@ -237,6 +245,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     'events.signal': 'Signal',
     'events.push': 'Push',
     'events.terraform': 'Terraform',
+    'events.flood': 'Flood',
+    'events.weather': 'Weather',
     'events.autoScrollOn': 'Auto-scroll: ON',
     'events.autoScrollOff': 'Auto-scroll: OFF',
     'events.clearAll': 'Clear all events',
@@ -249,6 +259,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     'events.respawned': '#{id} RESPAWN',
     'events.pushed': '#{id} pushed {type}',
     'events.terraformed': '#{id} terraformed',
+    'events.flooded': 'Pit flooded by river',
+    'events.weathered': '{type} weathered away',
 
     // Settings
     'settings.loading': 'Loading config...',
@@ -332,6 +344,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     'map.pitDesc': '30% cold resist at night, extra move cost',
     'map.mound': 'Mound',
     'map.moundDesc': 'Impassable, blocks vision',
+    'map.ttl': 'Weathering',
+    'map.floodWater': 'Flooded pit',
+    'map.dryIn': 'Dries in',
+    'map.floodPermanent': 'Permanent shallow (connected to river)',
   },
 }
 

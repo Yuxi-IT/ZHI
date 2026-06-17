@@ -17,9 +17,11 @@ const EVENT_COLORS: Record<string, string> = {
   respawn: 'text-violet-400',
   push: 'text-amber-400',
   terraform: 'text-stone-400',
+  flood: 'text-blue-400',
+  weather: 'text-neutral-400',
 }
 
-const FILTER_TYPES: WorldEventType[] = ['death', 'attack', 'respawn', 'eat', 'signal', 'push', 'terraform']
+const FILTER_TYPES: WorldEventType[] = ['death', 'attack', 'respawn', 'eat', 'signal', 'push', 'terraform', 'flood', 'weather']
 
 const FILTER_COLORS: Record<string, string> = {
   death: 'border-neutral-500 text-neutral-400',
@@ -29,6 +31,8 @@ const FILTER_COLORS: Record<string, string> = {
   signal: 'border-yellow-600 text-yellow-400',
   push: 'border-amber-600 text-amber-400',
   terraform: 'border-stone-600 text-stone-400',
+  flood: 'border-blue-600 text-blue-400',
+  weather: 'border-neutral-600 text-neutral-400',
 }
 
 export function EventMonitor({ events, energySource, onClear }: Props) {
@@ -88,6 +92,10 @@ export function EventMonitor({ events, energySource, onClear }: Props) {
         return t('events.pushed', { id: e.agent_id, type: e.food_type ?? '?' })
       case 'terraform':
         return t('events.terraformed', { id: e.agent_id })
+      case 'flood':
+        return t('events.flooded')
+      case 'weather':
+        return t('events.weathered', { type: e.food_type ?? '?' })
       default:
         return JSON.stringify(e)
     }

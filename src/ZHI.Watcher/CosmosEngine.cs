@@ -417,8 +417,9 @@ public class CosmosEngine : IDisposable
                 float coldRatio = 1f - (bodyTemp - _config.Temperature.MinTemp)
                     / (_config.Temperature.ColdThreshold - _config.Temperature.MinTemp);
                 float coldDecay = coldRatio * _config.Temperature.MaxColdDecay;
-                // Pit reduces cold penalty by 30%
-                if (_v.GetTerrainAt(_v.PosX[i], _v.PosY[i]) == ToolDefinitions.TerrainPit)
+                // Pit reduces cold penalty by 30% — but only when isolated (no adjacent Pits)
+                if (_v.GetTerrainAt(_v.PosX[i], _v.PosY[i]) == ToolDefinitions.TerrainPit
+                    && _v.CountAdjacentTerrain(_v.PosX[i], _v.PosY[i], ToolDefinitions.TerrainPit) == 0)
                     coldDecay *= 0.7f;
                 _v.Existence[i] -= coldDecay;
             }
@@ -720,6 +721,9 @@ public class CosmosEngine : IDisposable
             using var mask = tensor(aliveMask, device: _v.Device).unsqueeze(0).unsqueeze(-1);
             _gruHidden!.mul_(mask);
         }
+
+        // 10b. Terrain physics: weathering, flooding, evaporation
+        SettleTerrainPhysics();
 
         // 11. Snapshot current observation (s_t) for PPO storage
         int stateSize = ToolDefinitions.StateSize;
@@ -1334,8 +1338,15 @@ public class CosmosEngine : IDisposable
         if (_v.Stamina[i] < _config.Stamina.LowStaminaThreshold)
             return;
 
+        // Cannot terraform on any water (river or flooded pit)
+        if (_v.IsAnyWater(px, py))
+        {
+            _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - _config.Stamina.TerraformCost * 0.5f);
+            return;
+        }
+
         byte current = _v.GetTerrainAt(px, py);
-        byte next = (byte)((current + 1) % 3); // 0→1→2→0
+        byte next = (byte)((current + 1) % 3); // 0→1→2→0 (DynamicWater=3 is handled by IsAnyWater above)
 
         // Cannot create Mound on a cell with any agent
         if (next == ToolDefinitions.TerrainMound && _v.HasAnyAgentAt(px, py))
@@ -1344,7 +1355,13 @@ public class CosmosEngine : IDisposable
             return;
         }
 
-        _v.TerrainGrid[px, py] = next;
+        _v.TerrainType[px, py] = next;
+        // Reset TTL when creating Pit or Mound
+        if (next == ToolDefinitions.TerrainPit || next == ToolDefinitions.TerrainMound)
+            _v.TerrainTTL[px, py] = ToolDefinitions.TerrainTTL;
+        else
+            _v.TerrainTTL[px, py] = 0;
+
         _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - _config.Stamina.TerraformCost);
         _v.TerraformCount[i]++;
 
@@ -1356,6 +1373,113 @@ public class CosmosEngine : IDisposable
             FoodType = terrainName,
             Tick = _globalTick
         });
+    }
+
+    /// <summary>Check if cell has any water in its Moore (8) neighborhood.</summary>
+    private bool HasAdjacentWater(int x, int y)
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                if (dx == 0 && dy == 0) continue;
+                int nx = x + dx, ny = y + dy;
+                if (nx >= 0 && nx < W && ny >= 0 && ny < H && _v.IsAnyWater(nx, ny))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Per-tick terrain physics: weathering (TTL decay), flooding (pit → dynamic water),
+    /// and evaporation (isolated dynamic water → flat).
+    /// </summary>
+    private void SettleTerrainPhysics()
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+
+        for (int x = 0; x < W; x++)
+        {
+            for (int y = 0; y < H; y++)
+            {
+                byte type = _v.TerrainType[x, y];
+
+                // 1. Weathering: decrement TTL, revert to Flat when expired
+                if (_v.TerrainTTL[x, y] > 0)
+                {
+                    _v.TerrainTTL[x, y]--;
+                    if (_v.TerrainTTL[x, y] == 0)
+                    {
+                        if (type == ToolDefinitions.TerrainDynamicWater)
+                        {
+                            // Dynamic water evaporated — revert to Flat
+                            _v.TerrainType[x, y] = ToolDefinitions.TerrainFlat;
+                            _tickEvents.Add(new WorldEvent
+                            {
+                                Type = "weather", AgentId = -1,
+                                FoodType = "flood_dried",
+                                Value = x * 1000 + y,
+                                Tick = _globalTick
+                            });
+                        }
+                        else if (type == ToolDefinitions.TerrainPit || type == ToolDefinitions.TerrainMound)
+                        {
+                            // Pit or Mound weathered away
+                            _v.TerrainType[x, y] = ToolDefinitions.TerrainFlat;
+                            _tickEvents.Add(new WorldEvent
+                            {
+                                Type = "weather", AgentId = -1,
+                                FoodType = type == ToolDefinitions.TerrainPit ? "pit" : "mound",
+                                Value = x * 1000 + y,
+                                Tick = _globalTick
+                            });
+                        }
+                    }
+                }
+
+                // 2. Flooding: Pit adjacent to water → DynamicWater
+                if (type == ToolDefinitions.TerrainPit && HasAdjacentWater(x, y))
+                {
+                    _v.TerrainType[x, y] = ToolDefinitions.TerrainDynamicWater;
+                    _v.TerrainTTL[x, y] = ToolDefinitions.DynamicWaterTTL; // 100-tick evaporation timer
+                    _tickEvents.Add(new WorldEvent
+                    {
+                        Type = "flood", AgentId = -1,
+                        FoodType = "pit_flooded",
+                        Value = x * 1000 + y,
+                        Tick = _globalTick
+                    });
+                }
+
+                // 3. Evaporation: isolated dynamic water keeps its TTL (handled in step 1).
+                // If connected to river (adjacent to permanent water), clear TTL → becomes permanent.
+                if (type == ToolDefinitions.TerrainDynamicWater && HasAdjacentWater(x, y))
+                {
+                    // Check if adjacent water is permanent river (not another DynamicWater)
+                    bool hasPermanentWater = false;
+                    for (int dx = -1; dx <= 1 && !hasPermanentWater; dx++)
+                    {
+                        for (int dy = -1; dy <= 1 && !hasPermanentWater; dy++)
+                        {
+                            if (dx == 0 && dy == 0) continue;
+                            int nx = x + dx, ny = y + dy;
+                            if (nx >= 0 && nx < W && ny >= 0 && ny < H
+                                && _v.RiverGrid[nx, ny] > 0)
+                                hasPermanentWater = true;
+                        }
+                    }
+                    if (hasPermanentWater)
+                    {
+                        // Connected to river — stabilize as permanent shallow water
+                        _v.TerrainTTL[x, y] = 0;
+                    }
+                }
+            }
+        }
     }
 
     // PLACEHOLDER_FOOD

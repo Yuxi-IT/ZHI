@@ -337,11 +337,17 @@ public class WebServer : IDisposable
                 signalField[sy * gw + sx] = maxSig;
             }
 
-        // Serialize terrain grid as flat int array (0=flat, 1=pit, 2=mound)
+        // Serialize terrain grid as flat int array (0=flat, 1=pit, 2=mound, 3=dynamicWater)
         var terrain = new int[gw * gh];
         for (int tx = 0; tx < gw; tx++)
             for (int ty = 0; ty < gh; ty++)
-                terrain[ty * gw + tx] = v.TerrainGrid[tx, ty];
+                terrain[ty * gw + tx] = v.TerrainType[tx, ty];
+
+        // Serialize terrain TTL as flat int array
+        var terrainTtl = new int[gw * gh];
+        for (int tx = 0; tx < gw; tx++)
+            for (int ty = 0; ty < gh; ty++)
+                terrainTtl[ty * gw + tx] = v.TerrainTTL[tx, ty];
 
         // Compute energy source percentages
         float totalEnergySrc = _engine.GenFoodEnergy + _engine.GenBigFoodEnergy + _engine.GenCorpseEnergy;
@@ -382,6 +388,7 @@ public class WebServer : IDisposable
             temperature_grid = tempGrid,
             signal_field = signalField,
             terrain,
+            terrain_ttl = terrainTtl,
             grid_width = ZHI.Shared.ToolDefinitions.GridWidth,
             grid_height = ZHI.Shared.ToolDefinitions.GridHeight,
             stats
