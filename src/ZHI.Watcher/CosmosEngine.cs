@@ -37,8 +37,10 @@ public class CosmosEngine : IDisposable
     private int _globalTick;
     private int _tickExceptionCount;
     private bool _paused;
-    private float _effectiveMutationRate;
+    private float _effectiveMutationRate = 0.1f;
     private float _totalEnergyInWorld;
+    private int[] _deathTick = Array.Empty<int>();
+    private int _respawnCount;
 
     // Event broadcasting
     private readonly List<WorldEvent> _tickEvents = new();
@@ -98,6 +100,9 @@ public class CosmosEngine : IDisposable
         _ppoBuffer = new PPOBuffer(PpoRolloutSteps, n, ZHI.Core.Device.TorchDevice);
         _gruHidden = torch.zeros(1, n, _gruBrain.HiddenSize, device: ZHI.Core.Device.TorchDevice);
 
+        _deathTick = new int[n];
+        Array.Fill(_deathTick, -1);
+
         _generation = config.DeathCount + 1;
         _totalDeaths = config.DeathCount;
 
@@ -108,7 +113,20 @@ public class CosmosEngine : IDisposable
     {
         try
         {
-            InitializeGeneration(loadWeights: null);
+            // Auto-resume from latest generation if available
+            List<byte[]>? resumeWeights = null;
+            var latestGen = _blackbox.GetLatestGeneration();
+            if (latestGen != null)
+            {
+                _generation = latestGen.Generation + 1;
+                var bestWeights = _blackbox.LoadWeights();
+                if (bestWeights != null)
+                {
+                    resumeWeights = new List<byte[]> { bestWeights };
+                    Log($"[Cosmos] Resuming from Gen {latestGen.Generation}, starting Gen {_generation}");
+                }
+            }
+            InitializeGeneration(resumeWeights);
 
             while (!_cts.Token.IsCancellationRequested)
             {
@@ -155,6 +173,10 @@ public class CosmosEngine : IDisposable
         _ppoBuffer?.Dispose();
         _ppoBuffer = new PPOBuffer(PpoRolloutSteps, n, ZHI.Core.Device.TorchDevice);
 
+        // Initialize death tracking
+        _deathTick = new int[n];
+        Array.Fill(_deathTick, -1);
+
         // Reset grid
         Array.Clear(_v.ScentGrid);
         Array.Clear(_v.RiverGrid);
@@ -178,7 +200,16 @@ public class CosmosEngine : IDisposable
         // Load brain weights
         if (loadWeights != null && loadWeights.Count > 0)
         {
-            _gruBrain.LoadWeights(loadWeights[0]);
+            try
+            {
+                _gruBrain.LoadWeights(loadWeights[0]);
+            }
+            catch (Exception ex)
+            {
+                Log($"[Cosmos] Failed to load weights (dimension mismatch?): {ex.Message}. Starting fresh.");
+                _gruBrain.Dispose();
+                _gruBrain = new GRUBrain(_config.Network.LearningRate, _config.Network.Gamma);
+            }
         }
         else
         {
@@ -266,6 +297,27 @@ public class CosmosEngine : IDisposable
         for (int x = 0; x < W; x++)
             for (int y = 0; y < H; y++)
                 _v.ScentGrid[x, y] *= scentDecay;
+
+        // 4b. Scent diffusion: each cell shares a fraction with 4 neighbors
+        float diffRate = _config.Scent.DiffusionRate;
+        if (diffRate > 0f)
+        {
+            var scentBuf = new float[W * H];
+            for (int x = 0; x < W; x++)
+                for (int y = 0; y < H; y++)
+                {
+                    float s = _v.ScentGrid[x, y];
+                    float share = s * diffRate;
+                    if (x > 0) scentBuf[(x - 1) * H + y] += share * 0.25f;
+                    if (x < W - 1) scentBuf[(x + 1) * H + y] += share * 0.25f;
+                    if (y > 0) scentBuf[x * H + (y - 1)] += share * 0.25f;
+                    if (y < H - 1) scentBuf[x * H + (y + 1)] += share * 0.25f;
+                    scentBuf[x * H + y] += s * (1f - diffRate);
+                }
+            for (int x = 0; x < W; x++)
+                for (int y = 0; y < H; y++)
+                    _v.ScentGrid[x, y] = scentBuf[x * H + y];
+        }
 
         // 4a. Hunger decay
         for (int i = 0; i < n; i++)
@@ -371,6 +423,14 @@ public class CosmosEngine : IDisposable
         _gruHidden?.Dispose();
         _gruHidden = newHidden;
 
+        // NaN guard: if entropy is NaN, the policy has diverged — reset hidden state
+        if (entropy.isnan().any().item<bool>())
+        {
+            Log("[Cosmos] NaN detected in policy — resetting hidden state");
+            _gruHidden?.Dispose();
+            _gruHidden = torch.zeros(1, n, _gruBrain.HiddenSize, device: _v.Device);
+        }
+
         // Extract to CPU
         long[] actionsArr = new long[n];
         actions.cpu().data<long>().CopyTo(actionsArr);
@@ -402,6 +462,7 @@ public class CosmosEngine : IDisposable
                 _v.StatusMirror[i] = "DEAD";
                 rewards[i] = -20f;
                 donesArr[i] = 1f;
+                _deathTick[i] = _globalTick;
 
                 _tickEvents.Add(new WorldEvent { Type = "death", AgentId = i, Tick = _globalTick });
 
@@ -493,6 +554,7 @@ public class CosmosEngine : IDisposable
                 int childIdx = ReproduceAgent(i);
                 if (childIdx >= 0)
                 {
+                    aliveNow++;
                     _tickEvents.Add(new WorldEvent { Type = "reproduce", AgentId = i, ChildId = childIdx, Tick = _globalTick });
                     _v.LastReproduceTick[i] = _globalTick;
                 }
@@ -512,18 +574,16 @@ public class CosmosEngine : IDisposable
             // Recreate PPO buffer for new agent count (discard partial rollout)
             _ppoBuffer?.Dispose();
             _ppoBuffer = new PPOBuffer(PpoRolloutSteps, n, _v.Device);
+
+            // Grow death tick array
+            var oldDeathTick = _deathTick;
+            _deathTick = new int[n];
+            Array.Fill(_deathTick, -1);
+            Array.Copy(oldDeathTick, _deathTick, oldDeathTick.Length);
         }
 
-        // 14. Check all dead or timeout → next generation
-        int aliveCount = 0;
-        for (int i = 0; i < n; i++) if (_v.Alive[i]) aliveCount++;
-        bool timedOut = _globalTick > 5000 && aliveCount < 3;
-        if ((aliveCount == 0 || timedOut) && n > 0)
-        {
-            if (timedOut)
-                Log($"[Cosmos] Gen {_generation} timed out at tick {_globalTick}, alive={aliveCount}");
-            EndGeneration();
-        }
+        // 14. Individual respawn: dead agents respawn after RespawnDelayTicks
+        RespawnDeadAgents();
 
         // Compute total energy in world
         _totalEnergyInWorld = 0f;
@@ -797,13 +857,15 @@ public class CosmosEngine : IDisposable
 
         if (bestTarget >= 0)
         {
+            float hpRatio = Math.Clamp(_v.Existence[attacker] / 100f, 0.2f, 1.5f);
+            float damage = 20f * hpRatio;
             _v.Stress[bestTarget] += _config.Combat.StressPerAttack;
-            _v.Existence[bestTarget] -= 20f;
+            _v.Existence[bestTarget] -= damage;
             _v.LastActionNameMirror[attacker] = $"attack#{bestTarget}";
             _tickEvents.Add(new WorldEvent
             {
                 Type = "attack", AgentId = attacker, TargetId = bestTarget,
-                Value = _config.Combat.StressPerAttack, Tick = _globalTick
+                Value = damage, Tick = _globalTick
             });
             _genAttacks++;
         }
@@ -1009,6 +1071,76 @@ public class CosmosEngine : IDisposable
         return count;
     }
 
+    private void RespawnDeadAgents()
+    {
+        int delay = _config.Cosmos.RespawnDelayTicks;
+        int n = _v.N;
+        int maxAgents = _config.Grid.MaxAgents;
+        int aliveCount = GetAliveCount();
+
+        for (int i = 0; i < n; i++)
+        {
+            if (_v.Alive[i]) continue;
+            if (_deathTick[i] < 0) continue;
+            if (_globalTick - _deathTick[i] < delay) continue;
+            if (aliveCount >= maxAgents) break;
+
+            double livedSecs = (_v.BirthTimes[i] != default)
+                ? (DateTime.UtcNow - _v.BirthTimes[i]).TotalSeconds : 0;
+
+            // Record death to DB
+            var record = new DeathRecord
+            {
+                Generation = _generation,
+                Cause = _v.StatusMirror[i],
+                StressAtDeath = _v.Stress[i],
+                ExistenceAtDeath = _v.Existence[i],
+                PreDeathStatesJson = JsonSerializer.Serialize(new { PosX = _v.PosX[i], PosY = _v.PosY[i], Stress = _v.Stress[i] }),
+                DeathTime = DateTime.UtcNow,
+                AliveSeconds = livedSecs
+            };
+            _blackbox.RecordDeath(record);
+
+            // Respawn
+            _v.RespawnAgent(i, _rng);
+            _deathTick[i] = -1;
+
+            // Zero GRU hidden state for this agent
+            if (_gruHidden is not null)
+            {
+                using (var _ = torch.no_grad())
+                    _gruHidden[0, i].zero_();
+            }
+
+            _totalDeaths++;
+            _respawnCount++;
+            aliveCount++;
+            _tickEvents.Add(new WorldEvent { Type = "respawn", AgentId = i, Tick = _globalTick });
+            Log($"[Cosmos] Agent #{i} respawned (lived {livedSecs:F1}s)");
+
+            // Lightweight generation milestone: every 64 respawns = 1 generation
+            if (_respawnCount % 64 == 0)
+            {
+                _generation++;
+                _config.DeathCount = _totalDeaths;
+                SaveConfig();
+
+                // Save best weights (longest lived current agent)
+                int bestIdx = -1;
+                int bestTicks = 0;
+                for (int j = 0; j < _v.N; j++)
+                {
+                    if (_v.Alive[j] && _v.TickCount[j] > bestTicks)
+                    { bestIdx = j; bestTicks = _v.TickCount[j]; }
+                }
+                if (bestIdx >= 0 && bestIdx < _agentWeights.Count)
+                    _blackbox.SaveWeights(_generation, _agentWeights[bestIdx]);
+
+                Log($"[Cosmos] ===== Gen {_generation} (respawn milestone, total deaths={_totalDeaths}) =====");
+            }
+        }
+    }
+
     private int ReproduceAgent(int parentIdx)
     {
         // Find adjacent empty cell
@@ -1085,148 +1217,6 @@ public class CosmosEngine : IDisposable
         using var ms = new MemoryStream();
         brain.save(ms);
         return ms.ToArray();
-    }
-
-    private void EndGeneration()
-    {
-        try
-        {
-            EndGenerationInternal();
-        }
-        catch (Exception ex)
-        {
-            Log($"[Cosmos] ERROR in EndGeneration: {ex.Message}");
-            Console.WriteLine($"[Cosmos] ERROR in EndGeneration: {ex}");
-            try
-            {
-                Log($"[Cosmos] Attempting generation recovery...");
-                _generation++;
-                InitializeGeneration(loadWeights: null);
-                Log($"[Cosmos] ===== Gen {_generation} START (recovery) =====");
-            }
-            catch (Exception ex2)
-            {
-                Log($"[Cosmos] FATAL: Recovery failed: {ex2.Message}");
-                Console.WriteLine($"[Cosmos] FATAL: Recovery failed: {ex2}");
-                HardResetWorld();
-            }
-        }
-    }
-
-    private void EndGenerationInternal()
-    {
-        Log($"[Cosmos] ===== Gen {_generation} END (tick {_globalTick}, exceptions={_tickExceptionCount}) =====");
-        _tickExceptionCount = 0;
-        int actualN = _v.N;
-        int configuredN = _config.Cosmos.AgentCount;
-
-        _totalDeaths += actualN;
-        _config.DeathCount = _totalDeaths;
-        SaveConfig();
-
-        for (int i = 0; i < actualN; i++)
-        {
-            double aliveSecs = (DateTime.UtcNow - _v.BirthTimes[i]).TotalSeconds;
-            double fitness = aliveSecs * (1.0 + _v.EatCount[i] * 0.2 + _v.AttackCount[i] * 0.05);
-
-            _genResults.Add(new GenerationResult
-            {
-                AgentId = i,
-                Weights = _agentWeights[i],
-                Fitness = fitness,
-                AliveSeconds = aliveSecs,
-                Cause = _v.StatusMirror[i],
-                AttackCount = _v.AttackCount[i],
-                TickCount = _v.TickCount[i],
-                EatCount = _v.EatCount[i],
-                SignalCount = _v.SignalCount[i]
-            });
-
-            var record = new DeathRecord
-            {
-                Generation = _generation,
-                Cause = _v.StatusMirror[i],
-                CpuAtDeath = _v.Stress[i],
-                MemAtDeath = 0f,
-                ExistenceAtDeath = _v.Existence[i],
-                PreDeathStatesJson = JsonSerializer.Serialize(new { PosX = _v.PosX[i], PosY = _v.PosY[i], Stress = _v.Stress[i] }),
-                DeathTime = DateTime.UtcNow,
-                AliveSeconds = aliveSecs
-            };
-            _blackbox.RecordDeath(record);
-            _blackbox.SaveAgentWeights(_generation, i, _agentWeights[i]);
-        }
-
-        // Adaptive mutation
-        var decayGen = Math.Max(1, _config.Cosmos.MutationDecayGenerations);
-        var progress = Math.Min(1f, (float)_generation / decayGen);
-        _effectiveMutationRate = _config.Cosmos.MutationRateMin
-            + (_config.Cosmos.MutationRate - _config.Cosmos.MutationRateMin) * (1f - progress);
-
-        // MAP-Elites
-        foreach (var r in _genResults)
-        {
-            float ticks = Math.Max(1, r.TickCount);
-            float aggression = Math.Clamp((float)r.AttackCount / ticks, 0f, 1f);
-            float exploration = Math.Clamp((float)r.EatCount / ticks, 0f, 1f);
-            _mapElites!.TryInsert(r.Weights, r.Fitness, aggression, exploration);
-        }
-
-        // Genetic selection — build exactly configuredN weights
-        var sorted = _genResults.OrderByDescending(r => r.Fitness).ToList();
-        var nextWeights = new List<byte[]>();
-        int eliteCount = _config.Cosmos.EliteCount;
-
-        for (int i = 0; i < configuredN; i++)
-        {
-            if (i < eliteCount)
-            {
-                var w = sorted[i].Weights;
-                if (_rng.NextDouble() < 0.3) w = MutateOnly(w);
-                nextWeights.Add(w);
-            }
-            else
-            {
-                var pa = _mapElites!.SampleParent(_rng);
-                var pb = _mapElites.SampleParent(_rng);
-                if (pa != null && pb != null)
-                    nextWeights.Add(Breed(pa.Value.Weights, pb.Value.Weights));
-                else
-                {
-                    var p1 = sorted[_rng.Next(Math.Min(4, sorted.Count))];
-                    var p2 = sorted[_rng.Next(Math.Min(4, sorted.Count))];
-                    nextWeights.Add(Breed(p1.Weights, p2.Weights));
-                }
-            }
-        }
-
-        var best = sorted[0];
-        _blackbox.SaveWeights(_generation, best.Weights);
-        Log($"[Gen] best={best.Fitness:F1} alive={best.AliveSeconds:F1}s eat={best.EatCount} atk={best.AttackCount}");
-
-        _generation++;
-        Log($"[Cosmos] ===== Gen {_generation} START =====");
-        InitializeGeneration(nextWeights);
-    }
-
-    private void HardResetWorld()
-    {
-        Log($"[Cosmos] HARD RESET — reinitializing world from scratch");
-        Console.WriteLine($"[Cosmos] HARD RESET");
-        try
-        {
-            _generation++;
-            _tickExceptionCount = 0;
-            _genResults.Clear();
-            InitializeGeneration(loadWeights: null);
-            Log($"[Cosmos] ===== Gen {_generation} START (hard reset) =====");
-        }
-        catch (Exception ex)
-        {
-            Log($"[Cosmos] FATAL: Hard reset failed: {ex.Message}");
-            Console.WriteLine($"[Cosmos] FATAL: Hard reset failed: {ex}");
-            throw;
-        }
     }
 
     // PLACEHOLDER_GENETIC
