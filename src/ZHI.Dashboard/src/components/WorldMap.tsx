@@ -1,8 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import type { AgentSnapshot, FoodTile, CorpseTile, WorldEvent } from '../types'
 
-const GRID_W = 64
-const GRID_H = 64
 const MIN_ZOOM = 0.5
 const MAX_ZOOM = 12
 
@@ -15,6 +13,8 @@ interface Props {
   foodScent?: number[]
   signalField?: number[]
   events?: WorldEvent[]
+  gridW?: number
+  gridH?: number
   trackedAgent?: number | null
   onTrackChange?: (id: number | null) => void
   showScent?: boolean
@@ -41,6 +41,7 @@ interface FloatingText {
 
 export function WorldMap({
   agents, food, corpses, river, scent, foodScent, signalField, events,
+  gridW = 64, gridH = 64,
   trackedAgent: trackedProp, onTrackChange,
   showScent = false, showFoodScent = false,
   showDirection = false, showVision = false,
@@ -124,7 +125,7 @@ export function WorldMap({
     const w = rect.width
     const h = rect.height
     const cam = camRef.current
-    const cellSize = cam.zoom * (w / GRID_W)
+    const cellSize = cam.zoom * (w / gridW)
 
     // Track agent: center camera on it
     if (trackedAgent !== null) {
@@ -142,8 +143,8 @@ export function WorldMap({
     ctx.translate(-cam.x, -cam.y)
 
     // Grid background
-    const totalW = GRID_W * cellSize
-    const totalH = GRID_H * cellSize
+    const totalW = gridW * cellSize
+    const totalH = gridH * cellSize
     ctx.fillStyle = '#0d0d0d'
     ctx.fillRect(0, 0, totalW, totalH)
 
@@ -152,9 +153,9 @@ export function WorldMap({
       ctx.strokeStyle = '#1a1a1a'
       ctx.lineWidth = 0.5
       const startCol = Math.max(0, Math.floor(cam.x / cellSize))
-      const endCol = Math.min(GRID_W, Math.ceil((cam.x + w) / cellSize))
+      const endCol = Math.min(gridW, Math.ceil((cam.x + w) / cellSize))
       const startRow = Math.max(0, Math.floor(cam.y / cellSize))
-      const endRow = Math.min(GRID_H, Math.ceil((cam.y + h) / cellSize))
+      const endRow = Math.min(gridH, Math.ceil((cam.y + h) / cellSize))
       for (let i = startCol; i <= endCol; i++) {
         ctx.beginPath()
         ctx.moveTo(i * cellSize, startRow * cellSize)
@@ -172,12 +173,12 @@ export function WorldMap({
     // Water tiles (river)
     if (river.length > 0) {
       const startCol = Math.max(0, Math.floor(cam.x / cellSize))
-      const endCol = Math.min(GRID_W, Math.ceil((cam.x + w) / cellSize))
+      const endCol = Math.min(gridW, Math.ceil((cam.x + w) / cellSize))
       const startRow = Math.max(0, Math.floor(cam.y / cellSize))
-      const endRow = Math.min(GRID_H, Math.ceil((cam.y + h) / cellSize))
+      const endRow = Math.min(gridH, Math.ceil((cam.y + h) / cellSize))
       for (let gx = startCol; gx < endCol; gx++) {
         for (let gy = startRow; gy < endRow; gy++) {
-          const val = river[gy * GRID_W + gx]
+          const val = river[gy * gridW + gx]
           if (val === 0) continue
           const px = gx * cellSize
           const py = gy * cellSize
@@ -196,12 +197,12 @@ export function WorldMap({
     // Food scent heatmap (green — food/corpse emission)
     if (showFoodScent && foodScent && foodScent.length > 0) {
       const startCol = Math.max(0, Math.floor(cam.x / cellSize))
-      const endCol = Math.min(GRID_W, Math.ceil((cam.x + w) / cellSize))
+      const endCol = Math.min(gridW, Math.ceil((cam.x + w) / cellSize))
       const startRow = Math.max(0, Math.floor(cam.y / cellSize))
-      const endRow = Math.min(GRID_H, Math.ceil((cam.y + h) / cellSize))
+      const endRow = Math.min(gridH, Math.ceil((cam.y + h) / cellSize))
       for (let gx = startCol; gx < endCol; gx++) {
         for (let gy = startRow; gy < endRow; gy++) {
-          const val = foodScent[gy * GRID_W + gx]
+          const val = foodScent[gy * gridW + gx]
           if (val <= 0.01) continue
           const alpha = Math.min(val / 10, 0.5)
           ctx.fillStyle = `rgba(34, 197, 94, ${alpha})`
@@ -213,12 +214,12 @@ export function WorldMap({
     // Agent scent heatmap (purple — movement trails)
     if (showScent && scent.length > 0) {
       const startCol = Math.max(0, Math.floor(cam.x / cellSize))
-      const endCol = Math.min(GRID_W, Math.ceil((cam.x + w) / cellSize))
+      const endCol = Math.min(gridW, Math.ceil((cam.x + w) / cellSize))
       const startRow = Math.max(0, Math.floor(cam.y / cellSize))
-      const endRow = Math.min(GRID_H, Math.ceil((cam.y + h) / cellSize))
+      const endRow = Math.min(gridH, Math.ceil((cam.y + h) / cellSize))
       for (let gx = startCol; gx < endCol; gx++) {
         for (let gy = startRow; gy < endRow; gy++) {
-          const val = scent[gy * GRID_W + gx]
+          const val = scent[gy * gridW + gx]
           if (val <= 0.01) continue
           const alpha = Math.min(val / 10, 0.6)
           ctx.fillStyle = `rgba(168, 85, 247, ${alpha})`
@@ -230,12 +231,12 @@ export function WorldMap({
     // Signal field overlay (yellow semi-transparent)
     if (showSignal && signalField && signalField.length > 0) {
       const startCol = Math.max(0, Math.floor(cam.x / cellSize))
-      const endCol = Math.min(GRID_W, Math.ceil((cam.x + w) / cellSize))
+      const endCol = Math.min(gridW, Math.ceil((cam.x + w) / cellSize))
       const startRow = Math.max(0, Math.floor(cam.y / cellSize))
-      const endRow = Math.min(GRID_H, Math.ceil((cam.y + h) / cellSize))
+      const endRow = Math.min(gridH, Math.ceil((cam.y + h) / cellSize))
       for (let gx = startCol; gx < endCol; gx++) {
         for (let gy = startRow; gy < endRow; gy++) {
-          const val = signalField[gy * GRID_W + gx]
+          const val = signalField[gy * gridW + gx]
           if (val <= 0.01) continue
           const alpha = Math.min(val, 0.5)
           ctx.fillStyle = `rgba(250, 204, 21, ${alpha})`
@@ -315,7 +316,7 @@ export function WorldMap({
 
             const gx = agent.x + dx
             const gy = agent.y + dy
-            if (gx < 0 || gx >= GRID_W || gy < 0 || gy >= GRID_H) continue
+            if (gx < 0 || gx >= gridW || gy < 0 || gy >= gridH) continue
             const dist = Math.abs(dx) + Math.abs(dy)
             const alpha = dist === 0 ? 0.08 : dist <= 2 ? 0.04 : 0.02
             ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`
@@ -419,7 +420,7 @@ export function WorldMap({
       ? `${zoomPct}% | tracking #${trackedAgent} | alive ${aliveCount}/${agents.length}`
       : `${zoomPct}% | alive ${aliveCount}/${agents.length}`
     ctx.fillText(hudText, 8, 8)
-  }, [agents, food, corpses, river, scent, foodScent, signalField, trackedAgent, showScent, showFoodScent, showDirection, showVision, showSignal])
+  }, [agents, food, corpses, river, scent, foodScent, signalField, gridW, gridH, trackedAgent, showScent, showFoodScent, showDirection, showVision, showSignal])
 
   useEffect(() => {
     let animating = true
@@ -442,13 +443,13 @@ export function WorldMap({
     if (!canvas) return null
     const rect = canvas.getBoundingClientRect()
     const cam = camRef.current
-    const cellSize = cam.zoom * (rect.width / GRID_W)
+    const cellSize = cam.zoom * (rect.width / gridW)
     const worldX = cam.x + mx
     const worldY = cam.y + my
     const gx = Math.floor(worldX / cellSize)
     const gy = Math.floor(worldY / cellSize)
 
-    if (gx < 0 || gx >= GRID_W || gy < 0 || gy >= GRID_H) return null
+    if (gx < 0 || gx >= gridW || gy < 0 || gy >= gridH) return null
 
     // Check agent first
     const agent = agents.find(a => a.is_alive && a.x === gx && a.y === gy)
@@ -467,7 +468,7 @@ export function WorldMap({
 
     // Check water
     if (river.length > 0) {
-      const rv = river[gy * GRID_W + gx]
+      const rv = river[gy * gridW + gx]
       if (rv === 1) return { x: mx + 12, y: my - 10, text: ['Shallow Water', 'Walkable, drinkable'] }
       if (rv === 2) return { x: mx + 12, y: my - 10, text: ['Deep Water', 'Impassable'] }
     }
@@ -558,7 +559,7 @@ export function WorldMap({
     const onDblClick = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect()
       const cam = camRef.current
-      const cellSize = cam.zoom * (rect.width / GRID_W)
+      const cellSize = cam.zoom * (rect.width / gridW)
       const worldX = cam.x + (e.clientX - rect.left)
       const worldY = cam.y + (e.clientY - rect.top)
       const gx = Math.floor(worldX / cellSize)

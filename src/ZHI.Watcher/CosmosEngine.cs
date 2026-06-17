@@ -159,6 +159,10 @@ public class CosmosEngine : IDisposable
 
     private void InitializeGeneration(List<byte[]>? loadWeights)
     {
+        // Apply grid dimensions from config
+        ToolDefinitions.GridWidth = _config.Grid.Width;
+        ToolDefinitions.GridHeight = _config.Grid.Height;
+
         _genResults.Clear();
         _globalTick = 0;
         _genAttacks = 0;

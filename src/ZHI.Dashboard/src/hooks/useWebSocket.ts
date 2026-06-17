@@ -13,6 +13,8 @@ export function useWebSocket() {
   const [totalDeaths, setTotalDeaths] = useState(0);
   const [timeOfDay, setTimeOfDay] = useState(0);
   const [temperature, setTemperature] = useState(20);
+  const [gridW, setGridW] = useState(64);
+  const [gridH, setGridH] = useState(64);
   const [agents, setAgents] = useState<AgentSnapshot[]>([]);
   const [food, setFood] = useState<FoodTile[]>([]);
   const [corpses, setCorpses] = useState<CorpseTile[]>([]);
@@ -50,6 +52,8 @@ export function useWebSocket() {
           setTotalDeaths(data.total_deaths);
           if (data.time_of_day !== undefined) setTimeOfDay(data.time_of_day);
           if (data.temperature !== undefined) setTemperature(data.temperature);
+          if (data.grid_width) setGridW(data.grid_width);
+          if (data.grid_height) setGridH(data.grid_height);
           setAgents(data.agents ?? []);
           setFood(data.food ?? []);
           setCorpses(data.corpses ?? []);
@@ -88,5 +92,5 @@ export function useWebSocket() {
 
   const clearEvents = useCallback(() => setEvents([]), []);
 
-  return { connected, generation, totalDeaths, timeOfDay, temperature, agents, food, corpses, river, scent, foodScent, signalField, logs, events, clearEvents, stats };
+  return { connected, generation, totalDeaths, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, signalField, logs, events, clearEvents, stats };
 }

@@ -18,7 +18,7 @@ function formatGameTime(hours: number): string {
 }
 
 function App() {
-  const { generation, totalDeaths, timeOfDay, temperature, agents, food, corpses, river, scent, foodScent, signalField, logs, events, clearEvents, stats, connected } = useWebSocket()
+  const { generation, totalDeaths, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, signalField, logs, events, clearEvents, stats, connected } = useWebSocket()
   const { stats: dbStats, loading } = useStats()
   const { history, record } = useEcoHistory()
   const [bottomTab, setBottomTab] = useState<'log' | 'charts' | 'events'>('log')
@@ -156,6 +156,8 @@ function App() {
               showScent={showScent}
               showFoodScent={showFoodScent}
               foodScent={foodScent}
+              gridW={gridW}
+              gridH={gridH}
               showDirection={showDirection}
               showVision={showVision}
               showSignal={showSignal}
