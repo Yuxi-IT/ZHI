@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import type { AgentSnapshot, FoodTile, CorpseTile, WorldEvent } from '../types'
+import { useT } from '../i18n/I18nContext'
 
 const MIN_ZOOM = 0.1
 const MAX_ZOOM = 12
@@ -50,6 +51,7 @@ export function WorldMap({
   showDirection = false, showVision = false,
   showSignal = false,
 }: Props) {
+  const { t } = useT()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const camRef = useRef({ x: 0, y: 0, zoom: 1 })
   const dragRef = useRef({ dragging: false, lastX: 0, lastY: 0 })
@@ -487,9 +489,9 @@ export function WorldMap({
         x: mx + 12, y: my - 10,
         text: [
           `Agent #${agent.id}${agent.respawn_count > 0 ? ` (Gen ${agent.respawn_count})` : ''}`,
-          `HP: ${agent.existence.toFixed(1)}  Stress: ${agent.stress.toFixed(2)}`,
-          `Hunger: ${agent.hunger.toFixed(1)}  Thirst: ${agent.thirst.toFixed(1)}`,
-          `Age: ${agent.tick_count} ticks  Action: ${agent.last_action}`,
+          `HP: ${agent.existence.toFixed(1)}  ${t('agents.stress')}: ${agent.stress.toFixed(2)}`,
+          `${t('agents.hunger')}: ${agent.hunger.toFixed(1)}  ${t('agents.thirst')}: ${agent.thirst.toFixed(1)}`,
+          `${t('agents.age')}: ${agent.tick_count}  ${t('agents.action')}: ${agent.last_action}`,
           `Eats: ${agent.eat_count}  Attacks: ${agent.attack_count}  Signals: ${agent.signal_count}`
         ]
       }
@@ -498,8 +500,8 @@ export function WorldMap({
     // Check water
     if (river.length > 0) {
       const rv = river[gy * gridW + gx]
-      if (rv === 1) return { x: mx + 12, y: my - 10, text: ['Shallow Water', 'Walkable, drinkable'] }
-      if (rv === 2) return { x: mx + 12, y: my - 10, text: ['Deep Water', 'Impassable'] }
+      if (rv === 1) return { x: mx + 12, y: my - 10, text: [t('map.shallow'), t('map.shallowDesc')] }
+      if (rv === 2) return { x: mx + 12, y: my - 10, text: [t('map.deep'), t('map.deepDesc')] }
     }
 
     // Check food (area-based for multi-cell BigFood)
@@ -512,8 +514,8 @@ export function WorldMap({
       return {
         x: mx + 12, y: my - 10,
         text: [
-          foodHere.is_big ? 'Big Food' : 'Food',
-          `Energy: ${foodHere.energy.toFixed(1)} / ${foodHere.max_energy.toFixed(0)}`
+          foodHere.is_big ? t('map.bigFood') : t('map.food'),
+          `${t('map.energy')}: ${foodHere.energy.toFixed(1)} / ${foodHere.max_energy.toFixed(0)}`
         ]
       }
     }
@@ -523,12 +525,12 @@ export function WorldMap({
     if (corpseHere) {
       return {
         x: mx + 12, y: my - 10,
-        text: ['Corpse', `Energy: ${corpseHere.energy.toFixed(1)}`]
+        text: [t('map.corpse'), `${t('map.energy')}: ${corpseHere.energy.toFixed(1)}`]
       }
     }
 
     return null
-  }, [agents, food, corpses, river])
+  }, [agents, food, corpses, river, t])
 
   useEffect(() => {
     const canvas = canvasRef.current

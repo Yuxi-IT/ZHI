@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react';
 import type { LogMessage } from '../types';
+import { useT } from '../i18n/I18nContext';
 
 interface Props {
   logs: LogMessage[];
 }
 
 export function LogPanel({ logs }: Props) {
+  const { t } = useT()
   const containerRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
 
@@ -24,7 +26,7 @@ export function LogPanel({ logs }: Props) {
   return (
     <div className="flex flex-col flex-1 min-h-0">
       <div className="px-4 py-1.5 text-[10px] text-zhi-muted uppercase tracking-wider shrink-0">
-        event log
+        {t('log.title')}
       </div>
       <div
         ref={containerRef}

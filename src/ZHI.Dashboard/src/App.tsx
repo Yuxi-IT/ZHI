@@ -8,8 +8,9 @@ import { AgentCardsPanel } from './components/AgentCardsPanel'
 import { LogPanel } from './components/LogPanel'
 import { ChartsPanel } from './components/ChartsPanel'
 import { EventMonitor } from './components/EventMonitor'
-import { EventLog } from './components/EventLog'
 import { SettingsPanel } from './components/SettingsPanel'
+import { LangToggle } from './components/LangToggle'
+import { I18nProvider, useT } from './i18n/I18nContext'
 import { version } from '../package.json'
 
 function formatGameTime(hours: number): string {
@@ -29,18 +30,18 @@ function tempColor(t: number): string {
   return '#ef4444'
 }
 
-function App() {
+function AppInner() {
   const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, signalField, stats, connected } = useWebSocket()
   const { logs, events, clearEvents } = useLogSocket()
   const { stats: dbStats, loading } = useStats()
   const { history, record } = useEcoHistory()
+  const { t } = useT()
   const [bottomTab, setBottomTab] = useState<'log' | 'charts' | 'settings'>('log')
   const [trackedAgent, setTrackedAgent] = useState<number | null>(null)
   const [trackNextGen, setTrackNextGen] = useState(false)
   const [bottomHeight, setBottomHeight] = useState(192)
   const resizeRef = useRef<{ startY: number; startH: number } | null>(null)
 
-  // Display toggles
   const [showScent, setShowScent] = useState(true)
   const [showFoodScent, setShowFoodScent] = useState(true)
   const [showDirection, setShowDirection] = useState(true)
@@ -50,14 +51,12 @@ function App() {
 
   const aliveCount = agents.filter(a => a.is_alive).length
 
-  // Record eco history on each data update
   useEffect(() => {
     if (agents.length > 0) {
       record(agents, food, corpses, generation)
     }
   }, [agents, food, corpses, generation, record])
 
-  // Clear tracking if agent dies (unless trackNextGen is on)
   useEffect(() => {
     if (trackedAgent !== null && !trackNextGen) {
       const agent = agents.find(a => a.id === trackedAgent)
@@ -65,7 +64,6 @@ function App() {
     }
   }, [agents, trackedAgent, trackNextGen])
 
-  // Resize bottom panel
   const onResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     resizeRef.current = { startY: e.clientY, startH: bottomHeight }
@@ -92,106 +90,105 @@ function App() {
       {/* Header */}
       <header className="flex items-center gap-4 px-5 py-2 border-b border-neutral-800 shrink-0">
         <h1 className="text-sm font-normal tracking-[0.2em] text-neutral-400">ZHI</h1>
-        <span className="text-neutral-600">栀 · Cosmos v{version}</span>
+        <span className="text-neutral-600">{t('header.subtitle', { version })}</span>
         <div className="flex items-center gap-3 ml-auto">
-          <span className="text-[10px] text-neutral-500">Gen {generation}</span>
+          <span className="text-[10px] text-neutral-500">{t('header.gen')} {generation}</span>
           <span className="text-[10px] text-neutral-500">|</span>
-          <span className="text-[10px] text-neutral-500">Deaths {totalDeaths}</span>
+          <span className="text-[10px] text-neutral-500">{t('header.deaths')} {totalDeaths}</span>
           <span className="text-[10px] text-neutral-500">|</span>
-          <span className="text-[10px] text-neutral-500">Alive {aliveCount}/{agents.length}</span>
+          <span className="text-[10px] text-neutral-500">{t('header.alive')} {aliveCount}/{agents.length}</span>
           <span className="text-[10px] text-neutral-500">|</span>
-          <span className="text-[10px] text-neutral-500">Food {food.length}</span>
+          <span className="text-[10px] text-neutral-500">{t('header.food')} {food.length}</span>
           <span className="text-[10px] text-neutral-500">|</span>
-          <span className="text-[10px] text-neutral-500">Corpses {corpses.length}</span>
+          <span className="text-[10px] text-neutral-500">{t('header.corpses')} {corpses.length}</span>
           {!loading && dbStats && (
             <>
               <span className="text-[10px] text-neutral-500">|</span>
               <span className="text-[10px] text-neutral-500">
-                AvgLife {dbStats.avg_alive_seconds_recent_10.toFixed(0)}s
+                {t('header.avgLife')} {dbStats.avg_alive_seconds_recent_10.toFixed(0)}s
               </span>
               <span className="text-[10px] text-neutral-500">|</span>
               <span className="text-[10px] text-neutral-400">
-                Night {((dbStats.night_death_rate ?? 0) * 100).toFixed(0)}%
+                {t('header.night')} {((dbStats.night_death_rate ?? 0) * 100).toFixed(0)}%
               </span>
               <span className="text-[10px] text-neutral-500">|</span>
               <span className="text-[10px] text-neutral-500">
-                Atk {dbStats.avg_attacks_per_life?.toFixed(1) ?? "0"}
+                {t('header.atk')} {dbStats.avg_attacks_per_life?.toFixed(1) ?? '0'}
               </span>
               <span className="text-[10px] text-neutral-500">
-                Eat {dbStats.avg_eats_per_life?.toFixed(1) ?? "0"}
+                {t('header.eat')} {dbStats.avg_eats_per_life?.toFixed(1) ?? '0'}
               </span>
               <span className="text-[10px] text-neutral-500">
-                Sig {dbStats.avg_signals_per_life?.toFixed(1) ?? "0"}
+                {t('header.sig')} {dbStats.avg_signals_per_life?.toFixed(1) ?? '0'}
               </span>
             </>
           )}
           <div className="flex items-center gap-2">
+            <LangToggle />
             <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
-            <span className="text-[10px] text-neutral-500">{connected ? 'live' : 'off'}</span>
+            <span className="text-[10px] text-neutral-500">{connected ? t('header.live') : t('header.off')}</span>
           </div>
         </div>
       </header>
 
       {/* Main */}
       <div className="flex-1 flex min-h-0">
-        {/* Left Sidebar: Event Monitor */}
         <aside className="w-64 shrink-0 border-r border-neutral-800 flex flex-col min-h-0">
           <EventMonitor events={events} energySource={stats?.energy_source} onClear={clearEvents} />
         </aside>
 
-        {/* Center: Map top + Bottom panel */}
         <div className="flex-1 flex flex-col min-h-0 min-w-0">
           {/* Display toggles bar */}
           <div className="flex items-center gap-1 px-3 py-1 border-b border-neutral-800 shrink-0">
-            <span className="text-neutral-500 text-[9px]">Day {worldDay}</span>
+            <span className="text-neutral-500 text-[9px]">{t('header.day')} {worldDay}</span>
             <span className="text-neutral-700 text-[9px]">|</span>
             <span className="text-neutral-400 text-[9px]">{formatGameTime(timeOfDay)}</span>
             <span className="text-[9px] font-semibold" style={{ color: tempColor(temperature) }}>{temperature.toFixed(1)}°C</span>
             <span className="text-neutral-700 text-[9px] mx-1">|</span>
-            <span className="text-neutral-600 text-[9px] mr-1">显示:</span>
+            <span className="text-neutral-600 text-[9px] mr-1">{t('toggle.display')}</span>
             <button
               onClick={() => setShowScent(v => !v)}
               className={`px-1.5 py-0.5 text-[9px] rounded border ${showScent ? 'border-purple-600 text-purple-400 bg-purple-900/20' : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'}`}
             >
-              气味-栀
+              {t('toggle.scent')}
             </button>
             <button
               onClick={() => setShowFoodScent(v => !v)}
               className={`px-1.5 py-0.5 text-[9px] rounded border ${showFoodScent ? 'border-green-600 text-green-400 bg-green-900/20' : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'}`}
             >
-              气味-食
+              {t('toggle.foodScent')}
             </button>
             <button
               onClick={() => setShowDirection(v => !v)}
               className={`px-1.5 py-0.5 text-[9px] rounded border ${showDirection ? 'border-yellow-600 text-yellow-400 bg-yellow-900/20' : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'}`}
             >
-              方向
+              {t('toggle.direction')}
             </button>
             <button
               onClick={() => setShowVision(v => !v)}
               className={`px-1.5 py-0.5 text-[9px] rounded border ${showVision ? 'border-purple-600 text-purple-400 bg-purple-900/20' : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'}`}
             >
-              视野
+              {t('toggle.vision')}
             </button>
             <button
               onClick={() => setShowSignal(v => !v)}
               className={`px-1.5 py-0.5 text-[9px] rounded border ${showSignal ? 'border-yellow-600 text-yellow-400 bg-yellow-900/20' : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'}`}
             >
-              信号
+              {t('toggle.signal')}
             </button>
             <button
               onClick={() => setShowTemp(v => !v)}
               className={`px-1.5 py-0.5 text-[9px] rounded border ${showTemp ? 'border-orange-600 text-orange-400 bg-orange-900/20' : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'}`}
             >
-              温度
+              {t('toggle.temp')}
             </button>
             <span className="text-neutral-700 text-[9px] mx-1">|</span>
             <button
               onClick={() => setTrackNextGen(v => !v)}
               className={`px-1.5 py-0.5 text-[9px] rounded border ${trackNextGen ? 'border-cyan-600 text-cyan-400 bg-cyan-900/20' : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'}`}
-              title="追踪的agent死亡后自动追踪其下一世"
+              title={t('toggle.trackRebirthTitle')}
             >
-              追踪轮回
+              {t('toggle.trackRebirth')}
             </button>
             {stats && (
               <>
@@ -225,12 +222,10 @@ function App() {
             />
           </div>
           <div className="shrink-0 border-r border-neutral-800 flex flex-col overflow-hidden" style={{ height: bottomHeight }}>
-            {/* Resize handle */}
             <div
               className="h-1 shrink-0 bg-neutral-800 hover:bg-neutral-600 cursor-ns-resize transition-colors"
               onMouseDown={onResizeStart}
             />
-            {/* Tab toggle */}
             <div className="flex items-center gap-1 px-3 py-1 border-b border-neutral-800 shrink-0">
               {(['log', 'charts', 'settings'] as const).map(tab => (
                 <button
@@ -238,7 +233,7 @@ function App() {
                   className={`px-2 py-0.5 text-[10px] rounded ${bottomTab === tab ? 'bg-neutral-800 text-neutral-300' : 'text-neutral-600 hover:text-neutral-400'}`}
                   onClick={() => setBottomTab(tab)}
                 >
-                  {tab === 'log' ? 'Log' : tab === 'charts' ? 'Charts' : 'Settings'}
+                  {tab === 'log' ? t('tab.log') : tab === 'charts' ? t('tab.charts') : t('tab.settings')}
                 </button>
               ))}
             </div>
@@ -248,7 +243,6 @@ function App() {
           </div>
         </div>
 
-        {/* Right Sidebar: Agent Cards */}
         <aside className="w-80 shrink-0 flex flex-col min-h-0">
           <AgentCardsPanel
             agents={agents}
@@ -258,6 +252,14 @@ function App() {
         </aside>
       </div>
     </div>
+  )
+}
+
+function App() {
+  return (
+    <I18nProvider>
+      <AppInner />
+    </I18nProvider>
   )
 }
 

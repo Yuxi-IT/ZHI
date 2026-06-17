@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import type { AgentSnapshot } from '../types'
+import { useT } from '../i18n/I18nContext'
 
 interface Props {
   agents: AgentSnapshot[]
@@ -10,6 +11,7 @@ interface Props {
 type SortMode = 'none' | 'hp-desc' | 'hp-asc'
 
 export function AgentCardsPanel({ agents, onTrack, trackedId }: Props) {
+  const { t } = useT()
   const [pinnedIds, setPinnedIds] = useState<Set<number>>(new Set())
   const [sortMode, setSortMode] = useState<SortMode>('none')
 
@@ -41,18 +43,17 @@ export function AgentCardsPanel({ agents, onTrack, trackedId }: Props) {
     )
   }
 
-  const sortLabel = sortMode === 'hp-desc' ? 'HP ↓' : sortMode === 'hp-asc' ? 'HP ↑' : 'Sort'
-  const sortTitle = sortMode === 'none' ? 'Click: HP high→low' : sortMode === 'hp-desc' ? 'Click: HP low→high' : 'Click: clear sort'
+  const sortLabel = sortMode === 'hp-desc' ? t('agents.sortHpDesc') : sortMode === 'hp-asc' ? t('agents.sortHpAsc') : t('agents.sort')
+  const sortTitle = sortMode === 'none' ? t('agents.sortTitleNone') : sortMode === 'hp-desc' ? t('agents.sortTitleDesc') : t('agents.sortTitleAsc')
 
   return (
     <div className="h-full flex flex-col min-h-0">
-      {/* Toolbar */}
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-neutral-800 shrink-0">
         <span className="text-neutral-500 text-[10px]">
-          Alive {aliveAgents.length}/{agents.length}
+          {t('agents.alive')} {aliveAgents.length}/{agents.length}
         </span>
         {pinnedIds.size > 0 && (
-          <span className="text-[9px] text-yellow-600/70">Pin:{pinnedIds.size}</span>
+          <span className="text-[9px] text-yellow-600/70">{t('agents.pin')}:{pinnedIds.size}</span>
         )}
         <div className="ml-auto flex items-center gap-1">
           <button
@@ -70,15 +71,14 @@ export function AgentCardsPanel({ agents, onTrack, trackedId }: Props) {
             <button
               onClick={() => setPinnedIds(new Set())}
               className="px-1.5 py-0.5 text-[9px] rounded border border-neutral-800 text-neutral-600 hover:text-neutral-400"
-              title="Clear all pins"
+              title={t('agents.clearAllPins')}
             >
-              Unpin all
+              {t('agents.unpinAll')}
             </button>
           )}
         </div>
       </div>
 
-      {/* Agent list */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
         {sortedAlive.map(agent => (
           <AgentCard
@@ -93,7 +93,7 @@ export function AgentCardsPanel({ agents, onTrack, trackedId }: Props) {
 
         {deadAgents.length > 0 && (
           <div className="pt-2 border-t border-neutral-800">
-            <div className="text-neutral-600 text-[10px] px-1 mb-1">Dead ({deadAgents.length})</div>
+            <div className="text-neutral-600 text-[10px] px-1 mb-1">{t('agents.dead')} ({deadAgents.length})</div>
             {deadAgents.slice(-10).map(agent => (
               <div
                 key={agent.id}
@@ -120,6 +120,7 @@ function AgentCard({
   onTogglePin: () => void
   onTrack: () => void
 }) {
+  const { t } = useT()
   const hp = Math.max(0, Math.min(1, agent.existence / 100))
   const hpColor = `hsl(${hp * 120}, 70%, 50%)`
 
@@ -138,7 +139,7 @@ function AgentCard({
           <button
             onClick={onTogglePin}
             className={`text-[9px] leading-none ${pinned ? 'text-yellow-500' : 'text-neutral-700 hover:text-neutral-500'}`}
-            title={pinned ? 'Unpin' : 'Pin to top'}
+            title={pinned ? t('agents.unpin') : t('agents.pinToTop')}
           >
             {pinned ? '◉' : '○'}
           </button>
@@ -151,7 +152,7 @@ function AgentCard({
           <button
             onClick={onTrack}
             className={`text-[9px] leading-none ${tracked ? 'text-yellow-400' : 'text-neutral-700 hover:text-neutral-500'}`}
-            title={tracked ? 'Stop tracking' : 'Track on map'}
+            title={tracked ? t('agents.stopTracking') : t('agents.trackOnMap')}
           >
             {tracked ? '◆' : '◇'}
           </button>
@@ -160,37 +161,37 @@ function AgentCard({
       </div>
       <div className="text-neutral-500 space-y-0.5">
         <div className="flex justify-between">
-          <span>HP</span>
+          <span>{t('agents.hp')}</span>
           <span className="text-neutral-400">{agent.existence.toFixed(1)}</span>
         </div>
         <div className="flex justify-between">
-          <span>Stress</span>
+          <span>{t('agents.stress')}</span>
           <span className={agent.stress > 1 ? 'text-red-400' : 'text-neutral-400'}>
             {agent.stress.toFixed(2)}
           </span>
         </div>
         <div className="flex justify-between">
-          <span>Hunger</span>
+          <span>{t('agents.hunger')}</span>
           <span className={agent.hunger < 20 ? 'text-orange-400' : 'text-neutral-400'}>
             {agent.hunger.toFixed(1)}
           </span>
         </div>
         <div className="flex justify-between">
-          <span>Thirst</span>
+          <span>{t('agents.thirst')}</span>
           <span className={agent.thirst < 20 ? 'text-cyan-400' : 'text-neutral-400'}>
             {agent.thirst.toFixed(1)}
           </span>
         </div>
         <div className="flex justify-between">
-          <span>Age</span>
+          <span>{t('agents.age')}</span>
           <span className="text-neutral-400">{agent.tick_count}t</span>
         </div>
         <div className="flex justify-between">
-          <span>Action</span>
-          <span className="text-neutral-400 truncate max-w-24">{agent.last_action || 'none'}</span>
+          <span>{t('agents.action')}</span>
+          <span className="text-neutral-400 truncate max-w-24">{agent.last_action || t('agents.none')}</span>
         </div>
         <div className="flex justify-between">
-          <span>Pos</span>
+          <span>{t('agents.pos')}</span>
           <span className="text-neutral-400">({agent.x},{agent.y})</span>
         </div>
         <div className="flex gap-3 mt-0.5 text-neutral-600">

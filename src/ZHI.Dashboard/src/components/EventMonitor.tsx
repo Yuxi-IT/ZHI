@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import type { WorldEvent, WorldEventType, EnergySource } from '../types'
+import { useT } from '../i18n/I18nContext'
 
 interface Props {
   events: WorldEvent[]
@@ -16,34 +17,18 @@ const EVENT_COLORS: Record<string, string> = {
   respawn: 'text-violet-400',
 }
 
-const FILTER_OPTIONS: { type: WorldEventType; label: string; color: string }[] = [
-  { type: 'death', label: '死亡', color: 'border-neutral-500 text-neutral-400' },
-  { type: 'attack', label: '攻击', color: 'border-red-600 text-red-400' },
-  { type: 'respawn', label: '复活', color: 'border-violet-600 text-violet-400' },
-  { type: 'eat', label: '进食', color: 'border-green-600 text-green-400' },
-  { type: 'signal', label: '信号', color: 'border-yellow-600 text-yellow-400' },
-]
+const FILTER_TYPES: WorldEventType[] = ['death', 'attack', 'respawn', 'eat', 'signal']
 
-function formatEvent(e: WorldEvent): string {
-  switch (e.type) {
-    case 'eat':
-      return `#${e.agent_id} ate ${e.food_type ?? '?'} (+${e.value.toFixed(1)} HP)`
-    case 'attack':
-      return `A#${e.agent_id} → T#${e.target_id} (-${e.value.toFixed(1)})`
-    case 'death':
-      return `#${e.agent_id} DEAD`
-    case 'reproduce':
-      return `#${e.agent_id} → #${e.child_id}`
-    case 'signal':
-      return `#${e.agent_id} signal(${e.signal_value})`
-    case 'respawn':
-      return `#${e.agent_id} RESPAWN`
-    default:
-      return JSON.stringify(e)
-  }
+const FILTER_COLORS: Record<string, string> = {
+  death: 'border-neutral-500 text-neutral-400',
+  attack: 'border-red-600 text-red-400',
+  respawn: 'border-violet-600 text-violet-400',
+  eat: 'border-green-600 text-green-400',
+  signal: 'border-yellow-600 text-yellow-400',
 }
 
 export function EventMonitor({ events, energySource, onClear }: Props) {
+  const { t } = useT()
   const scrollRef = useRef<HTMLDivElement>(null)
   const autoScrollRef = useRef(true)
   const [autoScroll, setAutoScroll] = useState(true)
@@ -81,12 +66,30 @@ export function EventMonitor({ events, energySource, onClear }: Props) {
     if (atBottom !== autoScroll) setAutoScroll(atBottom)
   }
 
+  const formatEvent = (e: WorldEvent): string => {
+    switch (e.type) {
+      case 'eat':
+        return t('events.ate', { id: e.agent_id, type: e.food_type ?? '?', val: e.value.toFixed(1) })
+      case 'attack':
+        return t('events.attacked', { attacker: e.agent_id, target: e.target_id ?? '?', val: e.value.toFixed(1) })
+      case 'death':
+        return t('events.dead', { id: e.agent_id })
+      case 'reproduce':
+        return t('events.reproduced', { parent: e.agent_id, child: e.child_id ?? '?' })
+      case 'signal':
+        return t('events.signaled', { id: e.agent_id, val: e.signal_value ?? 0 })
+      case 'respawn':
+        return t('events.respawned', { id: e.agent_id })
+      default:
+        return JSON.stringify(e)
+    }
+  }
+
   return (
     <div className="h-full flex flex-col min-h-0">
-      {/* Header */}
       <div className="px-3 py-1.5 border-b border-neutral-800 shrink-0">
         <div className="text-neutral-500 text-[10px] flex items-center justify-between">
-          <span>events ({filteredEvents.length})</span>
+          <span>{t('events.title')} ({filteredEvents.length})</span>
           <div className="flex items-center gap-1">
             <button
               onClick={() => {
@@ -102,7 +105,7 @@ export function EventMonitor({ events, energySource, onClear }: Props) {
                   ? 'border-cyan-700 text-cyan-400'
                   : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'
               }`}
-              title={autoScroll ? '自动滚动: ON' : '自动滚动: OFF'}
+              title={autoScroll ? t('events.autoScrollOn') : t('events.autoScrollOff')}
             >
               {autoScroll ? '⇩' : '⇩'}
             </button>
@@ -110,9 +113,9 @@ export function EventMonitor({ events, energySource, onClear }: Props) {
               <button
                 onClick={onClear}
                 className="px-1 py-0.5 text-[9px] rounded border border-neutral-800 text-neutral-600 hover:text-red-400"
-                title="清除所有事件"
+                title={t('events.clearAll')}
               >
-                清除
+                {t('events.clear')}
               </button>
             )}
           </div>
@@ -126,24 +129,22 @@ export function EventMonitor({ events, energySource, onClear }: Props) {
         )}
       </div>
 
-      {/* Filters */}
       <div className="px-2 py-1 border-b border-neutral-800 shrink-0 flex flex-wrap gap-1">
-        {FILTER_OPTIONS.map(opt => (
+        {FILTER_TYPES.map(type => (
           <button
-            key={opt.type}
-            onClick={() => toggleFilter(opt.type)}
+            key={type}
+            onClick={() => toggleFilter(type)}
             className={`px-1.5 py-0.5 text-[9px] rounded border transition-colors ${
-              activeFilters.has(opt.type)
-                ? `${opt.color} bg-neutral-800/50`
+              activeFilters.has(type)
+                ? `${FILTER_COLORS[type]} bg-neutral-800/50`
                 : 'border-neutral-800 text-neutral-700'
             }`}
           >
-            {opt.label}
+            {t(`events.${type}`)}
           </button>
         ))}
       </div>
 
-      {/* Event list */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}

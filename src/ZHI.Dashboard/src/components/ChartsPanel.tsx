@@ -1,23 +1,25 @@
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
 import type { EcoDataPoint } from '../hooks/useEcoHistory'
+import { useT } from '../i18n/I18nContext'
 
 interface Props {
   data: EcoDataPoint[]
 }
 
 export function ChartsPanel({ data }: Props) {
+  const { t } = useT()
+
   if (data.length < 2) {
     return (
       <div className="h-full flex items-center justify-center text-neutral-600 text-[10px]">
-        Collecting data...
+        {t('charts.collecting')}
       </div>
     )
   }
 
   return (
     <div className="h-full overflow-y-auto p-2 space-y-2">
-      {/* Population + Food */}
-      <ChartCard title="Population & Food">
+      <ChartCard title={t('charts.population')}>
         <ResponsiveContainer width="100%" height={80}>
           <LineChart data={data}>
             <XAxis dataKey="t" hide />
@@ -30,8 +32,7 @@ export function ChartsPanel({ data }: Props) {
         </ResponsiveContainer>
       </ChartCard>
 
-      {/* Birth/Death Rate */}
-      <ChartCard title="Births & Deaths">
+      <ChartCard title={t('charts.birthsDeaths')}>
         <ResponsiveContainer width="100%" height={60}>
           <AreaChart data={data}>
             <XAxis dataKey="t" hide />
@@ -43,8 +44,7 @@ export function ChartsPanel({ data }: Props) {
         </ResponsiveContainer>
       </ChartCard>
 
-      {/* Total Energy */}
-      <ChartCard title="Total Energy in World">
+      <ChartCard title={t('charts.totalEnergy')}>
         <ResponsiveContainer width="100%" height={60}>
           <LineChart data={data}>
             <XAxis dataKey="t" hide />

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useT } from '../i18n/I18nContext'
 
 interface ZhiConfig {
   Grid: { Width: number; Height: number; InitialFood: number; InitialBigFood: number; FoodEnergy: number; BigFoodEnergy: number; FoodDecayPerTick: number; BigFoodDecayPerTick: number; MaxFood: number; FoodRespawnInterval: number; FoodPerTickEnergy: number; BigFoodPerTickEnergy: number; CorpsePerTickEnergy: number }
@@ -44,6 +45,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export function SettingsPanel() {
+  const { t } = useT()
   const [config, setConfig] = useState<ZhiConfig | null>(null)
   const [status, setStatus] = useState('')
   const [loading, setLoading] = useState(true)
@@ -57,7 +59,7 @@ export function SettingsPanel() {
       setConfig(data)
       setLoading(false)
     } catch {
-      setStatus('加载配置失败')
+      setStatus(t('settings.loadFailed'))
       setLoading(false)
     }
   }
@@ -69,7 +71,7 @@ export function SettingsPanel() {
 
   const save = async (restart: boolean) => {
     if (!config) return
-    setStatus(restart ? '保存并重启中...' : '保存中...')
+    setStatus(restart ? t('settings.saveRestart') : t('settings.saving'))
     try {
       const r = await fetch(`${API}/api/config${restart ? '?restart=true' : ''}`, {
         method: 'POST',
@@ -77,74 +79,73 @@ export function SettingsPanel() {
         body: JSON.stringify(config)
       })
       const data = await r.json()
-      setStatus(data.ok ? (restart ? '已重启!' : '已保存') : '保存失败')
-      if (restart) setStatus('世界已重启 — 刷新页面查看效果')
+      setStatus(data.ok ? (restart ? t('settings.restarted') : t('settings.saved')) : t('settings.saveFailed'))
     } catch {
-      setStatus('连接失败')
+      setStatus(t('settings.connectFailed'))
     }
   }
 
-  if (loading) return <div className="text-[10px] text-neutral-500 p-4">加载配置...</div>
+  if (loading) return <div className="text-[10px] text-neutral-500 p-4">{t('settings.loading')}</div>
   if (!config) return <div className="text-[10px] text-red-400 p-4">{status}</div>
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5">
-        <Section title="世界">
-          <NumberField label="宽度" value={config.Grid.Width} onChange={v => update('Grid', 'Width', v)} min={16} max={256} />
-          <NumberField label="高度" value={config.Grid.Height} onChange={v => update('Grid', 'Height', v)} min={16} max={256} />
-          <NumberField label="Agent 数量" value={config.Cosmos.AgentCount} onChange={v => update('Cosmos', 'AgentCount', v)} min={1} max={256} />
-          <NumberField label="初始普通食物" value={config.Grid.InitialFood} onChange={v => update('Grid', 'InitialFood', v)} min={0} max={500} />
-          <NumberField label="初始大食物" value={config.Grid.InitialBigFood} onChange={v => update('Grid', 'InitialBigFood', v)} min={0} max={100} />
-          <NumberField label="食物上限" value={config.Grid.MaxFood} onChange={v => update('Grid', 'MaxFood', v)} min={1} max={1000} />
-          <NumberField label="食物补充间隔(tick)" value={config.Grid.FoodRespawnInterval} onChange={v => update('Grid', 'FoodRespawnInterval', v)} min={0} max={1000} />
+        <Section title={t('settings.world')}>
+          <NumberField label={t('settings.width')} value={config.Grid.Width} onChange={v => update('Grid', 'Width', v)} min={16} max={256} />
+          <NumberField label={t('settings.height')} value={config.Grid.Height} onChange={v => update('Grid', 'Height', v)} min={16} max={256} />
+          <NumberField label={t('settings.agentCount')} value={config.Cosmos.AgentCount} onChange={v => update('Cosmos', 'AgentCount', v)} min={1} max={256} />
+          <NumberField label={t('settings.initialFood')} value={config.Grid.InitialFood} onChange={v => update('Grid', 'InitialFood', v)} min={0} max={500} />
+          <NumberField label={t('settings.initialBigFood')} value={config.Grid.InitialBigFood} onChange={v => update('Grid', 'InitialBigFood', v)} min={0} max={100} />
+          <NumberField label={t('settings.maxFood')} value={config.Grid.MaxFood} onChange={v => update('Grid', 'MaxFood', v)} min={1} max={1000} />
+          <NumberField label={t('settings.foodRespawnInterval')} value={config.Grid.FoodRespawnInterval} onChange={v => update('Grid', 'FoodRespawnInterval', v)} min={0} max={1000} />
         </Section>
 
-        <Section title="食物能量与腐败">
-          <NumberField label="普通食物能量" value={config.Grid.FoodEnergy} onChange={v => update('Grid', 'FoodEnergy', v)} min={1} max={200} step={1} />
-          <NumberField label="大食物能量" value={config.Grid.BigFoodEnergy} onChange={v => update('Grid', 'BigFoodEnergy', v)} min={1} max={500} step={1} />
-          <NumberField label="普通腐败率/tick" value={config.Grid.FoodDecayPerTick} onChange={v => update('Grid', 'FoodDecayPerTick', v)} min={0.001} max={1} step={0.005} />
-          <NumberField label="大食物腐败率/tick" value={config.Grid.BigFoodDecayPerTick} onChange={v => update('Grid', 'BigFoodDecayPerTick', v)} min={0.001} max={1} step={0.005} />
+        <Section title={t('settings.foodEnergySection')}>
+          <NumberField label={t('settings.foodEnergy')} value={config.Grid.FoodEnergy} onChange={v => update('Grid', 'FoodEnergy', v)} min={1} max={200} step={1} />
+          <NumberField label={t('settings.bigFoodEnergy')} value={config.Grid.BigFoodEnergy} onChange={v => update('Grid', 'BigFoodEnergy', v)} min={1} max={500} step={1} />
+          <NumberField label={t('settings.foodDecay')} value={config.Grid.FoodDecayPerTick} onChange={v => update('Grid', 'FoodDecayPerTick', v)} min={0.001} max={1} step={0.005} />
+          <NumberField label={t('settings.bigFoodDecay')} value={config.Grid.BigFoodDecayPerTick} onChange={v => update('Grid', 'BigFoodDecayPerTick', v)} min={0.001} max={1} step={0.005} />
         </Section>
 
-        <Section title="进食 (每tick能量提取)">
-          <NumberField label="普通食物/tick" value={config.Grid.FoodPerTickEnergy} onChange={v => update('Grid', 'FoodPerTickEnergy', v)} min={0.1} max={20} step={0.1} />
-          <NumberField label="大食物/tick" value={config.Grid.BigFoodPerTickEnergy} onChange={v => update('Grid', 'BigFoodPerTickEnergy', v)} min={0.1} max={50} step={0.1} />
-          <NumberField label="尸体/tick" value={config.Grid.CorpsePerTickEnergy} onChange={v => update('Grid', 'CorpsePerTickEnergy', v)} min={0.1} max={20} step={0.1} />
+        <Section title={t('settings.eating')}>
+          <NumberField label={t('settings.foodPerTick')} value={config.Grid.FoodPerTickEnergy} onChange={v => update('Grid', 'FoodPerTickEnergy', v)} min={0.1} max={20} step={0.1} />
+          <NumberField label={t('settings.bigFoodPerTick')} value={config.Grid.BigFoodPerTickEnergy} onChange={v => update('Grid', 'BigFoodPerTickEnergy', v)} min={0.1} max={50} step={0.1} />
+          <NumberField label={t('settings.corpsePerTick')} value={config.Grid.CorpsePerTickEnergy} onChange={v => update('Grid', 'CorpsePerTickEnergy', v)} min={0.1} max={20} step={0.1} />
         </Section>
 
-        <Section title="温度">
-          <NumberField label="最高温度" value={config.Temperature.MaxTemp} onChange={v => update('Temperature', 'MaxTemp', v)} min={10} max={60} step={1} />
-          <NumberField label="最低温度" value={config.Temperature.MinTemp} onChange={v => update('Temperature', 'MinTemp', v)} min={-20} max={30} step={1} />
-          <NumberField label="低温阈值" value={config.Temperature.ColdThreshold} onChange={v => update('Temperature', 'ColdThreshold', v)} min={-10} max={40} step={1} />
-          <NumberField label="最大寒冷衰减" value={config.Temperature.MaxColdDecay} onChange={v => update('Temperature', 'MaxColdDecay', v)} min={0} max={1} step={0.01} />
-          <NumberField label="高温阈值" value={config.Temperature.HotThreshold} onChange={v => update('Temperature', 'HotThreshold', v)} min={10} max={50} step={1} />
-          <NumberField label="抱团范围" value={config.Temperature.HuddleRange} onChange={v => update('Temperature', 'HuddleRange', v)} min={0} max={10} step={1} />
-          <NumberField label="每邻居温暖度" value={config.Temperature.HuddleWarmthPerAgent} onChange={v => update('Temperature', 'HuddleWarmthPerAgent', v)} min={0} max={20} step={0.5} />
-          <NumberField label="Agent 体热" value={config.Temperature.AgentBodyHeat} onChange={v => update('Temperature', 'AgentBodyHeat', v)} min={0} max={10} step={0.5} />
-          <NumberField label="河流冷却" value={config.Temperature.RiverCooling} onChange={v => update('Temperature', 'RiverCooling', v)} min={0} max={20} step={0.5} />
-          <NumberField label="冷却范围" value={config.Temperature.RiverCoolingRange} onChange={v => update('Temperature', 'RiverCoolingRange', v)} min={0} max={5} />
+        <Section title={t('settings.temperature')}>
+          <NumberField label={t('settings.maxTemp')} value={config.Temperature.MaxTemp} onChange={v => update('Temperature', 'MaxTemp', v)} min={10} max={60} step={1} />
+          <NumberField label={t('settings.minTemp')} value={config.Temperature.MinTemp} onChange={v => update('Temperature', 'MinTemp', v)} min={-20} max={30} step={1} />
+          <NumberField label={t('settings.coldThreshold')} value={config.Temperature.ColdThreshold} onChange={v => update('Temperature', 'ColdThreshold', v)} min={-10} max={40} step={1} />
+          <NumberField label={t('settings.maxColdDecay')} value={config.Temperature.MaxColdDecay} onChange={v => update('Temperature', 'MaxColdDecay', v)} min={0} max={1} step={0.01} />
+          <NumberField label={t('settings.hotThreshold')} value={config.Temperature.HotThreshold} onChange={v => update('Temperature', 'HotThreshold', v)} min={10} max={50} step={1} />
+          <NumberField label={t('settings.huddleRange')} value={config.Temperature.HuddleRange} onChange={v => update('Temperature', 'HuddleRange', v)} min={0} max={10} step={1} />
+          <NumberField label={t('settings.huddleWarmth')} value={config.Temperature.HuddleWarmthPerAgent} onChange={v => update('Temperature', 'HuddleWarmthPerAgent', v)} min={0} max={20} step={0.5} />
+          <NumberField label={t('settings.agentBodyHeat')} value={config.Temperature.AgentBodyHeat} onChange={v => update('Temperature', 'AgentBodyHeat', v)} min={0} max={10} step={0.5} />
+          <NumberField label={t('settings.riverCooling')} value={config.Temperature.RiverCooling} onChange={v => update('Temperature', 'RiverCooling', v)} min={0} max={20} step={0.5} />
+          <NumberField label={t('settings.coolingRange')} value={config.Temperature.RiverCoolingRange} onChange={v => update('Temperature', 'RiverCoolingRange', v)} min={0} max={5} />
         </Section>
 
-        <Section title="战斗">
-          <NumberField label="攻击范围" value={config.Combat.AttackRange} onChange={v => update('Combat', 'AttackRange', v)} min={1} max={10} />
-          <NumberField label="每次攻击压力" value={config.Combat.StressPerAttack} onChange={v => update('Combat', 'StressPerAttack', v)} min={0} max={5} step={0.1} />
-          <NumberField label="压力伤害乘数" value={config.Combat.StressDamage} onChange={v => update('Combat', 'StressDamage', v)} min={0} max={1} step={0.01} />
-          <NumberField label="攻击HP消耗" value={config.Combat.AttackCost} onChange={v => update('Combat', 'AttackCost', v)} min={0} max={50} step={0.5} />
+        <Section title={t('settings.combat')}>
+          <NumberField label={t('settings.attackRange')} value={config.Combat.AttackRange} onChange={v => update('Combat', 'AttackRange', v)} min={1} max={10} />
+          <NumberField label={t('settings.stressPerAttack')} value={config.Combat.StressPerAttack} onChange={v => update('Combat', 'StressPerAttack', v)} min={0} max={5} step={0.1} />
+          <NumberField label={t('settings.stressDamage')} value={config.Combat.StressDamage} onChange={v => update('Combat', 'StressDamage', v)} min={0} max={1} step={0.01} />
+          <NumberField label={t('settings.attackCost')} value={config.Combat.AttackCost} onChange={v => update('Combat', 'AttackCost', v)} min={0} max={50} step={0.5} />
         </Section>
 
-        <Section title="河流">
-          <NumberField label="数量" value={config.River.Count} onChange={v => update('River', 'Count', v)} min={0} max={10} />
-          <NumberField label="宽度" value={config.River.Width} onChange={v => update('River', 'Width', v)} min={1} max={20} />
-          <NumberField label="深水宽度" value={config.River.DeepWidth} onChange={v => update('River', 'DeepWidth', v)} min={0} max={10} />
-          <NumberField label="浅滩概率%" value={config.River.FordChance} onChange={v => update('River', 'FordChance', v)} min={0} max={100} />
+        <Section title={t('settings.river')}>
+          <NumberField label={t('settings.riverCount')} value={config.River.Count} onChange={v => update('River', 'Count', v)} min={0} max={10} />
+          <NumberField label={t('settings.riverWidth')} value={config.River.Width} onChange={v => update('River', 'Width', v)} min={1} max={20} />
+          <NumberField label={t('settings.riverDeepWidth')} value={config.River.DeepWidth} onChange={v => update('River', 'DeepWidth', v)} min={0} max={10} />
+          <NumberField label={t('settings.fordChance')} value={config.River.FordChance} onChange={v => update('River', 'FordChance', v)} min={0} max={100} />
         </Section>
 
-        <Section title="生理">
-          <NumberField label="饥饿衰减" value={config.Hunger.DecayRate} onChange={v => update('Hunger', 'DecayRate', v)} min={0} max={1} step={0.01} />
-          <NumberField label="口渴衰减" value={config.Thirst.DecayRate} onChange={v => update('Thirst', 'DecayRate', v)} min={0} max={1} step={0.01} />
-          <NumberField label="饮水恢复" value={config.Thirst.DrinkRestore} onChange={v => update('Thirst', 'DrinkRestore', v)} min={1} max={100} />
-          <NumberField label="HP衰减" value={config.Existence.DecayPerTick} onChange={v => update('Existence', 'DecayPerTick', v)} min={0} max={2} step={0.01} />
+        <Section title={t('settings.physiology')}>
+          <NumberField label={t('settings.hungerDecay')} value={config.Hunger.DecayRate} onChange={v => update('Hunger', 'DecayRate', v)} min={0} max={1} step={0.01} />
+          <NumberField label={t('settings.thirstDecay')} value={config.Thirst.DecayRate} onChange={v => update('Thirst', 'DecayRate', v)} min={0} max={1} step={0.01} />
+          <NumberField label={t('settings.drinkRestore')} value={config.Thirst.DrinkRestore} onChange={v => update('Thirst', 'DrinkRestore', v)} min={1} max={100} />
+          <NumberField label={t('settings.hpDecay')} value={config.Existence.DecayPerTick} onChange={v => update('Existence', 'DecayPerTick', v)} min={0} max={2} step={0.01} />
         </Section>
       </div>
 
@@ -153,13 +154,13 @@ export function SettingsPanel() {
           onClick={() => save(false)}
           className="px-2 py-1 text-[10px] bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded border border-neutral-700"
         >
-          保存
+          {t('settings.save')}
         </button>
         <button
           onClick={() => save(true)}
           className="px-2 py-1 text-[10px] bg-blue-800 hover:bg-blue-700 text-blue-200 rounded border border-blue-700"
         >
-          保存并重启
+          {t('settings.saveAndRestart')}
         </button>
         {status && <span className="text-[10px] text-neutral-500 ml-1">{status}</span>}
       </div>
