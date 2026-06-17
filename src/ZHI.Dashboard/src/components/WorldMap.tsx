@@ -137,7 +137,10 @@ export function WorldMap({
       }
     }
 
-    ctx.fillStyle = '#0a0a0a'
+    // Day/night brightness: 1 = noon 14:00, 0 = midnight 02:00
+    const brightness = (Math.cos((timeOfDay - 14) * Math.PI / 12) + 1) / 2
+    const bgBase = Math.round(5 + brightness * 25)
+    ctx.fillStyle = `rgb(${bgBase},${bgBase},${bgBase})`
     ctx.fillRect(0, 0, w, h)
 
     ctx.save()
@@ -146,12 +149,14 @@ export function WorldMap({
     // Grid background
     const totalW = gridW * cellSize
     const totalH = gridH * cellSize
-    ctx.fillStyle = '#0d0d0d'
+    const gridBase = Math.round(8 + brightness * 20)
+    ctx.fillStyle = `rgb(${gridBase},${gridBase},${gridBase})`
     ctx.fillRect(0, 0, totalW, totalH)
 
     // Grid lines when zoomed in enough
     if (cellSize > 8) {
-      ctx.strokeStyle = '#1a1a1a'
+      const lineBase = Math.round(15 + brightness * 30)
+      ctx.strokeStyle = `rgb(${lineBase},${lineBase},${lineBase})`
       ctx.lineWidth = 0.5
       const startCol = Math.max(0, Math.floor(cam.x / cellSize))
       const endCol = Math.min(gridW, Math.ceil((cam.x + w) / cellSize))
@@ -410,13 +415,6 @@ export function WorldMap({
 
     ctx.restore()
 
-    // Day/night overlay (peak night at 2AM, full day 8AM-8PM)
-    const nightAlpha = Math.max(0, Math.cos((timeOfDay - 2) * Math.PI / 12)) * 0.35
-    if (nightAlpha > 0.01) {
-      ctx.fillStyle = `rgba(8, 12, 40, ${nightAlpha})`
-      ctx.fillRect(0, 0, w, h)
-    }
-
     // HUD
     ctx.fillStyle = 'rgba(255,255,255,0.4)'
     ctx.font = '10px monospace'
@@ -428,16 +426,14 @@ export function WorldMap({
       ? `${zoomPct}% | tracking #${trackedAgent} | alive ${aliveCount}/${agents.length}`
       : `${zoomPct}% | alive ${aliveCount}/${agents.length}`
     ctx.fillText(hudText, 8, 8)
-  }, [agents, food, corpses, river, scent, foodScent, signalField, gridW, gridH, trackedAgent, showScent, showFoodScent, showDirection, showVision, showSignal])
+  }, [agents, food, corpses, river, scent, foodScent, signalField, gridW, gridH, timeOfDay, trackedAgent, showScent, showFoodScent, showDirection, showVision, showSignal])
 
   useEffect(() => {
     let animating = true
     const loop = () => {
       if (!animating) return
       draw()
-      if (floatingTextsRef.current.length > 0) {
-        rafRef.current = requestAnimationFrame(loop)
-      }
+      rafRef.current = requestAnimationFrame(loop)
     }
     rafRef.current = requestAnimationFrame(loop)
     return () => {
