@@ -4,7 +4,7 @@ using ZHI.Shared;
 namespace ZHI.Watcher;
 
 class Program
-{
+{     
     static async Task Main(string[] args)
     {
         Console.Title = "ZHI · Cosmos";
