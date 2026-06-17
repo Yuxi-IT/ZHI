@@ -267,6 +267,8 @@ function AppInner() {
             agents={agents}
             trackedId={trackedAgent}
             onTrack={setTrackedAgent}
+            terrain={terrain}
+            gridW={gridW}
           />
         </aside>
       </div>

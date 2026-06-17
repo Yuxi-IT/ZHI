@@ -6,11 +6,13 @@ interface Props {
   agents: AgentSnapshot[]
   onTrack?: (id: number | null) => void
   trackedId?: number | null
+  terrain?: number[]
+  gridW?: number
 }
 
 type SortMode = 'none' | 'hp-desc' | 'hp-asc'
 
-export function AgentCardsPanel({ agents, onTrack, trackedId }: Props) {
+export function AgentCardsPanel({ agents, onTrack, trackedId, terrain, gridW }: Props) {
   const { t } = useT()
   const [pinnedIds, setPinnedIds] = useState<Set<number>>(new Set())
   const [sortMode, setSortMode] = useState<SortMode>('none')
@@ -88,6 +90,8 @@ export function AgentCardsPanel({ agents, onTrack, trackedId }: Props) {
             tracked={agent.id === trackedId}
             onTogglePin={() => togglePin(agent.id)}
             onTrack={() => onTrack?.(agent.id === trackedId ? null : agent.id)}
+            terrain={terrain}
+            gridW={gridW}
           />
         ))}
 
@@ -112,13 +116,15 @@ export function AgentCardsPanel({ agents, onTrack, trackedId }: Props) {
 }
 
 function AgentCard({
-  agent, pinned, tracked, onTogglePin, onTrack,
+  agent, pinned, tracked, onTogglePin, onTrack, terrain, gridW,
 }: {
   agent: AgentSnapshot
   pinned: boolean
   tracked: boolean
   onTogglePin: () => void
   onTrack: () => void
+  terrain?: number[]
+  gridW?: number
 }) {
   const { t } = useT()
   const hp = Math.max(0, Math.min(1, agent.existence / 100))
@@ -201,7 +207,14 @@ function AgentCard({
         <div className="flex justify-between">
           <span>{t('agents.action')}</span>
           <span className="text-neutral-400 truncate max-w-24">
-            {agent.is_stationary ? '💤 ' : ''}{agent.is_eating ? '🍖 ' : ''}{agent.last_action || t('agents.none')}
+            {(() => {
+              const ttype = terrain && gridW ? terrain[agent.y * gridW + agent.x] : 0
+              const badges: string[] = []
+              if (agent.is_stationary) badges.push('💤')
+              if (ttype === 1) badges.push('🕳️')
+              if (agent.is_eating) badges.push('🍖')
+              return <>{badges.join(' ')}{badges.length ? ' ' : ''}{agent.last_action || t('agents.none')}</>
+            })()}
           </span>
         </div>
         <div className="flex justify-between">

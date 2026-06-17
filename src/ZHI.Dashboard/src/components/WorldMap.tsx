@@ -444,6 +444,7 @@ export function WorldMap({
     }
 
     // Vision range: directional 7×7 cone based on facing_direction
+    // Pit agents have reduced vision: 3×3 circle (well-bottom effect)
     if (showVision) {
       // Base vision mask (facing up): 1=visible, 0=hidden
       const baseMask = [
@@ -457,27 +458,35 @@ export function WorldMap({
       ]
       for (const agent of agents) {
         if (!agent.is_alive) continue
+        const inPit = terrain?.[agent.y * gridW + agent.x] === 1
         const R = 3
         const D = 7
         const fd = agent.facing_direction
         for (let dy = -R; dy <= R; dy++) {
           for (let dx = -R; dx <= R; dx++) {
-            // Rotate offset to base (facing-up) frame
-            let rdx: number, rdy: number
-            if (fd === 0) { rdx = dx; rdy = dy }
-            else if (fd === 1) { rdx = -dx; rdy = -dy }
-            else if (fd === 2) { rdx = -dy; rdy = dx }
-            else { rdx = dy; rdy = -dx }
-            const maskCol = rdx + R, maskRow = rdy + R
-            if (maskCol < 0 || maskCol >= D || maskRow < 0 || maskRow >= D) continue
-            if (!baseMask[maskRow][maskCol]) continue
+            // Pit: only 3×3 Chebyshev range, no directional mask
+            if (inPit) {
+              if (Math.max(Math.abs(dx), Math.abs(dy)) > 1) continue
+            } else {
+              // Rotate offset to base (facing-up) frame
+              let rdx: number, rdy: number
+              if (fd === 0) { rdx = dx; rdy = dy }
+              else if (fd === 1) { rdx = -dx; rdy = -dy }
+              else if (fd === 2) { rdx = -dy; rdy = dx }
+              else { rdx = dy; rdy = -dx }
+              const maskCol = rdx + R, maskRow = rdy + R
+              if (maskCol < 0 || maskCol >= D || maskRow < 0 || maskRow >= D) continue
+              if (!baseMask[maskRow][maskCol]) continue
+            }
 
             const gx = agent.x + dx
             const gy = agent.y + dy
             if (gx < 0 || gx >= gridW || gy < 0 || gy >= gridH) continue
             const dist = Math.abs(dx) + Math.abs(dy)
             const alpha = dist === 0 ? 0.08 : dist <= 2 ? 0.04 : 0.02
-            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`
+            ctx.fillStyle = inPit
+              ? `rgba(180, 140, 100, ${alpha + 0.02})`
+              : `rgba(255, 255, 255, ${alpha})`
             ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize)
           }
         }

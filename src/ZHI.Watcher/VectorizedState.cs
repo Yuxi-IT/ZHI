@@ -248,11 +248,16 @@ public class VectorizedState : IDisposable
             // [0-293] 7×7 grid × 6 channels: food, bigfood, corpse, agent, self, terrain
             int gridBase = baseIdx;
             int fd = FacingDirection[i];
+            bool agentInPit = TerrainType[cx, cy] == ToolDefinitions.TerrainPit;
             for (int dy = -R; dy <= R; dy++)
             {
                 for (int dx = -R; dx <= R; dx++)
                 {
                     int cellIdx = ((dy + R) * D + (dx + R)) * GridCh;
+
+                    // Pit vision: only 3×3 Chebyshev range
+                    if (agentInPit && Math.Max(Math.Abs(dx), Math.Abs(dy)) > 1)
+                        continue;
 
                     // Directional visibility: rotate offset to base (facing-up) frame
                     int rdx, rdy;
@@ -315,6 +320,10 @@ public class VectorizedState : IDisposable
             {
                 for (int dx = -R; dx <= R; dx++)
                 {
+                    // Pit vision: only 3×3 Chebyshev range
+                    if (agentInPit && Math.Max(Math.Abs(dx), Math.Abs(dy)) > 1)
+                        continue;
+
                     int rdx2, rdy2;
                     switch (fd)
                     {

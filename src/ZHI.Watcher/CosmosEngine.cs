@@ -1162,6 +1162,10 @@ public class CosmosEngine : IDisposable
         {
             float hpRatio = Math.Clamp(_v.Existence[attacker] / 100f, 0.2f, 1.5f);
             float damage = 20f * hpRatio;
+            // Terrain combat modifiers: Pit = low-ground penalty (80%), Mound = high-ground advantage (110%)
+            byte attackerTerrain = _v.TerrainType[ax, ay];
+            if (attackerTerrain == ToolDefinitions.TerrainPit) damage *= 0.8f;
+            else if (attackerTerrain == ToolDefinitions.TerrainMound) damage *= 1.1f;
             // Targets actively eating take 110% damage (eating vulnerability)
             if (_v.IsEating[bestTarget]) damage *= 1.1f;
             // Stationary targets take 120% damage
