@@ -264,8 +264,8 @@ public class CosmosEngine : IDisposable
 
             _v.Existence[i] -= decay;
 
-            // Passive HP recovery when well-fed AND hydrated
-            if (_v.Hunger[i] > 80f && _v.Thirst[i] > 80f)
+            // Passive HP recovery when well-fed AND hydrated (blocked while hiding)
+            if (_v.Hunger[i] > 80f && _v.Thirst[i] > 80f && !_v.IsHiding[i])
                 _v.Existence[i] = MathF.Min(_v.Existence[i] + 0.2f, _config.Existence.Initial);
         }
 
@@ -277,18 +277,20 @@ public class CosmosEngine : IDisposable
             for (int y = 0; y < H; y++)
                 _v.ScentGrid[x, y] *= scentDecay;
 
-        // 4a. Hunger decay (no auto-eat)
+        // 4a. Hunger decay (doubled while hiding — can't eat)
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
-            _v.Hunger[i] = MathF.Max(0f, _v.Hunger[i] - _config.Hunger.DecayRate);
+            float hungerDecay = _config.Hunger.DecayRate * (_v.IsHiding[i] ? 2.0f : 1.0f);
+            _v.Hunger[i] = MathF.Max(0f, _v.Hunger[i] - hungerDecay);
         }
 
-        // 4b. Thirst decay (no auto-drink)
+        // 4b. Thirst decay (doubled while hiding — can't drink)
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
-            _v.Thirst[i] = MathF.Max(0f, _v.Thirst[i] - _config.Thirst.DecayRate);
+            float thirstDecay = _config.Thirst.DecayRate * (_v.IsHiding[i] ? 2.0f : 1.0f);
+            _v.Thirst[i] = MathF.Max(0f, _v.Thirst[i] - thirstDecay);
         }
 
         // 4b. Signal memory decay + signal age

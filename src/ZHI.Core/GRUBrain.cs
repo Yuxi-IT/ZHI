@@ -73,12 +73,15 @@ public class GRUBrain : Module
         for (int i = 0; i < N; i++)
         {
             bool isHiding = stateData[i * S + 140] > 0.5f;
+            float hunger = stateData[i * S + 144]; // normalized 0-1
+            float thirst = stateData[i * S + 145]; // normalized 0-1
+            bool critical = hunger < 0.3f || thirst < 0.3f;
             int b = i * A;
 
             // Default: all actions valid
             for (int a = 0; a < A; a++) maskData[b + a] = 1f;
 
-            if (isHiding)
+            if (isHiding && !critical)
             {
                 // Mask: Move(0-3), Eat(4), Attack(5), Drink(8)
                 // Keep: Signal(6), Hide(7)

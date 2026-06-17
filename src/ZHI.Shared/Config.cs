@@ -97,7 +97,7 @@ public sealed class CorpseConfig
 public sealed class HideConfig
 {
     public float DecayMultiplier { get; set; } = 0.9f;
-    public int MinDuration { get; set; } = 5;
+    public int MinDuration { get; set; } = 1;
     public int DetectionRange { get; set; } = 2;
 }
 
