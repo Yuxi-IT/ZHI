@@ -569,6 +569,13 @@ export function WorldMap({
       )
     }
 
+    // Check terrain
+    if (showTerrain && terrain && terrain.length > 0 && gx + gy * gridW < terrain.length) {
+      const tv = terrain[gy * gridW + gx]
+      if (tv === 1) { lines.push(t('map.pit'), t('map.pitDesc')) }
+      else if (tv === 2) { lines.push(t('map.mound'), t('map.moundDesc')) }
+    }
+
     // Check corpse
     const corpseHere = corpses.find(c => c.x === gx && c.y === gy)
     if (corpseHere) {
@@ -584,7 +591,7 @@ export function WorldMap({
     if (lines.length === 0) return null
 
     return { x: mx + 12, y: my - 10, text: lines }
-  }, [agents, food, corpses, river, t, showTemp, temperatureGrid])
+  }, [agents, food, corpses, river, t, showTemp, temperatureGrid, terrain, showTerrain, gridW])
 
   useEffect(() => {
     const canvas = canvasRef.current
