@@ -14,11 +14,13 @@ namespace ZHI.Core;
 /// </summary>
 public class GRUBrain : Module
 {
-    // CNN for 7×7×5 vision grid
-    private const int GridChannels = 5;
+    // CNN for 7×7×6 vision grid (food, bigfood, corpse, agent, self, terrain)
+    // Conv1: 7×7×6 → 5×5×16 (kernel=3, pad=0)
+    // Conv2: 5×5×16 → 3×3×32 (kernel=3, pad=0)
+    private const int GridChannels = 6;
     private const int GridSize = 7;
-    private const int GridFlat = GridSize * GridSize * GridChannels; // 245
-    private const int CnnFeatDim = 288; // 3×3×32 after MaxPool
+    private const int GridFlat = GridSize * GridSize * GridChannels; // 294
+    private const int CnnFeatDim = 3 * 3 * 32; // 288
 
     private readonly Conv2d _conv1;
     private readonly Conv2d _conv2;
@@ -41,10 +43,10 @@ public class GRUBrain : Module
     public GRUBrain() : base("GRUBrain")
     {
         _hiddenSize = 128;
-        _gruInputSize = CnnFeatDim + (ToolDefinitions.StateSize - GridFlat); // 288 + 38 = 326
+        _gruInputSize = CnnFeatDim + (ToolDefinitions.StateSize - GridFlat); // 288 + 40 = 328
 
-        _conv1 = Conv2d(GridChannels, 16, 3, padding: 1);
-        _conv2 = Conv2d(16, 32, 3, padding: 1);
+        _conv1 = Conv2d(GridChannels, 16, 3, padding: 0);
+        _conv2 = Conv2d(16, 32, 3, padding: 0);
         _gru = GRU(_gruInputSize, _hiddenSize, 1, batchFirst: false);
         _fc = Linear(_hiddenSize, 64);
         _actorHead = Linear(64, ToolDefinitions.ActionCount);
@@ -62,8 +64,8 @@ public class GRUBrain : Module
         _hiddenSize = 128;
         _gruInputSize = CnnFeatDim + (ToolDefinitions.StateSize - GridFlat); // 288 + non-grid dims
 
-        _conv1 = Conv2d(GridChannels, 16, 3, padding: 1);
-        _conv2 = Conv2d(16, 32, 3, padding: 1);
+        _conv1 = Conv2d(GridChannels, 16, 3, padding: 0);
+        _conv2 = Conv2d(16, 32, 3, padding: 0);
         _gru = GRU(_gruInputSize, _hiddenSize, 1, batchFirst: false);
         _fc = Linear(_hiddenSize, 64);
         _actorHead = Linear(64, ToolDefinitions.ActionCount);
@@ -87,13 +89,13 @@ public class GRUBrain : Module
         using var grid = state.narrow(1, 0, GridFlat);
         using var nonGrid = state.narrow(1, GridFlat, ToolDefinitions.StateSize - GridFlat);
 
-        // Reshape grid to [N, 5, 7, 7]
+        // Reshape grid to [N, 6, 7, 7]
         using var grid4d = grid.reshape([N, GridChannels, GridSize, GridSize]);
 
-        // CNN: Conv→ReLU→MaxPool→Conv→ReLU
-        using var c1 = functional.relu(_conv1.forward(grid4d));           // [N, 16, 7, 7]
-        using var p1 = functional.max_pool2d(c1, [2, 2]);                  // [N, 16, 3, 3]
-        using var c2 = functional.relu(_conv2.forward(p1));                // [N, 32, 3, 3]
+        // CNN: Conv→ReLU→Conv→ReLU (no MaxPool, kernel=3 padding=0)
+        // 7×7 → 5×5×16 → 3×3×32
+        using var c1 = functional.relu(_conv1.forward(grid4d));           // [N, 16, 5, 5]
+        using var c2 = functional.relu(_conv2.forward(c1));               // [N, 32, 3, 3]
         using var flat = c2.reshape([N, CnnFeatDim]);                      // [N, 288]
 
         // Concat CNN features with non-grid
