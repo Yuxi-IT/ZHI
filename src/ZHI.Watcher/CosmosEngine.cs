@@ -348,6 +348,21 @@ public class CosmosEngine : IDisposable
             if (!_v.Alive[i]) continue;
             float decay = _config.Existence.DecayPerTick;
 
+            // Corpse pollution: corpses emit decay aura (discourages corpse-camping)
+            int ax = _v.PosX[i], ay = _v.PosY[i];
+            lock (_v.LockObj)
+            {
+                foreach (var ct in _v.CorpseTiles)
+                {
+                    int dist = Math.Max(Math.Abs(ct.X - ax), Math.Abs(ct.Y - ay));
+                    if (dist <= 2)
+                    {
+                        float pollution = (3f - dist) * 0.02f; // up to 0.06/tick at corpse
+                        decay += pollution;
+                    }
+                }
+            }
+
             // Graduated age death
             int age = _v.TickCount[i];
             if (age >= _config.AgeDeath.MaxAge)
@@ -691,6 +706,10 @@ public class CosmosEngine : IDisposable
                 oldLP.Dispose(); adv.Dispose(); ret.Dispose();
             }
             _ppoBuffer.Clear();
+
+            // Reset all GRU hidden states after policy update to prevent stale temporal context
+            using (var _ = torch.no_grad())
+                _gruHidden!.zero_();
         }
 
         // 13. Reproduction (asexual: Existence>threshold + Age>threshold → split)
@@ -781,9 +800,18 @@ public class CosmosEngine : IDisposable
 
             var action = (ZhiAction)actions[i];
 
+            // Auto-extract energy if in eating toggle state (before action processing)
+            if (_v.IsEating[i])
+            {
+                bool stillEating = AutoExtractEating(i, rewards, depletedFood, depletedCorpses);
+                if (!stillEating)
+                    _v.IsEating[i] = false;
+            }
+
             switch (action)
             {
                 case ZhiAction.MoveUp:
+                    _v.IsEating[i] = false;
                     if (_v.PosY[i] > 0 && !_v.IsDeepWater(_v.PosX[i], _v.PosY[i] - 1))
                         _v.PosY[i]--;
                     _v.ScentGrid[_v.PosX[i], _v.PosY[i]] += _config.Scent.DepositAmount;
@@ -791,6 +819,7 @@ public class CosmosEngine : IDisposable
                     break;
 
                 case ZhiAction.MoveDown:
+                    _v.IsEating[i] = false;
                     if (_v.PosY[i] < H - 1 && !_v.IsDeepWater(_v.PosX[i], _v.PosY[i] + 1))
                         _v.PosY[i]++;
                     _v.ScentGrid[_v.PosX[i], _v.PosY[i]] += _config.Scent.DepositAmount;
@@ -798,6 +827,7 @@ public class CosmosEngine : IDisposable
                     break;
 
                 case ZhiAction.MoveLeft:
+                    _v.IsEating[i] = false;
                     if (_v.PosX[i] > 0 && !_v.IsDeepWater(_v.PosX[i] - 1, _v.PosY[i]))
                         _v.PosX[i]--;
                     _v.ScentGrid[_v.PosX[i], _v.PosY[i]] += _config.Scent.DepositAmount;
@@ -805,6 +835,7 @@ public class CosmosEngine : IDisposable
                     break;
 
                 case ZhiAction.MoveRight:
+                    _v.IsEating[i] = false;
                     if (_v.PosX[i] < W - 1 && !_v.IsDeepWater(_v.PosX[i] + 1, _v.PosY[i]))
                         _v.PosX[i]++;
                     _v.ScentGrid[_v.PosX[i], _v.PosY[i]] += _config.Scent.DepositAmount;
@@ -816,14 +847,17 @@ public class CosmosEngine : IDisposable
                     break;
 
                 case ZhiAction.Attack:
+                    _v.IsEating[i] = false;
                     ProcessAttack(i);
                     break;
 
                 case ZhiAction.Signal:
+                    _v.IsEating[i] = false;
                     ProcessSignal(i, (int)signalValues[i]);
                     break;
 
                 case ZhiAction.Drink:
+                    _v.IsEating[i] = false;
                     if (_v.IsAdjacentToWater(_v.PosX[i], _v.PosY[i])
                         || _v.IsShallowWater(_v.PosX[i], _v.PosY[i]))
                     {
@@ -856,17 +890,18 @@ public class CosmosEngine : IDisposable
         }
     }
 
-    private void ProcessEat(int i, float[] rewards, HashSet<int> depletedFood, HashSet<int> depletedCorpses)
+    /// <summary>
+    /// Auto-extract energy for agent in eating toggle state. Returns true if still eating.
+    /// </summary>
+    private bool AutoExtractEating(int i, float[] rewards, HashSet<int> depletedFood, HashSet<int> depletedCorpses)
     {
         int px = _v.PosX[i];
         int py = _v.PosY[i];
-
         float extracted = 0f;
         string foodType = "";
 
         lock (_v.LockObj)
         {
-            // Check food tiles at position
             for (int f = _v.FoodTiles.Count - 1; f >= 0; f--)
             {
                 var ft = _v.FoodTiles[f];
@@ -875,7 +910,10 @@ public class CosmosEngine : IDisposable
                 if (px < ft.X || px >= ft.X + fw || py < ft.Y || py >= ft.Y + fh)
                     continue;
 
-                float perTick = ft.IsBig ? _config.Grid.BigFoodPerTickEnergy : _config.Grid.FoodPerTickEnergy;
+                // Food competition: diminishing returns when multiple agents eat same food
+                int eaters = CountEatersOnFood(ft, i);
+                float efficiency = 1f / MathF.Sqrt(eaters); // diminishing returns
+                float perTick = (ft.IsBig ? _config.Grid.BigFoodPerTickEnergy : _config.Grid.FoodPerTickEnergy) * efficiency;
                 extracted = MathF.Min(perTick, ft.Energy);
                 ft.Energy -= extracted;
                 foodType = ft.IsBig ? "BigFood" : "Food";
@@ -892,7 +930,6 @@ public class CosmosEngine : IDisposable
                 break;
             }
 
-            // Check corpse tiles if no food found
             if (extracted <= 0f)
             {
                 for (int c = _v.CorpseTiles.Count - 1; c >= 0; c--)
@@ -919,10 +956,7 @@ public class CosmosEngine : IDisposable
         }
 
         if (extracted <= 0f)
-        {
-            rewards[i] -= 0.25f;
-            return;
-        }
+            return false; // food depleted → stop eating
 
         float hungerBefore = _v.Hunger[i];
         _v.Hunger[i] = MathF.Min(100f, _v.Hunger[i] + extracted);
@@ -947,6 +981,42 @@ public class CosmosEngine : IDisposable
         }
 
         _tickEvents.Add(new WorldEvent { Type = "eat", AgentId = i, FoodType = foodType, Value = extracted, Tick = _globalTick });
+        return true;
+    }
+
+    private int CountEatersOnFood(FoodTile ft, int excludeIdx)
+    {
+        int count = 1; // include self
+        int fw = ft.Width > 0 ? ft.Width : 1;
+        int fh = ft.Height > 0 ? ft.Height : 1;
+        for (int j = 0; j < _v.N; j++)
+        {
+            if (j == excludeIdx || !_v.Alive[j] || !_v.IsEating[j]) continue;
+            int ax = _v.PosX[j], ay = _v.PosY[j];
+            if (ax >= ft.X && ax < ft.X + fw && ay >= ft.Y && ay < ft.Y + fh)
+                count++;
+        }
+        return count;
+    }
+
+    private void ProcessEat(int i, float[] rewards, HashSet<int> depletedFood, HashSet<int> depletedCorpses)
+    {
+        // Toggle: if already eating → stop; if not eating → start (if food present)
+        if (_v.IsEating[i])
+        {
+            _v.IsEating[i] = false;
+            return;
+        }
+
+        // Check if there's food at current position
+        bool hasFood = HasFoodOrCorpseAt(_v.PosX[i], _v.PosY[i]);
+        if (!hasFood)
+        {
+            rewards[i] -= 0.25f;
+            return;
+        }
+
+        _v.IsEating[i] = true;
     }
 
     private void ProcessAttack(int attacker)
@@ -981,8 +1051,8 @@ public class CosmosEngine : IDisposable
         {
             float hpRatio = Math.Clamp(_v.Existence[attacker] / 100f, 0.2f, 1.5f);
             float damage = 20f * hpRatio;
-            // Targets standing on food take 110% damage (eating vulnerability)
-            if (HasFoodOrCorpseAt(_v.PosX[bestTarget], _v.PosY[bestTarget])) damage *= 1.1f;
+            // Targets actively eating take 110% damage (eating vulnerability)
+            if (_v.IsEating[bestTarget]) damage *= 1.1f;
             _v.Stress[bestTarget] += _config.Combat.StressPerAttack;
             _v.Existence[bestTarget] -= damage;
             _v.LastActionNameMirror[attacker] = $"attack#{bestTarget}";

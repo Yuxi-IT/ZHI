@@ -261,6 +261,7 @@ public class WebServer : IDisposable
                 hunger = v.Hunger[i],
                 thirst = v.Thirst[i],
                 body_temperature = v.BodyTemperature[i],
+                is_eating = v.IsEating[i],
                 is_alive = v.Alive[i],
                 status = v.StatusMirror[i],
                 last_action = v.LastActionNameMirror[i],

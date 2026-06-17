@@ -67,6 +67,7 @@ public class VectorizedState : IDisposable
     public int[] SignalAge;        // ticks since last signal received
     public float[] Thirst;         // 0=dehydrated, 100=fully hydrated
     public float[] Hunger;         // 0=starving, 100=fully fed
+    public bool[] IsEating;        // whether agent is in eating toggle state
     public float[] BodyTemperature; // agent's own body temperature (tracks local env with inertia)
     public int[] RespawnCount;     // how many times this agent slot has respawned
 
@@ -119,6 +120,7 @@ public class VectorizedState : IDisposable
         SignalAge = new int[n]; // default 0
         Thirst = new float[n];
         Hunger = new float[n];
+        IsEating = new bool[n];
         BodyTemperature = new float[n];
         RespawnCount = new int[n];
         for (int i = 0; i < n; i++) { Thirst[i] = 100f; Hunger[i] = 100f; BodyTemperature[i] = 20f; }
@@ -333,7 +335,10 @@ public class VectorizedState : IDisposable
             // [265] water sound intensity at current position (normalized)
             _stateAssemblyBuffer[baseIdx + 265] = Math.Min(WaterSoundGrid[cx, cy] / 10f, 1f);
 
-            // [266-281] signal field gradient: 4 channels × 4 directions
+            // [266] is_eating
+            _stateAssemblyBuffer[baseIdx + 266] = IsEating[i] ? 1f : 0f;
+
+            // [267-282] signal field gradient: 4 channels × 4 directions
             for (int ch = 0; ch < 4; ch++)
             {
                 float sigHere = SignalField[cx, cy, ch];
@@ -342,10 +347,10 @@ public class VectorizedState : IDisposable
                 float sigE = (cx < W - 1) ? SignalField[cx + 1, cy, ch] - sigHere : 0f;
                 float sigW = (cx > 0) ? SignalField[cx - 1, cy, ch] - sigHere : 0f;
 
-                _stateAssemblyBuffer[baseIdx + 266 + ch * 4 + 0] = sigN;
-                _stateAssemblyBuffer[baseIdx + 266 + ch * 4 + 1] = sigS;
-                _stateAssemblyBuffer[baseIdx + 266 + ch * 4 + 2] = sigE;
-                _stateAssemblyBuffer[baseIdx + 266 + ch * 4 + 3] = sigW;
+                _stateAssemblyBuffer[baseIdx + 267 + ch * 4 + 0] = sigN;
+                _stateAssemblyBuffer[baseIdx + 267 + ch * 4 + 1] = sigS;
+                _stateAssemblyBuffer[baseIdx + 267 + ch * 4 + 2] = sigE;
+                _stateAssemblyBuffer[baseIdx + 267 + ch * 4 + 3] = sigW;
             }
         }
 
@@ -436,6 +441,7 @@ public class VectorizedState : IDisposable
         SignalAge[i] = 0;
         Thirst[i] = 100f;
         Hunger[i] = 100f;
+        IsEating[i] = false;
         BodyTemperature[i] = 20f; // reset to ambient
         RespawnCount[i]++;
     }
@@ -469,6 +475,7 @@ public class VectorizedState : IDisposable
         SignalAge = Resize(SignalAge, newN); SignalAge[newN - 1] = 0;
         Thirst = Resize(Thirst, newN); Thirst[newN - 1] = 100f;
         Hunger = Resize(Hunger, newN); Hunger[newN - 1] = 100f;
+        IsEating = Resize(IsEating, newN);
         BodyTemperature = Resize(BodyTemperature, newN); BodyTemperature[newN - 1] = 20f;
         RespawnCount = Resize(RespawnCount, newN);
 

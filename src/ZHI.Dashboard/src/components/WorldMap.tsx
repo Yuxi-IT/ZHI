@@ -492,7 +492,7 @@ export function WorldMap({
         `HP: ${agent.existence.toFixed(1)}  ${t('agents.stress')}: ${agent.stress.toFixed(2)}`,
         `${t('agents.hunger')}: ${agent.hunger.toFixed(1)}  ${t('agents.thirst')}: ${agent.thirst.toFixed(1)}`,
         `BTemp: ${agent.body_temperature.toFixed(1)}°C  ${t('agents.age')}: ${agent.tick_count}`,
-        `${t('agents.action')}: ${agent.last_action || t('agents.none')}`,
+        `${t('agents.action')}: ${agent.is_eating ? '🍖 ' : ''}${agent.last_action || t('agents.none')}`,
         `Eats: ${agent.eat_count}  Attacks: ${agent.attack_count}  Signals: ${agent.signal_count}`
       )
     }

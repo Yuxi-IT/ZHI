@@ -8,12 +8,21 @@ namespace ZHI.Core;
 
 /// <summary>
 /// GRU-based Actor-Critic with dual-head policy.
-/// Action head: 8 actions (Move×4, Eat, Attack, Signal, Hide)
+/// Action head: 8 actions (Move×4, Eat, Attack, Signal, Drink)
 /// Signal head: 4 signal values (only used when action=Signal)
-/// Architecture: GRU(44→128) → Linear(128→64) → Actor(64→8) + Signal(64→4) / Critic(64→1)
+/// Architecture: CNN(7×7×5→288) + NonGrid(38) → GRU(326→128) → FC(128→64) → Actor(64→8) + Signal(64→4) / Critic(64→1)
 /// </summary>
 public class GRUBrain : Module
 {
+    // CNN for 7×7×5 vision grid
+    private const int GridChannels = 5;
+    private const int GridSize = 7;
+    private const int GridFlat = GridSize * GridSize * GridChannels; // 245
+    private const int CnnFeatDim = 288; // 3×3×32 after MaxPool
+
+    private readonly Conv2d _conv1;
+    private readonly Conv2d _conv2;
+
     private readonly GRU _gru;
     private readonly Linear _fc;
     private readonly Linear _actorHead;
@@ -24,13 +33,19 @@ public class GRUBrain : Module
     private readonly float _gamma;
     private readonly float _learningRate;
     private readonly int _hiddenSize;
+    private readonly int _gruInputSize;
 
     public int HiddenSize => _hiddenSize;
+    public int GruInputSize => _gruInputSize;
 
     public GRUBrain() : base("GRUBrain")
     {
         _hiddenSize = 128;
-        _gru = GRU(ToolDefinitions.StateSize, _hiddenSize, 1, batchFirst: false);
+        _gruInputSize = CnnFeatDim + (ToolDefinitions.StateSize - GridFlat); // 288 + 38 = 326
+
+        _conv1 = Conv2d(GridChannels, 16, 3, padding: 1);
+        _conv2 = Conv2d(16, 32, 3, padding: 1);
+        _gru = GRU(_gruInputSize, _hiddenSize, 1, batchFirst: false);
         _fc = Linear(_hiddenSize, 64);
         _actorHead = Linear(64, ToolDefinitions.ActionCount);
         _signalHead = Linear(64, ToolDefinitions.SignalValues);
@@ -45,7 +60,11 @@ public class GRUBrain : Module
     public GRUBrain(float learningRate, float gamma) : base("GRUBrain")
     {
         _hiddenSize = 128;
-        _gru = GRU(ToolDefinitions.StateSize, _hiddenSize, 1, batchFirst: false);
+        _gruInputSize = CnnFeatDim + (ToolDefinitions.StateSize - GridFlat); // 288 + non-grid dims
+
+        _conv1 = Conv2d(GridChannels, 16, 3, padding: 1);
+        _conv2 = Conv2d(16, 32, 3, padding: 1);
+        _gru = GRU(_gruInputSize, _hiddenSize, 1, batchFirst: false);
         _fc = Linear(_hiddenSize, 64);
         _actorHead = Linear(64, ToolDefinitions.ActionCount);
         _signalHead = Linear(64, ToolDefinitions.SignalValues);
@@ -55,6 +74,30 @@ public class GRUBrain : Module
 
         RegisterComponents();
         this.to(Device.TorchDevice);
+    }
+
+    /// <summary>
+    /// Process vision grid through CNN, concatenate with non-grid features.
+    /// Input: [N, StateSize] raw state → Output: [N, GruInputSize] processed features.
+    /// </summary>
+    private Tensor ProcessState(Tensor state)
+    {
+        int N = (int)state.shape[0];
+        // Split: [N, 245] grid + [N, rest] non-grid
+        using var grid = state.narrow(1, 0, GridFlat);
+        using var nonGrid = state.narrow(1, GridFlat, ToolDefinitions.StateSize - GridFlat);
+
+        // Reshape grid to [N, 5, 7, 7]
+        using var grid4d = grid.reshape([N, GridChannels, GridSize, GridSize]);
+
+        // CNN: Conv→ReLU→MaxPool→Conv→ReLU
+        using var c1 = functional.relu(_conv1.forward(grid4d));           // [N, 16, 7, 7]
+        using var p1 = functional.max_pool2d(c1, [2, 2]);                  // [N, 16, 3, 3]
+        using var c2 = functional.relu(_conv2.forward(p1));                // [N, 32, 3, 3]
+        using var flat = c2.reshape([N, CnnFeatDim]);                      // [N, 288]
+
+        // Concat CNN features with non-grid
+        return cat([flat, nonGrid], dim: 1); // [N, 326]
     }
 
     /// <summary>
@@ -81,7 +124,8 @@ public class GRUBrain : Module
     {
         using var scope = torch.NewDisposeScope();
 
-        using var input3d = state.unsqueeze(0); // [1, N, S]
+        using var processed = ProcessState(state); // [N, GruInputSize]
+        using var input3d = processed.unsqueeze(0); // [1, N, GruInputSize]
 
         Tensor output3d, newHidden;
         if (hidden is not null)
@@ -145,15 +189,23 @@ public class GRUBrain : Module
     {
         using var scope = torch.NewDisposeScope();
 
+        int T = (int)stateSeq.shape[0];
+        int N = (int)stateSeq.shape[1];
+
+        // Process all timesteps through CNN (batched)
+        using var flatStates = stateSeq.reshape([T * N, ToolDefinitions.StateSize]);
+        using var processed = ProcessState(flatStates); // [T*N, GruInputSize]
+        using var processedSeq = processed.reshape([T, N, _gruInputSize]); // [T, N, GruInputSize]
+
         Tensor output3d;
         if (initHidden is not null)
         {
-            var (o, _) = _gru.call(stateSeq, initHidden);
+            var (o, _) = _gru.call(processedSeq, initHidden);
             output3d = o;
         }
         else
         {
-            var (o, _) = _gru.call(stateSeq);
+            var (o, _) = _gru.call(processedSeq);
             output3d = o;
         }
 
@@ -162,7 +214,6 @@ public class GRUBrain : Module
 
         // Action head with masking
         var actionLogits = _actorHead.forward(features);
-        var flatStates = stateSeq.reshape([-1, ToolDefinitions.StateSize]);
         using var actionMask = BuildActionMask(flatStates);
         var maskedLogits = actionLogits + (1 - actionMask) * (-1e9f);
         var actionProbs = functional.softmax(maskedLogits, dim: -1);
@@ -185,9 +236,6 @@ public class GRUBrain : Module
         var entropy = actionEntropy + isSignal * signalEntropy;
 
         var values = _criticHead.forward(features).squeeze(-1);
-
-        int T = (int)stateSeq.shape[0];
-        int N = (int)stateSeq.shape[1];
 
         return (logProbs.reshape([T, N]).MoveToOuterDisposeScope(),
                 values.reshape([T, N]).MoveToOuterDisposeScope(),

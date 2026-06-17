@@ -194,7 +194,9 @@ function AgentCard({
         </div>
         <div className="flex justify-between">
           <span>{t('agents.action')}</span>
-          <span className="text-neutral-400 truncate max-w-24">{agent.last_action || t('agents.none')}</span>
+          <span className="text-neutral-400 truncate max-w-24">
+            {agent.is_eating ? '🍖 ' : ''}{agent.last_action || t('agents.none')}
+          </span>
         </div>
         <div className="flex justify-between">
           <span>{t('agents.pos')}</span>
