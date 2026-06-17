@@ -997,61 +997,61 @@ public class CosmosEngine : IDisposable
         int riverWidth = _config.River.Width;
         int deepWidth = _config.River.DeepWidth;
         int fordChance = _config.River.FordChance;
+        int riverCount = _config.River.Count;
 
-        // Random river: starts from one edge, walks across map with slight randomness
-        // Choose orientation: horizontal or vertical
-        bool horizontal = _rng.Next(2) == 0;
-
-        if (horizontal)
+        for (int r = 0; r < riverCount; r++)
         {
-            int yCenter = _rng.Next(H / 4, 3 * H / 4);
-            for (int x = 0; x < W; x++)
+            bool horizontal = _rng.Next(2) == 0;
+
+            if (horizontal)
             {
-                // Slight random walk
-                yCenter += _rng.Next(-1, 2);
-                yCenter = Math.Clamp(yCenter, riverWidth, H - riverWidth - 1);
-
-                // Random ford: this column is entirely shallow (no deep), creating a crossing
-                bool isFord = _rng.Next(100) < fordChance;
-
-                for (int dy = -riverWidth / 2; dy <= riverWidth / 2; dy++)
+                int yCenter = _rng.Next(riverWidth, H - riverWidth - 1);
+                for (int x = 0; x < W; x++)
                 {
-                    int y = yCenter + dy;
-                    if (y < 0 || y >= H) continue;
+                    yCenter += _rng.Next(-1, 2);
+                    yCenter = Math.Clamp(yCenter, riverWidth, H - riverWidth - 1);
 
-                    int distFromCenter = Math.Abs(dy);
-                    if (!isFord && distFromCenter < deepWidth)
-                        _v.RiverGrid[x, y] = 2; // deep
-                    else
-                        _v.RiverGrid[x, y] = 1; // shallow
+                    bool isFord = _rng.Next(100) < fordChance;
+
+                    for (int dy = -riverWidth / 2; dy <= riverWidth / 2; dy++)
+                    {
+                        int y = yCenter + dy;
+                        if (y < 0 || y >= H) continue;
+
+                        int distFromCenter = Math.Abs(dy);
+                        if (!isFord && distFromCenter < deepWidth)
+                            _v.RiverGrid[x, y] = 2; // deep
+                        else if (_v.RiverGrid[x, y] == 0) // don't overwrite existing deep water
+                            _v.RiverGrid[x, y] = 1; // shallow
+                    }
+                }
+            }
+            else
+            {
+                int xCenter = _rng.Next(riverWidth, W - riverWidth - 1);
+                for (int y = 0; y < H; y++)
+                {
+                    xCenter += _rng.Next(-1, 2);
+                    xCenter = Math.Clamp(xCenter, riverWidth, W - riverWidth - 1);
+
+                    bool isFord = _rng.Next(100) < fordChance;
+
+                    for (int dx = -riverWidth / 2; dx <= riverWidth / 2; dx++)
+                    {
+                        int x = xCenter + dx;
+                        if (x < 0 || x >= W) continue;
+
+                        int distFromCenter = Math.Abs(dx);
+                        if (!isFord && distFromCenter < deepWidth)
+                            _v.RiverGrid[x, y] = 2; // deep
+                        else if (_v.RiverGrid[x, y] == 0) // don't overwrite existing deep water
+                            _v.RiverGrid[x, y] = 1; // shallow
+                    }
                 }
             }
         }
-        else
-        {
-            int xCenter = _rng.Next(W / 4, 3 * W / 4);
-            for (int y = 0; y < H; y++)
-            {
-                xCenter += _rng.Next(-1, 2);
-                xCenter = Math.Clamp(xCenter, riverWidth, W - riverWidth - 1);
 
-                bool isFord = _rng.Next(100) < fordChance;
-
-                for (int dx = -riverWidth / 2; dx <= riverWidth / 2; dx++)
-                {
-                    int x = xCenter + dx;
-                    if (x < 0 || x >= W) continue;
-
-                    int distFromCenter = Math.Abs(dx);
-                    if (!isFord && distFromCenter < deepWidth)
-                        _v.RiverGrid[x, y] = 2; // deep
-                    else
-                        _v.RiverGrid[x, y] = 1; // shallow
-                }
-            }
-        }
-
-        Log($"[River] Generated {(horizontal ? "H" : "V")} river, width={riverWidth}, deep={deepWidth}");
+        Log($"[River] Generated {riverCount} river(s), width={riverWidth}, deep={deepWidth}");
     }
 
     private void ComputeWaterSound()

@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import type { AgentSnapshot, FoodTile, CorpseTile, WorldEvent } from '../types'
 
-const MIN_ZOOM = 0.5
+const MIN_ZOOM = 0.1
 const MAX_ZOOM = 12
 
 interface Props {

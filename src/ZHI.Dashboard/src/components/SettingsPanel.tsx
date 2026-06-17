@@ -7,7 +7,7 @@ interface ZhiConfig {
   Combat: { AttackRange: number; StressPerAttack: number; StressDamage: number; StressDecay: number; AttackCost: number }
   Hunger: { DecayRate: number; PenaltyStart: number; MaxPenalty: number; Initial: number }
   Thirst: { DecayRate: number; DrinkRestore: number; PenaltyStart: number; MaxPenalty: number; Initial: number }
-  River: { Width: number; DeepWidth: number; FordChance: number; SoundRange: number; SoundDecay: number }
+  River: { Count: number; Width: number; DeepWidth: number; FordChance: number; SoundRange: number; SoundDecay: number }
   Existence: { DecayPerTick: number; Initial: number }
   Reproduce: { MinExistence: number; MinAge: number; Cooldown: number; ParentCost: number; ChildStart: number; MutationScale: number }
   AgeDeath: { MaxAge: number; Stage1Age: number; Stage1Decay: number; Stage2Age: number; Stage2Decay: number; Stage3Age: number; Stage3Decay: number }
@@ -38,7 +38,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
         <span className="text-[9px] text-neutral-500">{open ? '▾' : '▸'}</span>
         <span className="text-[10px] text-neutral-400 font-semibold">{title}</span>
       </button>
-      {open && <div className="pl-3 pb-1 space-y-0">{children}</div>}
+      {open && <div className="pl-2 pb-1 grid grid-cols-2 gap-x-3 gap-y-0">{children}</div>}
     </div>
   )
 }
@@ -131,6 +131,7 @@ export function SettingsPanel() {
         </Section>
 
         <Section title="河流">
+          <NumberField label="数量" value={config.River.Count} onChange={v => update('River', 'Count', v)} min={0} max={10} />
           <NumberField label="宽度" value={config.River.Width} onChange={v => update('River', 'Width', v)} min={1} max={20} />
           <NumberField label="深水宽度" value={config.River.DeepWidth} onChange={v => update('River', 'DeepWidth', v)} min={0} max={10} />
           <NumberField label="浅滩概率%" value={config.River.FordChance} onChange={v => update('River', 'FordChance', v)} min={0} max={100} />

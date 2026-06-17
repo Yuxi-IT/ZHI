@@ -150,6 +150,7 @@ public sealed class HungerConfig
 
 public sealed class RiverConfig
 {
+    public int Count { get; set; } = 1;          // number of rivers to generate
     public int Width { get; set; } = 5;          // total river corridor width
     public int DeepWidth { get; set; } = 1;       // deep water center width
     public int FordChance { get; set; } = 25;     // % chance per step to make deep→shallow (ford)

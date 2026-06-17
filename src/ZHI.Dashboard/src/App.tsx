@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useWebSocket } from './hooks/useWebSocket'
 import { useLogSocket } from './hooks/useLogSocket'
 import { useStats } from './hooks/useStats'
@@ -36,6 +36,8 @@ function App() {
   const [bottomTab, setBottomTab] = useState<'log' | 'charts' | 'settings'>('log')
   const [trackedAgent, setTrackedAgent] = useState<number | null>(null)
   const [trackNextGen, setTrackNextGen] = useState(false)
+  const [bottomHeight, setBottomHeight] = useState(192)
+  const resizeRef = useRef<{ startY: number; startH: number } | null>(null)
 
   // Display toggles
   const [showScent, setShowScent] = useState(true)
@@ -60,6 +62,28 @@ function App() {
       if (agent && !agent.is_alive) setTrackedAgent(null)
     }
   }, [agents, trackedAgent, trackNextGen])
+
+  // Resize bottom panel
+  const onResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    resizeRef.current = { startY: e.clientY, startH: bottomHeight }
+  }, [bottomHeight])
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!resizeRef.current) return
+      const dy = resizeRef.current.startY - e.clientY
+      const newH = Math.max(80, Math.min(600, resizeRef.current.startH + dy))
+      setBottomHeight(newH)
+    }
+    const onUp = () => { resizeRef.current = null }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [])
 
   return (
     <div className="h-screen flex flex-col bg-[#0a0a0a] text-neutral-300 font-mono text-xs overflow-hidden">
@@ -176,7 +200,12 @@ function App() {
               showSignal={showSignal}
             />
           </div>
-          <div className="h-48 shrink-0 border-t border-r border-neutral-800 flex flex-col overflow-hidden">
+          <div className="shrink-0 border-r border-neutral-800 flex flex-col overflow-hidden" style={{ height: bottomHeight }}>
+            {/* Resize handle */}
+            <div
+              className="h-1 shrink-0 bg-neutral-800 hover:bg-neutral-600 cursor-ns-resize transition-colors"
+              onMouseDown={onResizeStart}
+            />
             {/* Tab toggle */}
             <div className="flex items-center gap-1 px-3 py-1 border-b border-neutral-800 shrink-0">
               {(['log', 'charts', 'settings'] as const).map(tab => (
