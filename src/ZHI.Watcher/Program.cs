@@ -27,6 +27,14 @@ class Program
             {
                 PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
             }) ?? new ZhiConfig();
+
+            // Detect if deserialization silently failed (all fields at default)
+            if (config.Grid.Width == 0 || config.Cosmos.AgentCount == 0)
+            {
+                Console.WriteLine("[cosmos] WARNING: config.json appears corrupt or in wrong format — using defaults");
+                Console.WriteLine("[cosmos] Check that config.json keys are snake_case (e.g. agent_count, grid_width)");
+                config = new ZhiConfig();
+            }
         }
         else
         {

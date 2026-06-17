@@ -1466,7 +1466,11 @@ public class CosmosEngine : IDisposable
 
     private void SaveConfig()
     {
-        var json = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
+        var json = JsonSerializer.Serialize(_config, new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+        });
         File.WriteAllText(_configPath, json);
     }
 
