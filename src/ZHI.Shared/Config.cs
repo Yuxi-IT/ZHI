@@ -168,7 +168,9 @@ public sealed class TemperatureConfig
     public float MaxThirstAccel { get; set; } = 1.5f;// thirst multiplier at hottest
     public float HuddleRange { get; set; } = 2f;     // Manhattan distance for warmth sharing
     public float HuddleWarmthPerAgent { get; set; } = 3f; // effective °C per nearby agent
-    public float AgentBodyHeat { get; set; } = 2f;   // °C per agent on own cell (half on 8 neighbors)
+    public float AgentBodyHeat { get; set; } = 2f;   // °C per agent on own cell (half on 8 neighbors), scaled by HP ratio
+    public float RiverCooling { get; set; } = 5f;     // °C cooling from deep water on own cell
+    public int RiverCoolingRange { get; set; } = 2;   // cooling falloff distance (Chebyshev)
 }
 
 

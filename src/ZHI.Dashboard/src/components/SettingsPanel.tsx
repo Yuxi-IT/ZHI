@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 interface ZhiConfig {
   Grid: { Width: number; Height: number; InitialFood: number; InitialBigFood: number; FoodEnergy: number; BigFoodEnergy: number; FoodDecayPerTick: number; BigFoodDecayPerTick: number; MaxFood: number; FoodRespawnInterval: number; FoodPerTickEnergy: number; BigFoodPerTickEnergy: number; CorpsePerTickEnergy: number }
   Cosmos: { AgentCount: number; RespawnDelayTicks: number; MutationStd: number }
-  Temperature: { MaxTemp: number; MinTemp: number; ColdThreshold: number; MaxColdDecay: number; HotThreshold: number; MaxThirstAccel: number; HuddleRange: number; HuddleWarmthPerAgent: number; AgentBodyHeat: number }
+  Temperature: { MaxTemp: number; MinTemp: number; ColdThreshold: number; MaxColdDecay: number; HotThreshold: number; MaxThirstAccel: number; HuddleRange: number; HuddleWarmthPerAgent: number; AgentBodyHeat: number; RiverCooling: number; RiverCoolingRange: number }
   Combat: { AttackRange: number; StressPerAttack: number; StressDamage: number; StressDecay: number; AttackCost: number }
   Hunger: { DecayRate: number; PenaltyStart: number; MaxPenalty: number; Initial: number }
   Thirst: { DecayRate: number; DrinkRestore: number; PenaltyStart: number; MaxPenalty: number; Initial: number }
@@ -122,6 +122,8 @@ export function SettingsPanel() {
           <NumberField label="抱团范围" value={config.Temperature.HuddleRange} onChange={v => update('Temperature', 'HuddleRange', v)} min={0} max={10} step={1} />
           <NumberField label="每邻居温暖度" value={config.Temperature.HuddleWarmthPerAgent} onChange={v => update('Temperature', 'HuddleWarmthPerAgent', v)} min={0} max={20} step={0.5} />
           <NumberField label="Agent 体热" value={config.Temperature.AgentBodyHeat} onChange={v => update('Temperature', 'AgentBodyHeat', v)} min={0} max={10} step={0.5} />
+          <NumberField label="河流冷却" value={config.Temperature.RiverCooling} onChange={v => update('Temperature', 'RiverCooling', v)} min={0} max={20} step={0.5} />
+          <NumberField label="冷却范围" value={config.Temperature.RiverCoolingRange} onChange={v => update('Temperature', 'RiverCoolingRange', v)} min={0} max={5} />
         </Section>
 
         <Section title="战斗">

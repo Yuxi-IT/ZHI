@@ -287,18 +287,44 @@ public class CosmosEngine : IDisposable
                 _v.TemperatureGrid[x, y] = _temperature;
 
         float bodyHeat = _config.Temperature.AgentBodyHeat;
+        float initialHP = _config.Existence.Initial;
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
             int ax = _v.PosX[i], ay = _v.PosY[i];
-            _v.TemperatureGrid[ax, ay] += bodyHeat;
+            float hpRatio = MathF.Max(0f, _v.Existence[i] / initialHP);
+            float agentHeat = bodyHeat * hpRatio;
+            _v.TemperatureGrid[ax, ay] += agentHeat;
             for (int dx = -1; dx <= 1; dx++)
                 for (int dy = -1; dy <= 1; dy++)
                 {
                     if (dx == 0 && dy == 0) continue;
                     int nx = ax + dx, ny = ay + dy;
                     if (nx >= 0 && nx < W && ny >= 0 && ny < H)
-                        _v.TemperatureGrid[nx, ny] += bodyHeat * 0.5f;
+                        _v.TemperatureGrid[nx, ny] += agentHeat * 0.5f;
+                }
+        }
+
+        // 0c. River cooling: water cools surrounding area
+        float riverCooling = _config.Temperature.RiverCooling;
+        int riverCoolRange = _config.Temperature.RiverCoolingRange;
+        if (riverCooling > 0f && riverCoolRange > 0)
+        {
+            for (int x = 0; x < W; x++)
+                for (int y = 0; y < H; y++)
+                {
+                    int rv = _v.RiverGrid[x, y];
+                    if (rv == 0) continue;
+                    float depthFactor = rv == 2 ? 1f : 0.5f; // deep=full, shallow=half
+                    for (int dx = -riverCoolRange; dx <= riverCoolRange; dx++)
+                        for (int dy = -riverCoolRange; dy <= riverCoolRange; dy++)
+                        {
+                            int nx = x + dx, ny = y + dy;
+                            if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
+                            int dist = Math.Max(Math.Abs(dx), Math.Abs(dy));
+                            float falloff = 1f - (float)dist / (riverCoolRange + 1);
+                            _v.TemperatureGrid[nx, ny] -= riverCooling * depthFactor * falloff;
+                        }
                 }
         }
 
