@@ -277,7 +277,11 @@ public class WebServer : IDisposable
                 corpse_eat_count = v.CorpseEatCount[i],
                 signal_count = v.SignalCount[i],
                 facing_direction = v.FacingDirection[i],
-                respawn_count = v.RespawnCount[i]
+                respawn_count = v.RespawnCount[i],
+                stamina = v.Stamina[i],
+                is_stationary = v.IsStationary[i],
+                push_count = v.PushCount[i],
+                terraform_count = v.TerraformCount[i]
             });
         }
 
@@ -333,6 +337,12 @@ public class WebServer : IDisposable
                 signalField[sy * gw + sx] = maxSig;
             }
 
+        // Serialize terrain grid as flat int array (0=flat, 1=pit, 2=mound)
+        var terrain = new int[gw * gh];
+        for (int tx = 0; tx < gw; tx++)
+            for (int ty = 0; ty < gh; ty++)
+                terrain[ty * gw + tx] = v.TerrainGrid[tx, ty];
+
         // Compute energy source percentages
         float totalEnergySrc = _engine.GenFoodEnergy + _engine.GenBigFoodEnergy + _engine.GenCorpseEnergy;
         float foodPct = totalEnergySrc > 0 ? _engine.GenFoodEnergy / totalEnergySrc * 100f : 0;
@@ -371,6 +381,7 @@ public class WebServer : IDisposable
             food_scent = foodScent,
             temperature_grid = tempGrid,
             signal_field = signalField,
+            terrain,
             grid_width = ZHI.Shared.ToolDefinitions.GridWidth,
             grid_height = ZHI.Shared.ToolDefinitions.GridHeight,
             stats
