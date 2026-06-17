@@ -527,11 +527,15 @@ public class WebServer : IDisposable
     public void Dispose()
     {
         try { _listener.Stop(); } catch { }
-        lock (_clientsLock)
+        lock (_stateClientsLock)
         {
-            foreach (var ws in _clients)
-                try { ws.Dispose(); } catch { }
-            _clients.Clear();
+            foreach (var ws in _stateClients) try { ws.Dispose(); } catch { }
+            _stateClients.Clear();
+        }
+        lock (_logClientsLock)
+        {
+            foreach (var ws in _logClients) try { ws.Dispose(); } catch { }
+            _logClients.Clear();
         }
     }
 }
