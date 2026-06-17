@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ZHI.Core/ZHI.Core.csproj" />
+    <Project Path="src/ZHI.Shared/ZHI.Shared.csproj" />
+    <Project Path="src/ZHI.Watcher/ZHI.Watcher.csproj" />
+  </Folder>
+</Solution>

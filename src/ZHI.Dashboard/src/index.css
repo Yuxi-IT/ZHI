@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@theme {
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
+  --color-zhi-bg: #0a0a0a;
+  --color-zhi-panel: #111111;
+  --color-zhi-border: #1e1e1e;
+  --color-zhi-muted: #525252;
+  --color-zhi-text: #d4d4d4;
+  --color-zhi-accent: #a78bfa;
+}
+
+body {
+  margin: 0;
+  background: var(--color-zhi-bg);
+  color: var(--color-zhi-text);
+  font-family: var(--font-mono);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-zhi-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-zhi-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-zhi-muted);
+}

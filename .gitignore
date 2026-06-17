@@ -1,0 +1,47 @@
+# Build outputs
+**/bin/
+**/obj/
+**/out/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.sln.docstates
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Node
+node_modules/
+dist/
+
+# Runtime data
+*.db
+*.db-shm
+*.db-wal
+*.log
+*.sqlite
+blackbox.db
+
+# Weights & checkpoints
+*.bin
+*.pt
+*.onnx
+weights/
+
+# TorchSharp native libs (downloaded at restore)
+**/runtimes/
+
+# Environment
+.env
+.env.*
+config.json
+
+# Misc
+*.tmp
+*.swp
