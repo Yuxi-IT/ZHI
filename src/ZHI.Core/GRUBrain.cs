@@ -64,34 +64,10 @@ public class GRUBrain : Module
     private Tensor BuildActionMask(Tensor states)
     {
         int N = (int)states.shape[0];
-        int S = ToolDefinitions.StateSize;
         int A = ToolDefinitions.ActionCount;
+        // All actions always valid (no hide action)
         float[] maskData = new float[N * A];
-
-        var stateData = states.data<float>();
-
-        for (int i = 0; i < N; i++)
-        {
-            bool isHiding = stateData[i * S + 165] > 0.5f;
-            float hunger = stateData[i * S + 169]; // normalized 0-1
-            float thirst = stateData[i * S + 170]; // normalized 0-1
-            bool critical = hunger < 0.35f || thirst < 0.45f;
-            int b = i * A;
-
-            // Default: all actions valid
-            for (int a = 0; a < A; a++) maskData[b + a] = 1f;
-
-            if (isHiding && !critical)
-            {
-                // Mask: Move(0-3), Eat(4), Attack(5), Drink(8)
-                // Keep: Signal(6), Hide(7)
-                maskData[b + 0] = 0f; maskData[b + 1] = 0f;
-                maskData[b + 2] = 0f; maskData[b + 3] = 0f;
-                maskData[b + 4] = 0f; maskData[b + 5] = 0f;
-                maskData[b + 8] = 0f;
-            }
-        }
-
+        for (int i = 0; i < N * A; i++) maskData[i] = 1f;
         return torch.tensor(maskData, [N, A]).to(states.device);
     }
 

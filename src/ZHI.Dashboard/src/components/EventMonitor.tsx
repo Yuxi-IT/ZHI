@@ -11,8 +11,6 @@ const EVENT_COLORS: Record<string, string> = {
   attack: 'text-red-400',
   death: 'text-neutral-500',
   reproduce: 'text-purple-400',
-  hide_enter: 'text-blue-400',
-  hide_exit: 'text-cyan-400',
   signal: 'text-yellow-400',
 }
 
@@ -26,10 +24,6 @@ function formatEvent(e: WorldEvent): string {
       return `#${e.agent_id} DEAD`
     case 'reproduce':
       return `#${e.agent_id} → #${e.child_id}`
-    case 'hide_enter':
-      return `#${e.agent_id} HIDING`
-    case 'hide_exit':
-      return `#${e.agent_id} REVEALED`
     case 'signal':
       return `#${e.agent_id} signal(${e.signal_value})`
     default:

@@ -143,7 +143,6 @@ function AgentCard({
             {pinned ? '◉' : '○'}
           </button>
           <span className="text-neutral-300 font-medium">#{agent.id}</span>
-          {agent.is_hiding && <span className="text-blue-400 text-[8px]">HIDDEN</span>}
         </div>
         <div className="flex items-center gap-1.5">
           <button

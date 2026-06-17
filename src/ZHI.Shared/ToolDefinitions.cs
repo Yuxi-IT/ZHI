@@ -9,15 +9,14 @@ public enum ZhiAction
     Eat = 4,
     Attack = 5,
     Signal = 6,
-    Hide = 7,
-    Drink = 8
+    Drink = 7
 }
 
 public static class ToolDefinitions
 {
-    public const int ActionCount = 9;
+    public const int ActionCount = 8;
     public const int SignalValues = 4;
-    public const int StateSize = 188; // 150 grid (6ch) + 38 non-grid
+    public const int StateSize = 162; // 125 grid (5ch) + 37 non-grid
     public const int GridWidth = 64;
     public const int GridHeight = 64;
     public const int VisionRadius = 2; // 5×5 window = radius 2
@@ -31,7 +30,6 @@ public static class ToolDefinitions
         "eat",
         "attack",
         "signal",
-        "hide",
         "drink"
     ];
 

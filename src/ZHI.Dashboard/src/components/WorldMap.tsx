@@ -11,7 +11,6 @@ interface Props {
   food: FoodTile[]
   corpses: CorpseTile[]
   river: number[]
-  bush: number[]
   trackedAgent?: number | null
   onTrackChange?: (id: number | null) => void
   showScent?: boolean
@@ -27,7 +26,7 @@ interface TooltipInfo {
 }
 
 export function WorldMap({
-  agents, food, corpses, river, bush,
+  agents, food, corpses, river,
   trackedAgent: trackedProp, onTrackChange,
   showScent = false, showFoodScent = false,
   showDirection = false, showVision = false,
@@ -126,29 +125,6 @@ export function WorldMap({
       }
     }
 
-    // Bush tiles
-    if (bush.length > 0) {
-      const startCol = Math.max(0, Math.floor(cam.x / cellSize))
-      const endCol = Math.min(GRID_W, Math.ceil((cam.x + w) / cellSize))
-      const startRow = Math.max(0, Math.floor(cam.y / cellSize))
-      const endRow = Math.min(GRID_H, Math.ceil((cam.y + h) / cellSize))
-      for (let gx = startCol; gx < endCol; gx++) {
-        for (let gy = startRow; gy < endRow; gy++) {
-          if (bush[gy * GRID_W + gx] === 0) continue
-          const px = gx * cellSize
-          const py = gy * cellSize
-          ctx.fillStyle = 'rgba(34, 197, 94, 0.15)'
-          ctx.fillRect(px, py, cellSize, cellSize)
-          // Subtle border for bush tiles
-          if (cellSize > 6) {
-            ctx.strokeStyle = 'rgba(34, 197, 94, 0.25)'
-            ctx.lineWidth = 0.5
-            ctx.strokeRect(px + 0.5, py + 0.5, cellSize - 1, cellSize - 1)
-          }
-        }
-      }
-    }
-
     // Corpses (render below food and agents)
     const corpseSize = Math.max(cellSize * 0.6, 2)
     for (const c of corpses) {
@@ -209,13 +185,8 @@ export function WorldMap({
         ctx.arc(0, 0, visionR, -Math.PI / 3, Math.PI / 3)
         ctx.closePath()
 
-        if (agent.is_hiding) {
-          ctx.fillStyle = 'rgba(59, 130, 246, 0.06)'
-          ctx.strokeStyle = 'rgba(59, 130, 246, 0.15)'
-        } else {
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.03)'
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)'
-        }
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.03)'
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)'
         ctx.fill()
         ctx.setLineDash([2, 2])
         ctx.lineWidth = 0.5
@@ -235,11 +206,6 @@ export function WorldMap({
 
       const hp = Math.max(0, Math.min(1, agent.existence / 100))
       const hue = hp * 120
-
-      // Dim hiding agents slightly
-      if (agent.is_hiding) {
-        ctx.globalAlpha = 0.6
-      }
 
       ctx.fillStyle = `hsl(${hue}, 70%, 50%)`
 
@@ -265,7 +231,7 @@ export function WorldMap({
         const ax = cx + Math.cos(angle) * arrowDist
         const ay = cy + Math.sin(angle) * arrowDist
 
-        ctx.fillStyle = agent.is_hiding ? 'rgba(59, 130, 246, 0.8)' : 'rgba(255, 255, 255, 0.6)'
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
         ctx.beginPath()
         ctx.moveTo(ax + Math.cos(angle) * arrowLen, ay + Math.sin(angle) * arrowLen)
         ctx.lineTo(ax + Math.cos(angle + 2.4) * arrowLen * 0.6, ay + Math.sin(angle + 2.4) * arrowLen * 0.6)
@@ -273,19 +239,6 @@ export function WorldMap({
         ctx.closePath()
         ctx.fill()
       }
-
-      // Hide indicator: dashed circle
-      if (agent.is_hiding) {
-        ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)'
-        ctx.lineWidth = 1
-        ctx.setLineDash([3, 3])
-        ctx.beginPath()
-        ctx.arc(cx, cy, r + 4, 0, Math.PI * 2)
-        ctx.stroke()
-        ctx.setLineDash([])
-      }
-
-      ctx.globalAlpha = 1
 
       // Tracked agent highlight
       if (agent.id === trackedAgent) {
@@ -319,7 +272,7 @@ export function WorldMap({
       ? `${zoomPct}% | tracking #${trackedAgent} | alive ${aliveCount}/${agents.length}`
       : `${zoomPct}% | alive ${aliveCount}/${agents.length}`
     ctx.fillText(hudText, 8, 8)
-  }, [agents, food, corpses, river, bush, trackedAgent, showScent, showFoodScent, showDirection, showVision])
+  }, [agents, food, corpses, river, trackedAgent, showScent, showFoodScent, showDirection, showVision])
 
   useEffect(() => {
     rafRef.current = requestAnimationFrame(draw)
@@ -345,7 +298,7 @@ export function WorldMap({
       return {
         x: mx + 12, y: my - 10,
         text: [
-          `Agent #${agent.id}${agent.is_hiding ? ' [HIDDEN]' : ''}`,
+          `Agent #${agent.id}`,
           `HP: ${agent.existence.toFixed(1)}  Stress: ${agent.stress.toFixed(2)}  Thirst: ${agent.thirst.toFixed(1)}`,
           `Age: ${agent.tick_count} ticks  Action: ${agent.last_action}`,
           `Eats: ${agent.eat_count}  Attacks: ${agent.attack_count}  Signals: ${agent.signal_count}`
@@ -358,11 +311,6 @@ export function WorldMap({
       const rv = river[gy * GRID_W + gx]
       if (rv === 1) return { x: mx + 12, y: my - 10, text: ['Shallow Water', 'Walkable, drinkable'] }
       if (rv === 2) return { x: mx + 12, y: my - 10, text: ['Deep Water', 'Impassable'] }
-    }
-
-    // Check bush
-    if (bush.length > 0 && bush[gy * GRID_W + gx] === 1) {
-      return { x: mx + 12, y: my - 10, text: ['Bush (灌木丛)', 'Effective hiding spot'] }
     }
 
     // Check food (area-based for multi-cell BigFood)
@@ -391,7 +339,7 @@ export function WorldMap({
     }
 
     return null
-  }, [agents, food, corpses, river, bush])
+  }, [agents, food, corpses, river])
 
   useEffect(() => {
     const canvas = canvasRef.current

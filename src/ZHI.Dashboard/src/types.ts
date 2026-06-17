@@ -19,7 +19,6 @@ export interface AgentSnapshot {
   corpse_eat_count: number
   signal_count: number
   facing_direction: number  // 0=up, 1=down, 2=left, 3=right
-  is_hiding: boolean
 }
 
 export interface FoodTile {
@@ -49,7 +48,6 @@ export interface CosmosState {
   food: FoodTile[]
   corpses: CorpseTile[]
   river: number[]  // flat array: 0=land, 1=shallow, 2=deep (row-major)
-  bush: number[]   // flat array: 0=empty, 1=bush (row-major)
 }
 
 export interface LogMessage {
@@ -79,7 +77,7 @@ export type WsMessage =
   | ({ type: 'cosmos'; data: CosmosState })
   | LogMessage
 
-export type WorldEventType = 'eat' | 'attack' | 'death' | 'reproduce' | 'hide_enter' | 'hide_exit' | 'signal'
+export type WorldEventType = 'eat' | 'attack' | 'death' | 'reproduce' | 'signal'
 
 export interface WorldEvent {
   type: WorldEventType
@@ -100,7 +98,6 @@ export interface EnergySource {
 
 export interface CosmosStats {
   attack_rate: number
-  hide_usage_rate: number
   food_eaten: number
   bigfood_eaten: number
   corpses_eaten: number

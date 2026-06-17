@@ -46,7 +46,6 @@ public class CosmosEngine : IDisposable
 
     // Generation statistics
     private int _genAttacks;
-    private int _genHidingTicks;
     private int _genFoodEaten;
     private int _genBigFoodEaten;
     private int _genCorpsesEaten;
@@ -56,7 +55,6 @@ public class CosmosEngine : IDisposable
     private float _genCorpseEnergy;
 
     public int GenAttacks => _genAttacks;
-    public int GenHidingTicks => _genHidingTicks;
     public int GenFoodEaten => _genFoodEaten;
     public int GenBigFoodEaten => _genBigFoodEaten;
     public int GenCorpsesEaten => _genCorpsesEaten;
@@ -140,7 +138,6 @@ public class CosmosEngine : IDisposable
         _genResults.Clear();
         _globalTick = 0;
         _genAttacks = 0;
-        _genHidingTicks = 0;
         _genFoodEaten = 0;
         _genBigFoodEaten = 0;
         _genCorpsesEaten = 0;
@@ -163,7 +160,6 @@ public class CosmosEngine : IDisposable
         Array.Clear(_v.RiverGrid);
         Array.Clear(_v.WaterSoundGrid);
         GenerateRiver();
-        GenerateBushes();
         ComputeWaterSound();
         SpawnInitialFood();
 
@@ -248,17 +244,6 @@ public class CosmosEngine : IDisposable
             else if (age >= _config.AgeDeath.Stage1Age)
                 decay += _config.AgeDeath.Stage1Decay;
 
-            // Hide reduction + cumulative hide decay
-            if (_v.IsHiding[i])
-            {
-                decay *= _config.Hide.DecayMultiplier;
-                decay *= 1.0f + (_v.HideStartTick[i] > 0 ? (_globalTick - _v.HideStartTick[i]) / 200f * 0.4f : 0f);
-                // Open area hiding: extra metabolic penalty (bush = effective, open = costly)
-                if (!_v.IsBushAt(_v.PosX[i], _v.PosY[i]))
-                    decay *= _config.Bush.OpenHideMetabolicMult;
-                _genHidingTicks++;
-            }
-
             // Continuous ramp hunger penalty (starts at PenaltyStart, linear to MaxPenalty at 0)
             float hungerRatio = MathF.Max(0f, 1f - (_v.Hunger[i] / _config.Hunger.PenaltyStart));
             decay += hungerRatio * _config.Hunger.MaxPenalty;
@@ -269,8 +254,8 @@ public class CosmosEngine : IDisposable
 
             _v.Existence[i] -= decay;
 
-            // Passive HP recovery when well-fed AND hydrated (blocked while hiding)
-            if (_v.Hunger[i] > 80f && _v.Thirst[i] > 80f && !_v.IsHiding[i])
+            // Passive HP recovery when well-fed AND hydrated
+            if (_v.Hunger[i] > 80f && _v.Thirst[i] > 80f)
                 _v.Existence[i] = MathF.Min(_v.Existence[i] + 0.2f, _config.Existence.Initial);
         }
 
@@ -282,37 +267,21 @@ public class CosmosEngine : IDisposable
             for (int y = 0; y < H; y++)
                 _v.ScentGrid[x, y] *= scentDecay;
 
-        // 4a. Hunger decay (accelerated while hiding)
-        float hideMult = _config.Hide.MetabolicMultiplier;
+        // 4a. Hunger decay
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
-            float hungerDecay = _config.Hunger.DecayRate * (_v.IsHiding[i] ? hideMult : 1.0f);
-            _v.Hunger[i] = MathF.Max(0f, _v.Hunger[i] - hungerDecay);
+            _v.Hunger[i] = MathF.Max(0f, _v.Hunger[i] - _config.Hunger.DecayRate);
         }
 
-        // 4b. Thirst decay (accelerated while hiding)
+        // 4b. Thirst decay
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
-            float thirstDecay = _config.Thirst.DecayRate * (_v.IsHiding[i] ? hideMult : 1.0f);
-            _v.Thirst[i] = MathF.Max(0f, _v.Thirst[i] - thirstDecay);
+            _v.Thirst[i] = MathF.Max(0f, _v.Thirst[i] - _config.Thirst.DecayRate);
         }
 
-        // 4c. Hide duration cap — force break with stress penalty
-        for (int i = 0; i < n; i++)
-        {
-            if (!_v.Alive[i] || !_v.IsHiding[i]) continue;
-            int hideDuration = _globalTick - _v.HideStartTick[i];
-            if (hideDuration >= _config.Hide.MaxDurationTicks)
-            {
-                _v.IsHiding[i] = false;
-                _v.Stress[i] = MathF.Min(5f, _v.Stress[i] + _config.Hide.BreakStressPenalty);
-                _tickEvents.Add(new WorldEvent { Type = "hide_fatigue_break", AgentId = i, Tick = _globalTick });
-            }
-        }
-
-        // 4d. Signal memory decay + signal age
+        // 4c. Signal memory decay + signal age
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
@@ -435,7 +404,6 @@ public class CosmosEngine : IDisposable
                 donesArr[i] = 1f;
 
                 _tickEvents.Add(new WorldEvent { Type = "death", AgentId = i, Tick = _globalTick });
-                if (_v.IsHiding[i]) _v.IsHiding[i] = false;
 
                 // Spawn corpse at death position
                 lock (_v.LockObj)
@@ -591,21 +559,6 @@ public class CosmosEngine : IDisposable
 
             var action = (ZhiAction)actions[i];
 
-            // Auto-cancel hide on move/eat/attack (if min duration met)
-            if (_v.IsHiding[i] && action != ZhiAction.Hide && action != ZhiAction.Signal)
-            {
-                if (_globalTick - _v.HideStartTick[i] >= _config.Hide.MinDuration)
-                {
-                    _v.IsHiding[i] = false;
-                    _tickEvents.Add(new WorldEvent { Type = "hide_exit", AgentId = i, Tick = _globalTick });
-                }
-                else
-                {
-                    // Forced to stay hidden — skip action, just maintain hide
-                    action = ZhiAction.Hide;
-                }
-            }
-
             switch (action)
             {
                 case ZhiAction.MoveUp:
@@ -660,27 +613,6 @@ public class CosmosEngine : IDisposable
                     else
                     {
                         rewards[i] -= 0.1f;
-                    }
-                    break;
-
-                case ZhiAction.Hide:
-                    if (!_v.IsHiding[i])
-                    {
-                        _v.IsHiding[i] = true;
-                        _v.HideStartTick[i] = _globalTick;
-                        _tickEvents.Add(new WorldEvent { Type = "hide_enter", AgentId = i, Tick = _globalTick });
-                    }
-                    // Soft constraint: bush = effective hide, open = metabolic penalty + reward penalty
-                    if (!_v.IsBushAt(_v.PosX[i], _v.PosY[i]))
-                    {
-                        // Open area hiding: extra metabolic cost + reward penalty
-                        _v.Existence[i] -= _config.Bush.OpenHideRewardPenalty;
-                        rewards[i] -= _config.Bush.OpenHideRewardPenalty;
-                    }
-                    else
-                    {
-                        // Bush hiding: small reward for valid tactical choice
-                        rewards[i] += _config.Bush.BushHideReward;
                     }
                     break;
             }
@@ -973,61 +905,6 @@ public class CosmosEngine : IDisposable
         }
 
         Log($"[River] Generated {(horizontal ? "H" : "V")} river, width={riverWidth}, deep={deepWidth}");
-    }
-
-    private void GenerateBushes()
-    {
-        int W = ToolDefinitions.GridWidth;
-        int H = ToolDefinitions.GridHeight;
-        int gridSize = W * H;
-        var bushGrid = new bool[gridSize];
-        int totalBushes = 0;
-
-        int clusterCount = _config.Bush.ClusterCount;
-        int minSize = _config.Bush.MinClusterSize;
-        int maxSize = _config.Bush.MaxClusterSize;
-
-        for (int c = 0; c < clusterCount; c++)
-        {
-            // Random seed for this cluster
-            int cx = _rng.Next(W);
-            int cy = _rng.Next(H);
-
-            // Skip if seed is on deep water
-            if (_v.IsDeepWater(cx, cy)) continue;
-
-            int clusterSize = _rng.Next(minSize, maxSize + 1);
-            int placed = 0;
-
-            // Random walk to fill cluster
-            int x = cx, y = cy;
-            for (int step = 0; step < clusterSize * 3 && placed < clusterSize; step++)
-            {
-                // Random walk step
-                int dir = _rng.Next(4);
-                switch (dir)
-                {
-                    case 0: y = Math.Max(0, y - 1); break;
-                    case 1: y = Math.Min(H - 1, y + 1); break;
-                    case 2: x = Math.Max(0, x - 1); break;
-                    case 3: x = Math.Min(W - 1, x + 1); break;
-                }
-
-                // Skip deep water tiles
-                if (_v.IsDeepWater(x, y)) continue;
-
-                int key = x * H + y;
-                if (!bushGrid[key])
-                {
-                    bushGrid[key] = true;
-                    placed++;
-                    totalBushes++;
-                }
-            }
-        }
-
-        _v.SetBushGrid(bushGrid);
-        Log($"[Bush] Generated {totalBushes} bush tiles in {clusterCount} clusters");
     }
 
     private void ComputeWaterSound()

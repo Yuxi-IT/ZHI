@@ -225,8 +225,7 @@ public class WebServer : IDisposable
                 bigfood_eat_count = v.BigFoodEatCount[i],
                 corpse_eat_count = v.CorpseEatCount[i],
                 signal_count = v.SignalCount[i],
-                facing_direction = v.FacingDirection[i],
-                is_hiding = v.IsHiding[i]
+                facing_direction = v.FacingDirection[i]
             });
         }
 
@@ -253,12 +252,6 @@ public class WebServer : IDisposable
             for (int ry = 0; ry < gh; ry++)
                 river[ry * gw + rx] = v.RiverGrid[rx, ry];
 
-        // Serialize bush grid as flat array (0=empty, 1=bush)
-        var bush = new int[gw * gh];
-        for (int bx = 0; bx < gw; bx++)
-            for (int by = 0; by < gh; by++)
-                bush[by * gw + bx] = v.IsBushAt(bx, by) ? 1 : 0;
-
         // Compute energy source percentages
         float totalEnergySrc = _engine.GenFoodEnergy + _engine.GenBigFoodEnergy + _engine.GenCorpseEnergy;
         float foodPct = totalEnergySrc > 0 ? _engine.GenFoodEnergy / totalEnergySrc * 100f : 0;
@@ -268,7 +261,6 @@ public class WebServer : IDisposable
         var stats = new
         {
             attack_rate = _engine.GenTotalTicks > 0 ? (float)_engine.GenAttacks / _engine.GenTotalTicks : 0f,
-            hide_usage_rate = _engine.GenTotalTicks > 0 ? (float)_engine.GenHidingTicks / (_engine.AgentCount * Math.Max(1, _engine.GenTotalTicks)) : 0f,
             food_eaten = _engine.GenFoodEaten,
             bigfood_eaten = _engine.GenBigFoodEaten,
             corpses_eaten = _engine.GenCorpsesEaten,
@@ -291,7 +283,6 @@ public class WebServer : IDisposable
             food,
             corpses,
             river,
-            bush,
             grid_width = ZHI.Shared.ToolDefinitions.GridWidth,
             grid_height = ZHI.Shared.ToolDefinitions.GridHeight,
             stats

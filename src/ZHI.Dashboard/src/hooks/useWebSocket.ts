@@ -13,7 +13,6 @@ export function useWebSocket() {
   const [food, setFood] = useState<FoodTile[]>([]);
   const [corpses, setCorpses] = useState<CorpseTile[]>([]);
   const [river, setRiver] = useState<number[]>([]);
-  const [bush, setBush] = useState<number[]>([]);
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const [events, setEvents] = useState<WorldEvent[]>([]);
   const [stats, setStats] = useState<CosmosStats | null>(null);
@@ -46,7 +45,6 @@ export function useWebSocket() {
           setFood(data.food ?? []);
           setCorpses(data.corpses ?? []);
           if (data.river) setRiver(data.river);
-          if (data.bush) setBush(data.bush);
           if (data.stats) setStats(data.stats);
           break;
         }
@@ -76,5 +74,5 @@ export function useWebSocket() {
     };
   }, [connect]);
 
-  return { connected, generation, totalDeaths, agents, food, corpses, river, bush, logs, events, stats };
+  return { connected, generation, totalDeaths, agents, food, corpses, river, logs, events, stats };
 }

@@ -10,7 +10,7 @@ import { EventMonitor } from './components/EventMonitor'
 import { EventLog } from './components/EventLog'
 
 function App() {
-  const { generation, totalDeaths, agents, food, corpses, river, bush, logs, events, stats, connected } = useWebSocket()
+  const { generation, totalDeaths, agents, food, corpses, river, logs, events, stats, connected } = useWebSocket()
   const { stats: dbStats, loading } = useStats()
   const { history, record } = useEcoHistory()
   const [bottomTab, setBottomTab] = useState<'log' | 'charts' | 'events'>('log')
@@ -110,7 +110,6 @@ function App() {
               <>
                 <span className="text-neutral-700 text-[9px] ml-2">|</span>
                 <span className="text-neutral-600 text-[9px]">ATK:{stats.attack_rate.toFixed(2)}/t</span>
-                <span className="text-neutral-600 text-[9px]">HIDE:{(stats.hide_usage_rate * 100).toFixed(1)}%</span>
               </>
             )}
           </div>
@@ -120,7 +119,6 @@ function App() {
               food={food}
               corpses={corpses}
               river={river}
-              bush={bush}
               trackedAgent={trackedAgent}
               onTrackChange={setTrackedAgent}
               showScent={showScent}

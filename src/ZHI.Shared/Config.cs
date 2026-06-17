@@ -11,12 +11,10 @@ public sealed class ZhiConfig
     public CosmosConfig Cosmos { get; set; } = new();
     public CorpseConfig Corpse { get; set; } = new();
     public ReproduceConfig Reproduce { get; set; } = new();
-    public HideConfig Hide { get; set; } = new();
     public AgeDeathConfig AgeDeath { get; set; } = new();
     public ThirstConfig Thirst { get; set; } = new();
     public HungerConfig Hunger { get; set; } = new();
     public RiverConfig River { get; set; } = new();
-    public BushConfig Bush { get; set; } = new();
     public int Port { get; set; } = 19816;
     public int DecisionIntervalMs { get; set; } = 200;
     public int DeathCount { get; set; } = 0;
@@ -96,15 +94,6 @@ public sealed class CorpseConfig
     public float ScentAmount { get; set; } = 0.5f;
 }
 
-public sealed class HideConfig
-{
-    public float DecayMultiplier { get; set; } = 0.9f;
-    public int MinDuration { get; set; } = 1;
-    public int DetectionRange { get; set; } = 2;
-    public float MetabolicMultiplier { get; set; } = 1.6f;
-    public int MaxDurationTicks { get; set; } = 150;
-    public float BreakStressPenalty { get; set; } = 1.5f;
-}
 
 public sealed class AgeDeathConfig
 {
@@ -153,12 +142,4 @@ public sealed class RiverConfig
     public float SoundDecay { get; set; } = 0.9f; // per-cell sound decay
 }
 
-public sealed class BushConfig
-{
-    public int ClusterCount { get; set; } = 15;       // number of bush clusters
-    public int MinClusterSize { get; set; } = 10;     // min tiles per cluster
-    public int MaxClusterSize { get; set; } = 30;     // max tiles per cluster
-    public float OpenHideMetabolicMult { get; set; } = 2.5f;  // metabolic penalty in open
-    public float OpenHideRewardPenalty { get; set; } = 0.2f;  // reward penalty in open
-    public float BushHideReward { get; set; } = 0.1f;         // small reward for valid hide
-}
+
