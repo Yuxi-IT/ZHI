@@ -16,6 +16,7 @@ public sealed class ZhiConfig
     public ThirstConfig Thirst { get; set; } = new();
     public HungerConfig Hunger { get; set; } = new();
     public RiverConfig River { get; set; } = new();
+    public BushConfig Bush { get; set; } = new();
     public int Port { get; set; } = 19816;
     public int DecisionIntervalMs { get; set; } = 200;
     public int DeathCount { get; set; } = 0;
@@ -38,8 +39,8 @@ public sealed class GridConfig
     public int InitialBigFood { get; set; } = 10;
     public float FoodEnergy { get; set; } = 15f;
     public float BigFoodEnergy { get; set; } = 80f;
-    public int FoodTTL { get; set; } = 300;
-    public int BigFoodTTL { get; set; } = 600;
+    public int FoodTTL { get; set; } = 200;
+    public int BigFoodTTL { get; set; } = 400;
 
     // BigFood cooperative eating
     public int BigFoodEatTime { get; set; } = 5;
@@ -150,4 +151,14 @@ public sealed class RiverConfig
     public int DeepWidth { get; set; } = 1;       // deep water center width
     public int SoundRange { get; set; } = 10;     // water sound propagation range
     public float SoundDecay { get; set; } = 0.9f; // per-cell sound decay
+}
+
+public sealed class BushConfig
+{
+    public int ClusterCount { get; set; } = 15;       // number of bush clusters
+    public int MinClusterSize { get; set; } = 10;     // min tiles per cluster
+    public int MaxClusterSize { get; set; } = 30;     // max tiles per cluster
+    public float OpenHideMetabolicMult { get; set; } = 2.5f;  // metabolic penalty in open
+    public float OpenHideRewardPenalty { get; set; } = 0.2f;  // reward penalty in open
+    public float BushHideReward { get; set; } = 0.1f;         // small reward for valid hide
 }

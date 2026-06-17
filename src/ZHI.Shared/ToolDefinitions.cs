@@ -17,7 +17,7 @@ public static class ToolDefinitions
 {
     public const int ActionCount = 9;
     public const int SignalValues = 4;
-    public const int StateSize = 163; // 125 grid + 38 non-grid
+    public const int StateSize = 188; // 150 grid (6ch) + 38 non-grid
     public const int GridWidth = 64;
     public const int GridHeight = 64;
     public const int VisionRadius = 2; // 5×5 window = radius 2
