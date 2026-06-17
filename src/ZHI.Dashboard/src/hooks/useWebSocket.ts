@@ -1,16 +1,15 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { AgentSnapshot, FoodTile, CorpseTile, LogMessage, WorldEvent, CosmosStats } from '../types';
+import type { AgentSnapshot, FoodTile, CorpseTile, CosmosStats } from '../types';
 
 const WS_URL = import.meta.env.DEV
   ? 'ws://localhost:8088/ws'
   : `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`;
 
-const MAX_EVENTS = 2000;
-
 export function useWebSocket() {
   const [connected, setConnected] = useState(false);
   const [generation, setGeneration] = useState(1);
   const [totalDeaths, setTotalDeaths] = useState(0);
+  const [worldDay, setWorldDay] = useState(1);
   const [timeOfDay, setTimeOfDay] = useState(0);
   const [temperature, setTemperature] = useState(20);
   const [gridW, setGridW] = useState(64);
@@ -22,8 +21,6 @@ export function useWebSocket() {
   const [scent, setScent] = useState<number[]>([]);
   const [foodScent, setFoodScent] = useState<number[]>([]);
   const [signalField, setSignalField] = useState<number[]>([]);
-  const [logs, setLogs] = useState<LogMessage[]>([]);
-  const [events, setEvents] = useState<WorldEvent[]>([]);
   const [stats, setStats] = useState<CosmosStats | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -50,6 +47,7 @@ export function useWebSocket() {
           const data = msg.data;
           setGeneration(data.generation);
           setTotalDeaths(data.total_deaths);
+          if (data.world_day !== undefined) setWorldDay(data.world_day);
           if (data.time_of_day !== undefined) setTimeOfDay(data.time_of_day);
           if (data.temperature !== undefined) setTemperature(data.temperature);
           if (data.grid_width) setGridW(data.grid_width);
@@ -64,20 +62,6 @@ export function useWebSocket() {
           if (data.stats) setStats(data.stats);
           break;
         }
-        case 'events': {
-          const newEvents = msg.data as WorldEvent[];
-          setEvents(prev => {
-            const next = [...prev, ...newEvents];
-            return next.length > MAX_EVENTS ? next.slice(-MAX_EVENTS) : next;
-          });
-          break;
-        }
-        case 'log':
-          setLogs(prev => {
-            const next = [...prev, msg as LogMessage];
-            return next.length > 500 ? next.slice(-500) : next;
-          });
-          break;
       }
     };
   }, []);
@@ -90,7 +74,5 @@ export function useWebSocket() {
     };
   }, [connect]);
 
-  const clearEvents = useCallback(() => setEvents([]), []);
-
-  return { connected, generation, totalDeaths, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, signalField, logs, events, clearEvents, stats };
+  return { connected, generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, signalField, stats };
 }

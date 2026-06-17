@@ -9,8 +9,10 @@ namespace ZHI.Watcher;
 public class WebServer : IDisposable
 {
     private readonly HttpListener _listener;
-    private readonly List<WebSocket> _clients = new();
-    private readonly Lock _clientsLock = new();
+    private readonly List<WebSocket> _stateClients = new();  // /ws — cosmos state
+    private readonly List<WebSocket> _logClients = new();    // /ws/logs — logs + events
+    private readonly Lock _stateClientsLock = new();
+    private readonly Lock _logClientsLock = new();
     private readonly CosmosEngine _engine;
     private readonly Blackbox _blackbox;
     private readonly int _port;
@@ -44,7 +46,7 @@ public class WebServer : IDisposable
             time = DateTime.Now.ToString("HH:mm:ss"),
             message
         });
-        _ = BroadcastAsync(payload);
+        _ = BroadcastToLogClientsAsync(payload);
     }
 
     public async Task StartAsync(CancellationToken ct)
@@ -87,7 +89,8 @@ public class WebServer : IDisposable
 
         if (context.Request.IsWebSocketRequest)
         {
-            await HandleWebSocket(context, ct);
+            bool isLogChannel = path == "/ws/logs";
+            await HandleWebSocket(context, ct, isLogChannel);
             return;
         }
 
@@ -346,6 +349,7 @@ public class WebServer : IDisposable
         {
             generation = _engine.Generation,
             total_deaths = _engine.TotalDeaths,
+            world_day = _engine.WorldDay,
             time_of_day = _engine.GameTimeOfDay,
             temperature = _engine.Temperature,
             agent_count = n,
@@ -382,7 +386,7 @@ public class WebServer : IDisposable
         _ => "application/octet-stream"
     };
 
-    private async Task HandleWebSocket(HttpListenerContext context, CancellationToken ct)
+    private async Task HandleWebSocket(HttpListenerContext context, CancellationToken ct, bool logChannel)
     {
         WebSocket ws;
         try
@@ -397,12 +401,15 @@ public class WebServer : IDisposable
             return;
         }
 
-        lock (_clientsLock)
-        {
-            _clients.Add(ws);
-        }
+        var clients = logChannel ? _logClients : _stateClients;
+        var clientsLock = logChannel ? _logClientsLock : _stateClientsLock;
 
-        await SendInitialData(ws);
+        lock (clientsLock) { clients.Add(ws); }
+
+        if (!logChannel)
+            await SendInitialData(ws);
+        else
+            await SendLogHistory(ws);
 
         var buffer = new byte[1024];
         try
@@ -417,30 +424,23 @@ public class WebServer : IDisposable
         catch { }
         finally
         {
-            lock (_clientsLock)
-            {
-                _clients.Remove(ws);
-            }
+            lock (clientsLock) { clients.Remove(ws); }
             try { ws.Dispose(); } catch { }
         }
     }
 
     private async Task SendInitialData(WebSocket ws)
     {
-        // Send log history
+        // State channel: no initial data needed (next broadcast loop sends)
+    }
+
+    private async Task SendLogHistory(WebSocket ws)
+    {
         List<string> logs;
-        lock (_logLock)
-        {
-            logs = new List<string>(_logBuffer);
-        }
+        lock (_logLock) { logs = new List<string>(_logBuffer); }
         foreach (var msg in logs)
         {
-            var payload = JsonSerializer.Serialize(new
-            {
-                type = "log",
-                time = "",
-                message = msg
-            });
+            var payload = JsonSerializer.Serialize(new { type = "log", time = "", message = msg });
             await SendAsync(ws, payload);
         }
     }
@@ -454,15 +454,15 @@ public class WebServer : IDisposable
 
             try
             {
-                var payload = JsonSerializer.Serialize(new
+                // Cosmos state → /ws clients only
+                var statePayload = JsonSerializer.Serialize(new
                 {
                     type = "cosmos",
                     data = JsonSerializer.Deserialize<object>(BuildCosmosPayload())
                 });
+                await BroadcastToStateClientsAsync(statePayload);
 
-                await BroadcastAsync(payload);
-
-                // Broadcast events if any
+                // Events → /ws/logs clients only
                 var events = _engine.TickEvents;
                 if (events.Count > 0)
                 {
@@ -471,7 +471,7 @@ public class WebServer : IDisposable
                         type = "events",
                         data = events
                     }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
-                    await BroadcastAsync(eventPayload);
+                    await BroadcastToLogClientsAsync(eventPayload);
                 }
             }
             catch (Exception ex)
@@ -481,13 +481,20 @@ public class WebServer : IDisposable
         }
     }
 
-    private async Task BroadcastAsync(string payload)
+    private async Task BroadcastToStateClientsAsync(string payload)
+    {
+        await BroadcastToAsync(payload, _stateClients, _stateClientsLock);
+    }
+
+    private async Task BroadcastToLogClientsAsync(string payload)
+    {
+        await BroadcastToAsync(payload, _logClients, _logClientsLock);
+    }
+
+    private async Task BroadcastToAsync(string payload, List<WebSocket> clientList, Lock clientLock)
     {
         List<WebSocket> clients;
-        lock (_clientsLock)
-        {
-            clients = new List<WebSocket>(_clients);
-        }
+        lock (clientLock) { clients = new List<WebSocket>(clientList); }
 
         var dead = new List<WebSocket>();
         foreach (var ws in clients)
@@ -503,10 +510,10 @@ public class WebServer : IDisposable
 
         if (dead.Count > 0)
         {
-            lock (_clientsLock)
+            lock (clientLock)
             {
                 foreach (var ws in dead)
-                    _clients.Remove(ws);
+                    clientList.Remove(ws);
             }
         }
     }

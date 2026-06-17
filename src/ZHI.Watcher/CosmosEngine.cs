@@ -41,6 +41,7 @@ public class CosmosEngine : IDisposable
     private volatile bool _pendingRestart;
     private float _effectiveMutationRate = 0.1f;
     private float _totalEnergyInWorld;
+    private long _totalWorldTicks; // cumulative ticks, never resets
     private int[] _deathTick = Array.Empty<int>();
     private int[] _lastAttackTick = Array.Empty<int>();
     private int _respawnCount;
@@ -85,6 +86,7 @@ public class CosmosEngine : IDisposable
     public int TickExceptionCount => _tickExceptionCount;
     public float GameTimeOfDay => _gameTimeOfDay;
     public float Temperature => _temperature;
+    public long WorldDay => _totalWorldTicks / 3600 + 1;
 
     // PLACEHOLDER_CONSTRUCTOR
 
@@ -267,6 +269,7 @@ public class CosmosEngine : IDisposable
     private void Tick()
     {
         _globalTick++;
+        _totalWorldTicks++;
         int n = _v.N;
         _tickEvents.Clear();
         _genTotalTicks++;

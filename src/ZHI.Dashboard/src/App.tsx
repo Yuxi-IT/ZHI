@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useWebSocket } from './hooks/useWebSocket'
+import { useLogSocket } from './hooks/useLogSocket'
 import { useStats } from './hooks/useStats'
 import { useEcoHistory } from './hooks/useEcoHistory'
 import { WorldMap } from './components/WorldMap'
@@ -28,7 +29,8 @@ function tempColor(t: number): string {
 }
 
 function App() {
-  const { generation, totalDeaths, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, signalField, logs, events, clearEvents, stats, connected } = useWebSocket()
+  const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, signalField, stats, connected } = useWebSocket()
+  const { logs, events, clearEvents } = useLogSocket()
   const { stats: dbStats, loading } = useStats()
   const { history, record } = useEcoHistory()
   const [bottomTab, setBottomTab] = useState<'log' | 'charts' | 'settings'>('log')
@@ -101,6 +103,8 @@ function App() {
         <div className="flex-1 flex flex-col min-h-0 min-w-0">
           {/* Display toggles bar */}
           <div className="flex items-center gap-1 px-3 py-1 border-b border-neutral-800 shrink-0">
+            <span className="text-neutral-500 text-[9px]">Day {worldDay}</span>
+            <span className="text-neutral-700 text-[9px]">|</span>
             <span className="text-neutral-400 text-[9px]">{formatGameTime(timeOfDay)}</span>
             <span className="text-[9px] font-semibold" style={{ color: tempColor(temperature) }}>{temperature.toFixed(1)}°C</span>
             <span className="text-neutral-700 text-[9px] mx-1">|</span>

@@ -43,6 +43,7 @@ export interface CorpseTile {
 export interface CosmosState {
   generation: number
   total_deaths: number
+  world_day: number
   time_of_day: number
   temperature: number
   agent_count: number
