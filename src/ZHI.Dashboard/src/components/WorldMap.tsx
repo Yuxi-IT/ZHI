@@ -14,6 +14,7 @@ interface Props {
   foodScent?: number[]
   signalField?: number[]
   temperatureGrid?: number[]
+  terrain?: number[]
   showTemp?: boolean
   events?: WorldEvent[]
   gridW?: number
@@ -44,7 +45,7 @@ interface FloatingText {
 }
 
 export function WorldMap({
-  agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, showTemp, events,
+  agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, terrain, showTemp, events,
   gridW = 64, gridH = 64, timeOfDay = 12,
   trackedAgent: trackedProp, onTrackChange,
   showScent = false, showFoodScent = false,
@@ -200,6 +201,37 @@ export function WorldMap({
             ctx.fillStyle = 'rgba(59, 130, 246, 0.35)'
           }
           ctx.fillRect(px, py, cellSize, cellSize)
+        }
+      }
+    }
+
+    // Terrain tiles (pit & mound)
+    if (terrain && terrain.length > 0) {
+      const startCol = Math.max(0, Math.floor(cam.x / cellSize))
+      const endCol = Math.min(gridW, Math.ceil((cam.x + w) / cellSize))
+      const startRow = Math.max(0, Math.floor(cam.y / cellSize))
+      const endRow = Math.min(gridH, Math.ceil((cam.y + h) / cellSize))
+      for (let gx = startCol; gx < endCol; gx++) {
+        for (let gy = startRow; gy < endRow; gy++) {
+          const t = terrain[gy * gridW + gx]
+          if (t === 0) continue
+          const px = gx * cellSize, py = gy * cellSize
+          if (t === 1) {
+            // Pit: dark brown depression
+            ctx.fillStyle = 'rgba(120, 80, 40, 0.35)'
+            ctx.fillRect(px, py, cellSize, cellSize)
+            ctx.strokeStyle = 'rgba(80, 40, 10, 0.3)'
+            ctx.lineWidth = 0.5
+            ctx.strokeRect(px + 2, py + 2, cellSize - 4, cellSize - 4)
+          } else if (t === 2) {
+            // Mound: light brown bump
+            ctx.fillStyle = 'rgba(180, 150, 100, 0.4)'
+            ctx.fillRect(px, py, cellSize, cellSize)
+            ctx.fillStyle = 'rgba(200, 180, 140, 0.25)'
+            ctx.beginPath()
+            ctx.arc(px + cellSize / 2, py + cellSize / 2, cellSize * 0.35, 0, Math.PI * 2)
+            ctx.fill()
+          }
         }
       }
     }
@@ -369,6 +401,7 @@ export function WorldMap({
       const hp = Math.max(0, Math.min(1, agent.existence / 100))
       const hue = hp * 120
 
+      // Stationary: slightly blue-tinted ring
       ctx.fillStyle = `hsl(${hue}, 70%, 50%)`
 
       if (agent.stress > 0.5) {
@@ -382,6 +415,15 @@ export function WorldMap({
 
       ctx.shadowColor = 'transparent'
       ctx.shadowBlur = 0
+
+      // Stationary indicator ring
+      if (agent.is_stationary) {
+        ctx.strokeStyle = 'rgba(147, 197, 253, 0.6)'
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.arc(cx, cy, r + 2, 0, Math.PI * 2)
+        ctx.stroke()
+      }
 
       // Facing direction arrow
       if (showDirection && cellSize > 6) {
@@ -400,6 +442,15 @@ export function WorldMap({
         ctx.lineTo(ax + Math.cos(angle - 2.4) * arrowLen * 0.6, ay + Math.sin(angle - 2.4) * arrowLen * 0.6)
         ctx.closePath()
         ctx.fill()
+      }
+
+      // Stationary zzz text
+      if (agent.is_stationary && cellSize > 10) {
+        ctx.fillStyle = 'rgba(147, 197, 253, 0.8)'
+        ctx.font = `${Math.max(8, cellSize * 0.25)}px monospace`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'bottom'
+        ctx.fillText('zzz', cx, cy - r - 3)
       }
 
       // Tracked agent highlight
@@ -453,7 +504,7 @@ export function WorldMap({
       ? `${zoomPct}% | tracking #${trackedAgent} | alive ${aliveCount}/${agents.length}`
       : `${zoomPct}% | alive ${aliveCount}/${agents.length}`
     ctx.fillText(hudText, 8, 8)
-  }, [agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, showTemp, gridW, gridH, timeOfDay, trackedAgent, showScent, showFoodScent, showDirection, showVision, showSignal])
+  }, [agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, terrain, showTemp, gridW, gridH, timeOfDay, trackedAgent, showScent, showFoodScent, showDirection, showVision, showSignal])
 
   useEffect(() => {
     let animating = true

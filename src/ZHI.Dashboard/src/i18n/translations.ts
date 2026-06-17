@@ -54,6 +54,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'agents.action': '行动',
     'agents.pos': '位置',
     'agents.none': '无',
+    'agents.stamina': '力气',
     'agents.pinToTop': '置顶',
     'agents.unpin': '取消置顶',
     'agents.trackOnMap': '地图追踪',
@@ -66,6 +67,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     'events.respawn': '复活',
     'events.eat': '进食',
     'events.signal': '信号',
+    'events.push': '推挤',
+    'events.terraform': '地形',
     'events.autoScrollOn': '自动滚动: ON',
     'events.autoScrollOff': '自动滚动: OFF',
     'events.clearAll': '清除所有事件',
@@ -76,6 +79,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     'events.reproduced': '#{parent} → #{child}',
     'events.signaled': '#{id} 信号({val})',
     'events.respawned': '#{id} 复活',
+    'events.pushed': '#{id} 推了 {type}',
+    'events.terraformed': '#{id} 改变了地形',
 
     // Settings
     'settings.loading': '加载配置...',
@@ -155,6 +160,11 @@ export const translations: Record<Lang, Record<string, string>> = {
     'map.shallowDesc': '可通行，可饮水',
     'map.deep': '深水',
     'map.deepDesc': '不可通行',
+    'map.pit': '坑',
+    'map.pitDesc': '夜间减伤30%，移动多耗力',
+    'map.mound': '土包',
+    'map.moundDesc': '不可通行，阻挡视野',
+
   },
 
   en: {
@@ -210,6 +220,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'agents.action': 'Action',
     'agents.pos': 'Pos',
     'agents.none': 'none',
+    'agents.stamina': 'Stamina',
     'agents.pinToTop': 'Pin to top',
     'agents.unpin': 'Unpin',
     'agents.trackOnMap': 'Track on map',
@@ -222,6 +233,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     'events.respawn': 'Respawn',
     'events.eat': 'Eat',
     'events.signal': 'Signal',
+    'events.push': 'Push',
+    'events.terraform': 'Terraform',
     'events.autoScrollOn': 'Auto-scroll: ON',
     'events.autoScrollOff': 'Auto-scroll: OFF',
     'events.clearAll': 'Clear all events',
@@ -232,6 +245,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     'events.reproduced': '#{parent} → #{child}',
     'events.signaled': '#{id} signal({val})',
     'events.respawned': '#{id} RESPAWN',
+    'events.pushed': '#{id} pushed {type}',
+    'events.terraformed': '#{id} terraformed',
 
     // Settings
     'settings.loading': 'Loading config...',
@@ -311,6 +326,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     'map.shallowDesc': 'Walkable, drinkable',
     'map.deep': 'Deep Water',
     'map.deepDesc': 'Impassable',
+    'map.pit': 'Pit',
+    'map.pitDesc': '30% cold resist at night, extra move cost',
+    'map.mound': 'Mound',
+    'map.moundDesc': 'Impassable, blocks vision',
   },
 }
 

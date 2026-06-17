@@ -183,6 +183,12 @@ function AgentCard({
           </span>
         </div>
         <div className="flex justify-between">
+          <span>{t('agents.stamina')}</span>
+          <span className={agent.stamina < 10 ? 'text-yellow-400' : 'text-neutral-400'}>
+            {agent.stamina.toFixed(1)}
+          </span>
+        </div>
+        <div className="flex justify-between">
           <span>BTemp</span>
           <span className={agent.body_temperature < 10 ? 'text-blue-400' : agent.body_temperature > 35 ? 'text-red-400' : 'text-neutral-400'}>
             {agent.body_temperature.toFixed(1)}°C
@@ -195,7 +201,7 @@ function AgentCard({
         <div className="flex justify-between">
           <span>{t('agents.action')}</span>
           <span className="text-neutral-400 truncate max-w-24">
-            {agent.is_eating ? '🍖 ' : ''}{agent.last_action || t('agents.none')}
+            {agent.is_stationary ? '💤 ' : ''}{agent.is_eating ? '🍖 ' : ''}{agent.last_action || t('agents.none')}
           </span>
         </div>
         <div className="flex justify-between">
@@ -208,6 +214,8 @@ function AgentCard({
           <span title="Corpse">C:{agent.corpse_eat_count}</span>
           <span title="Attacks">A:{agent.attack_count}</span>
           <span title="Signals">S:{agent.signal_count}</span>
+          <span title="Push">P:{agent.push_count}</span>
+          <span title="Terraform">T:{agent.terraform_count}</span>
         </div>
       </div>
     </div>
