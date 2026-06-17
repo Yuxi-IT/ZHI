@@ -15,6 +15,7 @@ function App() {
   const { history, record } = useEcoHistory()
   const [bottomTab, setBottomTab] = useState<'log' | 'charts' | 'events'>('log')
   const [trackedAgent, setTrackedAgent] = useState<number | null>(null)
+  const [trackNextGen, setTrackNextGen] = useState(false)
 
   // Display toggles
   const [showScent, setShowScent] = useState(false)
@@ -32,13 +33,13 @@ function App() {
     }
   }, [agents, food, corpses, generation, record])
 
-  // Clear tracking if agent dies
+  // Clear tracking if agent dies (unless trackNextGen is on)
   useEffect(() => {
-    if (trackedAgent !== null) {
+    if (trackedAgent !== null && !trackNextGen) {
       const agent = agents.find(a => a.id === trackedAgent)
       if (agent && !agent.is_alive) setTrackedAgent(null)
     }
-  }, [agents, trackedAgent])
+  }, [agents, trackedAgent, trackNextGen])
 
   return (
     <div className="h-screen flex flex-col bg-[#0a0a0a] text-neutral-300 font-mono text-xs overflow-hidden">
@@ -112,6 +113,14 @@ function App() {
               className={`px-1.5 py-0.5 text-[9px] rounded border ${showSignal ? 'border-yellow-600 text-yellow-400 bg-yellow-900/20' : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'}`}
             >
               信号
+            </button>
+            <span className="text-neutral-700 text-[9px] mx-1">|</span>
+            <button
+              onClick={() => setTrackNextGen(v => !v)}
+              className={`px-1.5 py-0.5 text-[9px] rounded border ${trackNextGen ? 'border-cyan-600 text-cyan-400 bg-cyan-900/20' : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'}`}
+              title="追踪的agent死亡后自动追踪其下一世"
+            >
+              追踪轮回
             </button>
             {stats && (
               <>
