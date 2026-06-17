@@ -685,6 +685,7 @@ public class CosmosEngine : IDisposable
                         {
                             _v.Existence[i] += share;
                             _v.EatCount[i]++;
+                            _v.BigFoodEatCount[i]++;
                             float reward = _v.Existence[i] < 20f ? 5f : 3f;
                             rewards[i] += reward;
                             _tickEvents.Add(new WorldEvent { Type = "eat", AgentId = i, FoodType = "BigFood", Value = share, Tick = _globalTick });
@@ -701,6 +702,7 @@ public class CosmosEngine : IDisposable
                         {
                             _v.Existence[i] += soloEnergy;
                             _v.EatCount[i]++;
+                            _v.BigFoodEatCount[i]++;
                             float reward = _v.Existence[i] < 20f ? 5f : 3f;
                             rewards[i] += reward;
                             _tickEvents.Add(new WorldEvent { Type = "eat", AgentId = i, FoodType = "BigFood", Value = soloEnergy, Tick = _globalTick });
@@ -715,6 +717,7 @@ public class CosmosEngine : IDisposable
                     int winner = agents[0];
                     _v.Existence[winner] += tile.Energy;
                     _v.EatCount[winner]++;
+                    _v.FoodEatCount[winner]++;
                     float reward = _v.Existence[winner] < 20f ? 5f : 3f;
                     rewards[winner] += reward;
                     _tickEvents.Add(new WorldEvent { Type = "eat", AgentId = winner, FoodType = "Food", Value = tile.Energy, Tick = _globalTick });
@@ -738,6 +741,7 @@ public class CosmosEngine : IDisposable
                 {
                     _v.Existence[i] += share;
                     _v.EatCount[i]++;
+                    _v.CorpseEatCount[i]++;
                     float reward = _v.Existence[i] < 20f ? 5f : 3f;
                     rewards[i] += reward;
                     _tickEvents.Add(new WorldEvent { Type = "eat", AgentId = i, FoodType = "Corpse", Value = share, Tick = _globalTick });

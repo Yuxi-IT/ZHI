@@ -47,6 +47,9 @@ public class VectorizedState : IDisposable
     public int[] TickCount;
     public int[] AttackCount;
     public int[] EatCount;
+    public int[] FoodEatCount;
+    public int[] BigFoodEatCount;
+    public int[] CorpseEatCount;
     public int[] SignalCount;
     public string[] StatusMirror;
     public string[] LastActionNameMirror;
@@ -87,6 +90,9 @@ public class VectorizedState : IDisposable
         TickCount = new int[n];
         AttackCount = new int[n];
         EatCount = new int[n];
+        FoodEatCount = new int[n];
+        BigFoodEatCount = new int[n];
+        CorpseEatCount = new int[n];
         SignalCount = new int[n];
         StatusMirror = new string[n];
         LastActionNameMirror = new string[n];
@@ -329,6 +335,9 @@ public class VectorizedState : IDisposable
         TickCount = Resize(TickCount, newN);
         AttackCount = Resize(AttackCount, newN);
         EatCount = Resize(EatCount, newN);
+        FoodEatCount = Resize(FoodEatCount, newN);
+        BigFoodEatCount = Resize(BigFoodEatCount, newN);
+        CorpseEatCount = Resize(CorpseEatCount, newN);
         SignalCount = Resize(SignalCount, newN);
         StatusMirror = Resize(StatusMirror, newN); StatusMirror[newN - 1] = "ALIVE";
         LastActionNameMirror = Resize(LastActionNameMirror, newN); LastActionNameMirror[newN - 1] = "";

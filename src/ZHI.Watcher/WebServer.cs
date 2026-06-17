@@ -221,6 +221,9 @@ public class WebServer : IDisposable
                 tick_count = v.TickCount[i],
                 attack_count = v.AttackCount[i],
                 eat_count = v.EatCount[i],
+                food_eat_count = v.FoodEatCount[i],
+                bigfood_eat_count = v.BigFoodEatCount[i],
+                corpse_eat_count = v.CorpseEatCount[i],
                 signal_count = v.SignalCount[i],
                 facing_direction = v.FacingDirection[i],
                 is_hiding = v.IsHiding[i]

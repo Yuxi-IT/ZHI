@@ -54,10 +54,8 @@ export function useEcoHistory() {
       deaths,
     }
 
-    historyRef.current.push(point)
-    if (historyRef.current.length > MAX_POINTS) {
-      historyRef.current = historyRef.current.slice(-MAX_POINTS)
-    }
+    const updated = [...historyRef.current, point]
+    historyRef.current = updated.length > MAX_POINTS ? updated.slice(-MAX_POINTS) : updated
   }, [])
 
   return { history: historyRef.current, record }

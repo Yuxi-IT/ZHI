@@ -186,9 +186,11 @@ function AgentCard({
           <span className="text-neutral-400">({agent.x},{agent.y})</span>
         </div>
         <div className="flex gap-3 mt-0.5 text-neutral-600">
-          <span>E:{agent.eat_count}</span>
-          <span>A:{agent.attack_count}</span>
-          <span>S:{agent.signal_count}</span>
+          <span title="Food">F:{agent.food_eat_count}</span>
+          <span title="BigFood">B:{agent.bigfood_eat_count}</span>
+          <span title="Corpse">C:{agent.corpse_eat_count}</span>
+          <span title="Attacks">A:{agent.attack_count}</span>
+          <span title="Signals">S:{agent.signal_count}</span>
         </div>
       </div>
     </div>

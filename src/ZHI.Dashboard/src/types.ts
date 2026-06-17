@@ -14,6 +14,9 @@ export interface AgentSnapshot {
   tick_count: number
   attack_count: number
   eat_count: number
+  food_eat_count: number
+  bigfood_eat_count: number
+  corpse_eat_count: number
   signal_count: number
   facing_direction: number  // 0=up, 1=down, 2=left, 3=right
   is_hiding: boolean

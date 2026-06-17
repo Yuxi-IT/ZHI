@@ -7,12 +7,13 @@ import { AgentCardsPanel } from './components/AgentCardsPanel'
 import { LogPanel } from './components/LogPanel'
 import { ChartsPanel } from './components/ChartsPanel'
 import { EventMonitor } from './components/EventMonitor'
+import { EventLog } from './components/EventLog'
 
 function App() {
   const { generation, totalDeaths, agents, food, corpses, river, logs, events, stats, connected } = useWebSocket()
   const { stats: dbStats, loading } = useStats()
   const { history, record } = useEcoHistory()
-  const [showCharts, setShowCharts] = useState(false)
+  const [bottomTab, setBottomTab] = useState<'log' | 'charts' | 'events'>('log')
   const [trackedAgent, setTrackedAgent] = useState<number | null>(null)
 
   // Display toggles
@@ -130,20 +131,19 @@ function App() {
           <div className="h-48 shrink-0 border-t border-r border-neutral-800 flex flex-col overflow-hidden">
             {/* Tab toggle */}
             <div className="flex items-center gap-1 px-3 py-1 border-b border-neutral-800 shrink-0">
-              <button
-                className={`px-2 py-0.5 text-[10px] rounded ${!showCharts ? 'bg-neutral-800 text-neutral-300' : 'text-neutral-600 hover:text-neutral-400'}`}
-                onClick={() => setShowCharts(false)}
-              >
-                Log
-              </button>
-              <button
-                className={`px-2 py-0.5 text-[10px] rounded ${showCharts ? 'bg-neutral-800 text-neutral-300' : 'text-neutral-600 hover:text-neutral-400'}`}
-                onClick={() => setShowCharts(true)}
-              >
-                Charts
-              </button>
+              {(['log', 'charts', 'events'] as const).map(tab => (
+                <button
+                  key={tab}
+                  className={`px-2 py-0.5 text-[10px] rounded ${bottomTab === tab ? 'bg-neutral-800 text-neutral-300' : 'text-neutral-600 hover:text-neutral-400'}`}
+                  onClick={() => setBottomTab(tab)}
+                >
+                  {tab === 'log' ? 'Log' : tab === 'charts' ? 'Charts' : 'Events'}
+                </button>
+              ))}
             </div>
-            {showCharts ? <ChartsPanel data={history} /> : <LogPanel logs={logs} />}
+            {bottomTab === 'charts' ? <ChartsPanel data={history} />
+              : bottomTab === 'events' ? <EventLog events={events} />
+              : <LogPanel logs={logs} />}
           </div>
         </div>
 
