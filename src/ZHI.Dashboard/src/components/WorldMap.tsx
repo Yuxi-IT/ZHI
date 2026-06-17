@@ -482,55 +482,57 @@ export function WorldMap({
 
     if (gx < 0 || gx >= gridW || gy < 0 || gy >= gridH) return null
 
+    const lines: string[] = []
+
     // Check agent first
     const agent = agents.find(a => a.is_alive && a.x === gx && a.y === gy)
     if (agent) {
-      return {
-        x: mx + 12, y: my - 10,
-        text: [
-          `Agent #${agent.id}${agent.respawn_count > 0 ? ` (Gen ${agent.respawn_count})` : ''}`,
-          `HP: ${agent.existence.toFixed(1)}  ${t('agents.stress')}: ${agent.stress.toFixed(2)}`,
-          `${t('agents.hunger')}: ${agent.hunger.toFixed(1)}  ${t('agents.thirst')}: ${agent.thirst.toFixed(1)}`,
-          `${t('agents.age')}: ${agent.tick_count}  ${t('agents.action')}: ${agent.last_action}`,
-          `Eats: ${agent.eat_count}  Attacks: ${agent.attack_count}  Signals: ${agent.signal_count}`
-        ]
-      }
+      lines.push(
+        `Agent #${agent.id}${agent.respawn_count > 0 ? ` (Gen ${agent.respawn_count})` : ''}`,
+        `HP: ${agent.existence.toFixed(1)}  ${t('agents.stress')}: ${agent.stress.toFixed(2)}`,
+        `${t('agents.hunger')}: ${agent.hunger.toFixed(1)}  ${t('agents.thirst')}: ${agent.thirst.toFixed(1)}`,
+        `BTemp: ${agent.body_temperature.toFixed(1)}°C  ${t('agents.age')}: ${agent.tick_count}`,
+        `${t('agents.action')}: ${agent.last_action || t('agents.none')}`,
+        `Eats: ${agent.eat_count}  Attacks: ${agent.attack_count}  Signals: ${agent.signal_count}`
+      )
     }
 
     // Check water
     if (river.length > 0) {
       const rv = river[gy * gridW + gx]
-      if (rv === 1) return { x: mx + 12, y: my - 10, text: [t('map.shallow'), t('map.shallowDesc')] }
-      if (rv === 2) return { x: mx + 12, y: my - 10, text: [t('map.deep'), t('map.deepDesc')] }
+      if (rv === 1) { lines.push(t('map.shallow'), t('map.shallowDesc')) }
+      else if (rv === 2) { lines.push(t('map.deep'), t('map.deepDesc')) }
     }
 
-    // Check food (area-based for multi-cell BigFood)
+    // Check food
     const foodHere = food.find(f => {
       const fw = f.width || 1
       const fh = f.height || 1
       return gx >= f.x && gx < f.x + fw && gy >= f.y && gy < f.y + fh
     })
     if (foodHere) {
-      return {
-        x: mx + 12, y: my - 10,
-        text: [
-          foodHere.is_big ? t('map.bigFood') : t('map.food'),
-          `${t('map.energy')}: ${foodHere.energy.toFixed(1)} / ${foodHere.max_energy.toFixed(0)}`
-        ]
-      }
+      lines.push(
+        foodHere.is_big ? t('map.bigFood') : t('map.food'),
+        `${t('map.energy')}: ${foodHere.energy.toFixed(1)} / ${foodHere.max_energy.toFixed(0)}`
+      )
     }
 
     // Check corpse
     const corpseHere = corpses.find(c => c.x === gx && c.y === gy)
     if (corpseHere) {
-      return {
-        x: mx + 12, y: my - 10,
-        text: [t('map.corpse'), `${t('map.energy')}: ${corpseHere.energy.toFixed(1)}`]
-      }
+      lines.push(t('map.corpse'), `${t('map.energy')}: ${corpseHere.energy.toFixed(1)}`)
     }
 
-    return null
-  }, [agents, food, corpses, river, t])
+    // Temperature overlay: always show when enabled
+    if (showTemp && temperatureGrid && temperatureGrid.length > 0) {
+      const cellTemp = temperatureGrid[gy * gridW + gx]
+      lines.push(`${t('map.cellTemp')}: ${cellTemp.toFixed(1)}°C`)
+    }
+
+    if (lines.length === 0) return null
+
+    return { x: mx + 12, y: my - 10, text: lines }
+  }, [agents, food, corpses, river, t, showTemp, temperatureGrid])
 
   useEffect(() => {
     const canvas = canvasRef.current

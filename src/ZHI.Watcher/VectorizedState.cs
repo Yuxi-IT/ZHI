@@ -67,6 +67,7 @@ public class VectorizedState : IDisposable
     public int[] SignalAge;        // ticks since last signal received
     public float[] Thirst;         // 0=dehydrated, 100=fully hydrated
     public float[] Hunger;         // 0=starving, 100=fully fed
+    public float[] BodyTemperature; // agent's own body temperature (tracks local env with inertia)
     public int[] RespawnCount;     // how many times this agent slot has respawned
 
     // Grid state
@@ -118,8 +119,9 @@ public class VectorizedState : IDisposable
         SignalAge = new int[n]; // default 0
         Thirst = new float[n];
         Hunger = new float[n];
+        BodyTemperature = new float[n];
         RespawnCount = new int[n];
-        for (int i = 0; i < n; i++) { Thirst[i] = 100f; Hunger[i] = 100f; }
+        for (int i = 0; i < n; i++) { Thirst[i] = 100f; Hunger[i] = 100f; BodyTemperature[i] = 20f; }
 
         FoodTiles = new List<FoodTile>();
         CorpseTiles = new List<CorpseTile>();
@@ -434,6 +436,7 @@ public class VectorizedState : IDisposable
         SignalAge[i] = 0;
         Thirst[i] = 100f;
         Hunger[i] = 100f;
+        BodyTemperature[i] = 20f; // reset to ambient
         RespawnCount[i]++;
     }
 
@@ -466,6 +469,7 @@ public class VectorizedState : IDisposable
         SignalAge = Resize(SignalAge, newN); SignalAge[newN - 1] = 0;
         Thirst = Resize(Thirst, newN); Thirst[newN - 1] = 100f;
         Hunger = Resize(Hunger, newN); Hunger[newN - 1] = 100f;
+        BodyTemperature = Resize(BodyTemperature, newN); BodyTemperature[newN - 1] = 20f;
         RespawnCount = Resize(RespawnCount, newN);
 
         // Resize GPU tensor and assembly buffer

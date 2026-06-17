@@ -377,23 +377,32 @@ public class CosmosEngine : IDisposable
                 _v.Existence[i] = MathF.Min(_v.Existence[i] + 0.2f, _config.Existence.Initial);
         }
 
-        // 3b. Temperature effects (use local temperature per agent)
+        // 3b. Update agent body temperature (lerp toward local env temp with inertia)
+        const float BodyTempLerpRate = 0.05f; // ~60 ticks to mostly equalize
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
             float localTemp = _v.TemperatureGrid[_v.PosX[i], _v.PosY[i]];
+            _v.BodyTemperature[i] += (localTemp - _v.BodyTemperature[i]) * BodyTempLerpRate;
+        }
 
-            if (localTemp < _config.Temperature.ColdThreshold)
+        // 3c. Temperature effects (use agent body temperature)
+        for (int i = 0; i < n; i++)
+        {
+            if (!_v.Alive[i]) continue;
+            float bodyTemp = _v.BodyTemperature[i];
+
+            if (bodyTemp < _config.Temperature.ColdThreshold)
             {
-                float coldRatio = 1f - (localTemp - _config.Temperature.MinTemp)
+                float coldRatio = 1f - (bodyTemp - _config.Temperature.MinTemp)
                     / (_config.Temperature.ColdThreshold - _config.Temperature.MinTemp);
                 float coldDecay = coldRatio * _config.Temperature.MaxColdDecay;
                 _v.Existence[i] -= coldDecay;
             }
 
-            if (localTemp > _config.Temperature.HotThreshold)
+            if (bodyTemp > _config.Temperature.HotThreshold)
             {
-                float hotRatio = (localTemp - _config.Temperature.HotThreshold)
+                float hotRatio = (bodyTemp - _config.Temperature.HotThreshold)
                     / (_config.Temperature.MaxTemp - _config.Temperature.HotThreshold);
                 float thirstMult = 1f + hotRatio * (_config.Temperature.MaxThirstAccel - 1f);
                 _v.Thirst[i] = MathF.Max(0f, _v.Thirst[i]

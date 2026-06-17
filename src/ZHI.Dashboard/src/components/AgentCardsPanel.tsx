@@ -183,6 +183,12 @@ function AgentCard({
           </span>
         </div>
         <div className="flex justify-between">
+          <span>BTemp</span>
+          <span className={agent.body_temperature < 10 ? 'text-blue-400' : agent.body_temperature > 35 ? 'text-red-400' : 'text-neutral-400'}>
+            {agent.body_temperature.toFixed(1)}°C
+          </span>
+        </div>
+        <div className="flex justify-between">
           <span>{t('agents.age')}</span>
           <span className="text-neutral-400">{agent.tick_count}t</span>
         </div>
