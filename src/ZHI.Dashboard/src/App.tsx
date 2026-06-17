@@ -10,7 +10,7 @@ import { EventMonitor } from './components/EventMonitor'
 import { EventLog } from './components/EventLog'
 
 function App() {
-  const { generation, totalDeaths, agents, food, corpses, river, scent, logs, events, stats, connected } = useWebSocket()
+  const { generation, totalDeaths, agents, food, corpses, river, scent, signalField, logs, events, stats, connected } = useWebSocket()
   const { stats: dbStats, loading } = useStats()
   const { history, record } = useEcoHistory()
   const [bottomTab, setBottomTab] = useState<'log' | 'charts' | 'events'>('log')
@@ -21,6 +21,7 @@ function App() {
   const [showFoodScent, setShowFoodScent] = useState(false)
   const [showDirection, setShowDirection] = useState(true)
   const [showVision, setShowVision] = useState(false)
+  const [showSignal, setShowSignal] = useState(false)
 
   const aliveCount = agents.filter(a => a.is_alive).length
 
@@ -106,6 +107,12 @@ function App() {
             >
               视野
             </button>
+            <button
+              onClick={() => setShowSignal(v => !v)}
+              className={`px-1.5 py-0.5 text-[9px] rounded border ${showSignal ? 'border-yellow-600 text-yellow-400 bg-yellow-900/20' : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'}`}
+            >
+              信号
+            </button>
             {stats && (
               <>
                 <span className="text-neutral-700 text-[9px] ml-2">|</span>
@@ -120,12 +127,15 @@ function App() {
               corpses={corpses}
               river={river}
               scent={scent}
+              signalField={signalField}
+              events={events}
               trackedAgent={trackedAgent}
               onTrackChange={setTrackedAgent}
               showScent={showScent}
               showFoodScent={showFoodScent}
               showDirection={showDirection}
               showVision={showVision}
+              showSignal={showSignal}
             />
           </div>
           <div className="h-48 shrink-0 border-t border-r border-neutral-800 flex flex-col overflow-hidden">

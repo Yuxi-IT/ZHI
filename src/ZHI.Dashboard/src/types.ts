@@ -20,6 +20,7 @@ export interface AgentSnapshot {
   corpse_eat_count: number
   signal_count: number
   facing_direction: number  // 0=up, 1=down, 2=left, 3=right
+  respawn_count: number
 }
 
 export interface FoodTile {
@@ -50,6 +51,7 @@ export interface CosmosState {
   corpses: CorpseTile[]
   river: number[]  // flat array: 0=land, 1=shallow, 2=deep (row-major)
   scent: number[]  // flat array: scent intensity per cell (row-major)
+  signal_field: number[]  // flat array: max signal intensity per cell (row-major)
 }
 
 export interface LogMessage {
@@ -79,7 +81,7 @@ export type WsMessage =
   | ({ type: 'cosmos'; data: CosmosState })
   | LogMessage
 
-export type WorldEventType = 'eat' | 'attack' | 'death' | 'reproduce' | 'signal'
+export type WorldEventType = 'eat' | 'attack' | 'death' | 'reproduce' | 'signal' | 'respawn'
 
 export interface WorldEvent {
   type: WorldEventType

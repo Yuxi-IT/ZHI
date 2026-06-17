@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
-import type { AgentSnapshot, FoodTile, CorpseTile } from '../types'
+import type { AgentSnapshot, FoodTile, CorpseTile, WorldEvent } from '../types'
 
 const GRID_W = 64
 const GRID_H = 64
@@ -12,12 +12,15 @@ interface Props {
   corpses: CorpseTile[]
   river: number[]
   scent: number[]
+  signalField?: number[]
+  events?: WorldEvent[]
   trackedAgent?: number | null
   onTrackChange?: (id: number | null) => void
   showScent?: boolean
   showFoodScent?: boolean
   showDirection?: boolean
   showVision?: boolean
+  showSignal?: boolean
 }
 
 interface TooltipInfo {
@@ -26,11 +29,21 @@ interface TooltipInfo {
   y: number
 }
 
+interface FloatingText {
+  id: number
+  x: number
+  y: number
+  text: string
+  color: string
+  startTime: number
+}
+
 export function WorldMap({
-  agents, food, corpses, river, scent,
+  agents, food, corpses, river, scent, signalField, events,
   trackedAgent: trackedProp, onTrackChange,
   showScent = false, showFoodScent = false,
   showDirection = false, showVision = false,
+  showSignal = false,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const camRef = useRef({ x: 0, y: 0, zoom: 1 })
@@ -38,9 +51,62 @@ export function WorldMap({
   const [internalTracked, setInternalTracked] = useState<number | null>(null)
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null)
   const rafRef = useRef<number>(0)
+  const floatingTextsRef = useRef<FloatingText[]>([])
+  const floatingIdRef = useRef(0)
+  const lastEventLenRef = useRef(0)
 
   const trackedAgent = trackedProp !== undefined ? trackedProp : internalTracked
   const setTrackedAgent = onTrackChange ?? setInternalTracked
+
+  // Convert new events to floating text
+  useEffect(() => {
+    if (!events || events.length === 0) return
+    if (events.length <= lastEventLenRef.current) {
+      lastEventLenRef.current = events.length
+      return
+    }
+    const newEvents = events.slice(lastEventLenRef.current)
+    lastEventLenRef.current = events.length
+    const now = performance.now()
+
+    for (const ev of newEvents) {
+      const agent = agents.find(a => a.id === ev.agent_id)
+      if (!agent) continue
+
+      let text = ''
+      let color = ''
+      if (ev.type === 'attack' && ev.target_id !== undefined) {
+        const target = agents.find(a => a.id === ev.target_id)
+        if (target) {
+          floatingTextsRef.current.push({
+            id: floatingIdRef.current++,
+            x: target.x, y: target.y,
+            text: `-${ev.value.toFixed(0)}`,
+            color: '#ef4444',
+            startTime: now,
+          })
+        }
+        continue
+      } else if (ev.type === 'eat') {
+        text = `+${ev.value.toFixed(0)}`
+        color = '#22c55e'
+      } else if (ev.type === 'death') {
+        text = 'DEAD'
+        color = '#94a3b8'
+      } else if (ev.type === 'respawn') {
+        text = 'RESPAWN'
+        color = '#a78bfa'
+      } else {
+        continue
+      }
+
+      floatingTextsRef.current.push({
+        id: floatingIdRef.current++,
+        x: agent.x, y: agent.y,
+        text, color, startTime: now,
+      })
+    }
+  }, [events, agents])
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
@@ -143,6 +209,23 @@ export function WorldMap({
       }
     }
 
+    // Signal field overlay (yellow semi-transparent)
+    if (showSignal && signalField && signalField.length > 0) {
+      const startCol = Math.max(0, Math.floor(cam.x / cellSize))
+      const endCol = Math.min(GRID_W, Math.ceil((cam.x + w) / cellSize))
+      const startRow = Math.max(0, Math.floor(cam.y / cellSize))
+      const endRow = Math.min(GRID_H, Math.ceil((cam.y + h) / cellSize))
+      for (let gx = startCol; gx < endCol; gx++) {
+        for (let gy = startRow; gy < endRow; gy++) {
+          const val = signalField[gy * GRID_W + gx]
+          if (val <= 0.01) continue
+          const alpha = Math.min(val, 0.5)
+          ctx.fillStyle = `rgba(250, 204, 21, ${alpha})`
+          ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize)
+        }
+      }
+    }
+
     // Corpses (render below food and agents)
     const corpseSize = Math.max(cellSize * 0.6, 2)
     for (const c of corpses) {
@@ -183,32 +266,44 @@ export function WorldMap({
       }
     }
 
-    // Vision range: 5×5 grid centered on agent (radius 2)
+    // Vision range: directional 7×7 cone based on facing_direction
     if (showVision) {
+      // Base vision mask (facing up): 1=visible, 0=hidden
+      const baseMask = [
+        [1,1,1,1,1,1,1],  // dy=-3
+        [0,1,1,1,1,1,0],  // dy=-2
+        [0,0,1,1,1,0,0],  // dy=-1
+        [0,0,0,1,0,0,0],  // dy=0 (self)
+        [0,0,0,0,0,0,0],  // dy=+1
+        [0,0,0,0,0,0,0],  // dy=+2
+        [0,0,0,0,0,0,0],  // dy=+3
+      ]
       for (const agent of agents) {
         if (!agent.is_alive) continue
-        const R = 2 // VisionRadius
+        const R = 3
+        const D = 7
+        const fd = agent.facing_direction
         for (let dy = -R; dy <= R; dy++) {
           for (let dx = -R; dx <= R; dx++) {
+            // Rotate offset to base (facing-up) frame
+            let rdx: number, rdy: number
+            if (fd === 0) { rdx = dx; rdy = dy }
+            else if (fd === 1) { rdx = -dx; rdy = -dy }
+            else if (fd === 2) { rdx = -dy; rdy = dx }
+            else { rdx = dy; rdy = -dx }
+            const maskCol = rdx + R, maskRow = rdy + R
+            if (maskCol < 0 || maskCol >= D || maskRow < 0 || maskRow >= D) continue
+            if (!baseMask[maskRow][maskCol]) continue
+
             const gx = agent.x + dx
             const gy = agent.y + dy
             if (gx < 0 || gx >= GRID_W || gy < 0 || gy >= GRID_H) continue
-            // Highlight color: center cell brighter, edges dimmer
             const dist = Math.abs(dx) + Math.abs(dy)
             const alpha = dist === 0 ? 0.08 : dist <= 2 ? 0.04 : 0.02
             ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`
             ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize)
           }
         }
-        // Border around vision range
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)'
-        ctx.lineWidth = 0.5
-        ctx.setLineDash([2, 2])
-        ctx.strokeRect(
-          (agent.x - R) * cellSize, (agent.y - R) * cellSize,
-          (R * 2 + 1) * cellSize, (R * 2 + 1) * cellSize
-        )
-        ctx.setLineDash([])
       }
     }
 
@@ -274,6 +369,25 @@ export function WorldMap({
       }
     }
 
+    // Floating text indicators
+    const now = performance.now()
+    const FLOAT_DURATION = 1200
+    floatingTextsRef.current = floatingTextsRef.current.filter(ft => now - ft.startTime < FLOAT_DURATION)
+    for (const ft of floatingTextsRef.current) {
+      const progress = (now - ft.startTime) / FLOAT_DURATION
+      const alpha = 1 - progress
+      const offsetY = progress * cellSize * 1.5
+      const fx = ft.x * cellSize + cellSize / 2
+      const fy = ft.y * cellSize - offsetY
+      ctx.globalAlpha = alpha
+      ctx.fillStyle = ft.color
+      ctx.font = `bold ${Math.max(10, cellSize * 0.5)}px monospace`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'bottom'
+      ctx.fillText(ft.text, fx, fy)
+    }
+    ctx.globalAlpha = 1
+
     ctx.restore()
 
     // HUD
@@ -287,11 +401,22 @@ export function WorldMap({
       ? `${zoomPct}% | tracking #${trackedAgent} | alive ${aliveCount}/${agents.length}`
       : `${zoomPct}% | alive ${aliveCount}/${agents.length}`
     ctx.fillText(hudText, 8, 8)
-  }, [agents, food, corpses, river, scent, trackedAgent, showScent, showFoodScent, showDirection, showVision])
+  }, [agents, food, corpses, river, scent, signalField, trackedAgent, showScent, showFoodScent, showDirection, showVision, showSignal])
 
   useEffect(() => {
-    rafRef.current = requestAnimationFrame(draw)
-    return () => cancelAnimationFrame(rafRef.current)
+    let animating = true
+    const loop = () => {
+      if (!animating) return
+      draw()
+      if (floatingTextsRef.current.length > 0) {
+        rafRef.current = requestAnimationFrame(loop)
+      }
+    }
+    rafRef.current = requestAnimationFrame(loop)
+    return () => {
+      animating = false
+      cancelAnimationFrame(rafRef.current)
+    }
   }, [draw])
 
   const getTooltipAt = useCallback((mx: number, my: number): TooltipInfo | null => {
@@ -313,7 +438,7 @@ export function WorldMap({
       return {
         x: mx + 12, y: my - 10,
         text: [
-          `Agent #${agent.id}`,
+          `Agent #${agent.id}${agent.respawn_count > 0 ? ` (Gen ${agent.respawn_count})` : ''}`,
           `HP: ${agent.existence.toFixed(1)}  Stress: ${agent.stress.toFixed(2)}`,
           `Hunger: ${agent.hunger.toFixed(1)}  Thirst: ${agent.thirst.toFixed(1)}`,
           `Age: ${agent.tick_count} ticks  Action: ${agent.last_action}`,

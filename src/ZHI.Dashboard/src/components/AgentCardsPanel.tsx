@@ -143,6 +143,9 @@ function AgentCard({
             {pinned ? '◉' : '○'}
           </button>
           <span className="text-neutral-300 font-medium">#{agent.id}</span>
+          {agent.respawn_count > 0 && (
+            <span className="text-neutral-600 text-[9px]">G{agent.respawn_count}</span>
+          )}
         </div>
         <div className="flex items-center gap-1.5">
           <button
