@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { AgentSnapshot, FoodTile, LogMessage } from '../types';
+import type { AgentSnapshot, FoodTile, CorpseTile, LogMessage } from '../types';
 
 const WS_URL = import.meta.env.DEV
   ? 'ws://localhost:8088/ws'
@@ -11,6 +11,7 @@ export function useWebSocket() {
   const [totalDeaths, setTotalDeaths] = useState(0);
   const [agents, setAgents] = useState<AgentSnapshot[]>([]);
   const [food, setFood] = useState<FoodTile[]>([]);
+  const [corpses, setCorpses] = useState<CorpseTile[]>([]);
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -39,6 +40,7 @@ export function useWebSocket() {
           setTotalDeaths(data.total_deaths);
           setAgents(data.agents ?? []);
           setFood(data.food ?? []);
+          setCorpses(data.corpses ?? []);
           break;
         }
         case 'log':
@@ -59,5 +61,5 @@ export function useWebSocket() {
     };
   }, [connect]);
 
-  return { connected, generation, totalDeaths, agents, food, logs };
+  return { connected, generation, totalDeaths, agents, food, corpses, logs };
 }

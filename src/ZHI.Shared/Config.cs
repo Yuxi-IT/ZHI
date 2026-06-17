@@ -9,6 +9,8 @@ public sealed class ZhiConfig
     public ScentConfig Scent { get; set; } = new();
     public NetworkConfig Network { get; set; } = new();
     public CosmosConfig Cosmos { get; set; } = new();
+    public CorpseConfig Corpse { get; set; } = new();
+    public ReproduceConfig Reproduce { get; set; } = new();
     public int Port { get; set; } = 19816;
     public int DecisionIntervalMs { get; set; } = 200;
     public int DeathCount { get; set; } = 0;
@@ -17,7 +19,7 @@ public sealed class ZhiConfig
 public sealed class ExistenceConfig
 {
     public float Initial { get; set; } = 100.0f;
-    public float DecayPerTick { get; set; } = 0.15f;
+    public float DecayPerTick { get; set; } = 0.1f;
     public float EatBonus { get; set; } = 10.0f;
     public float EatFailPenalty { get; set; } = 1.0f;
 }
@@ -26,12 +28,23 @@ public sealed class GridConfig
 {
     public int Width { get; set; } = 64;
     public int Height { get; set; } = 64;
-    public int MaxFood { get; set; } = 500;
-    public float FoodSpawnChance { get; set; } = 0.4f;
-    public int FoodTTL { get; set; } = 100;
-    public float BigFoodChance { get; set; } = 0.02f;
-    public float BigFoodBonus { get; set; } = 40f;
+    public int MaxAgents { get; set; } = 512;
+
+    // Initial food spawn
+    public int InitialFood { get; set; } = 50;
+    public int InitialBigFood { get; set; } = 10;
+    public float FoodEnergy { get; set; } = 15f;
+    public float BigFoodEnergy { get; set; } = 80f;
+    public int FoodTTL { get; set; } = 500;
+    public int BigFoodTTL { get; set; } = 1000;
+
+    // BigFood cooperative eating
+    public int BigFoodEatTime { get; set; } = 5;
     public int BigFoodMinAgents { get; set; } = 2;
+
+    // Food respawning (slow trickle to prevent total extinction)
+    public int FoodRespawnInterval { get; set; } = 50;
+    public int FoodRespawnThreshold { get; set; } = 10;
 }
 
 public sealed class CombatConfig
@@ -70,4 +83,20 @@ public sealed class CosmosConfig
     public float MutationStd { get; set; } = 0.02f;
     public float MutationRateMin { get; set; } = 0.02f;
     public int MutationDecayGenerations { get; set; } = 100;
+}
+
+public sealed class CorpseConfig
+{
+    public float Energy { get; set; } = 20f;
+    public int TTL { get; set; } = 300;
+}
+
+public sealed class ReproduceConfig
+{
+    public float MinExistence { get; set; } = 80f;
+    public int MinAge { get; set; } = 200;
+    public float ParentCost { get; set; } = 40f;
+    public float ChildStart { get; set; } = 40f;
+    public float MutationScale { get; set; } = 0.3f;
+    public int Cooldown { get; set; } = 500;
 }

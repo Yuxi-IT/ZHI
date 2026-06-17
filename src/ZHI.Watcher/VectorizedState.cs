@@ -8,8 +8,20 @@ public struct FoodTile
 {
     public int X;
     public int Y;
+    public int Width;         // 1 for normal food, 2 for BigFood (2x2)
+    public int Height;        // 1 for normal food, 2 for BigFood (2x2)
     public int TTL;
+    public float Energy;
+    public int EatTime;       // Ticks needed to consume (BigFood uses this)
     public bool IsBig;
+}
+
+public struct CorpseTile
+{
+    public int X;
+    public int Y;
+    public int TTL;
+    public float Energy;
 }
 
 /// <summary>
@@ -19,7 +31,7 @@ public struct FoodTile
 /// </summary>
 public class VectorizedState : IDisposable
 {
-    public int N { get; }
+    public int N { get; private set; }
     public Device Device { get; }
     public readonly object LockObj = new();
 
@@ -39,16 +51,18 @@ public class VectorizedState : IDisposable
     public string[] StatusMirror;
     public string[] LastActionNameMirror;
     public DateTime[] BirthTimes;
+    public int[] LastReproduceTick;
 
     // Grid state
     public List<FoodTile> FoodTiles;
+    public List<CorpseTile> CorpseTiles;
     public float[,] ScentGrid; // [GridWidth, GridHeight]
 
     // GPU tensor for batch inference
     public Tensor StateMatrix;
 
     // Pre-allocated buffer for state assembly
-    private readonly float[] _stateAssemblyBuffer;
+    private float[] _stateAssemblyBuffer;
 
     public VectorizedState(int n, torch.Device device)
     {
@@ -70,8 +84,10 @@ public class VectorizedState : IDisposable
         StatusMirror = new string[n];
         LastActionNameMirror = new string[n];
         BirthTimes = new DateTime[n];
+        LastReproduceTick = new int[n];
 
         FoodTiles = new List<FoodTile>();
+        CorpseTiles = new List<CorpseTile>();
         ScentGrid = new float[ToolDefinitions.GridWidth, ToolDefinitions.GridHeight];
 
         StateMatrix = torch.zeros(n, ToolDefinitions.StateSize, device: device);
@@ -136,12 +152,14 @@ public class VectorizedState : IDisposable
                     }
 
                     bool hasFood = HasFoodAt(gx, gy, out bool isBigFood);
+                    bool hasCorpse = HasCorpseAt(gx, gy);
                     bool hasAgent = HasOtherAgentAt(i, gx, gy);
 
                     float val = 0f;
-                    if (hasAgent && hasFood) val = 0.8f;
+                    if (hasAgent && (hasFood || hasCorpse)) val = 0.8f;
                     else if (hasAgent) val = 0.5f;
-                    else if (isBigFood) val = 0.35f;
+                    else if (hasCorpse) val = 0.6f;
+                    else if (isBigFood) val = 0.4f;
                     else if (hasFood) val = 0.2f;
 
                     _stateAssemblyBuffer[baseIdx + cellIdx] = val;
@@ -184,7 +202,7 @@ public class VectorizedState : IDisposable
                     int gx = cx + dx;
                     int gy = cy + dy;
                     if (gx < 0 || gx >= W || gy < 0 || gy >= H) continue;
-                    if (HasFoodAt(gx, gy, out _)) foodVisible++;
+                    if (HasFoodAt(gx, gy, out _) || HasCorpseAt(gx, gy)) foodVisible++;
                     if (dx == 0 && dy == 0) continue;
                     if (HasOtherAgentAt(i, gx, gy)) agentVisible++;
                 }
@@ -198,16 +216,29 @@ public class VectorizedState : IDisposable
         StateMatrix = tensor(_stateAssemblyBuffer, [N, S], device: Device);
     }
 
-    private bool HasFoodAt(int x, int y, out bool isBig)
+    public bool HasFoodAt(int x, int y, out bool isBig)
     {
         isBig = false;
         for (int i = 0; i < FoodTiles.Count; i++)
         {
-            if (FoodTiles[i].X == x && FoodTiles[i].Y == y)
+            var f = FoodTiles[i];
+            int w = f.Width > 0 ? f.Width : 1;
+            int h = f.Height > 0 ? f.Height : 1;
+            if (x >= f.X && x < f.X + w && y >= f.Y && y < f.Y + h)
             {
-                isBig = FoodTiles[i].IsBig;
+                isBig = f.IsBig;
                 return true;
             }
+        }
+        return false;
+    }
+
+    private bool HasCorpseAt(int x, int y)
+    {
+        for (int i = 0; i < CorpseTiles.Count; i++)
+        {
+            if (CorpseTiles[i].X == x && CorpseTiles[i].Y == y)
+                return true;
         }
         return false;
     }
@@ -223,6 +254,52 @@ public class VectorizedState : IDisposable
     }
 
     public float[] GetStateBuffer() => _stateAssemblyBuffer;
+
+    /// <summary>Add a new agent (reproduction). Returns the new agent index.</summary>
+    public int AddAgent(int x, int y, float existence)
+    {
+        int newN = N + 1;
+        PosX = Resize(PosX, newN); PosX[newN - 1] = x;
+        PosY = Resize(PosY, newN); PosY[newN - 1] = y;
+        Existence = Resize(Existence, newN); Existence[newN - 1] = existence;
+        Stress = Resize(Stress, newN); Stress[newN - 1] = 0f;
+        Alive = Resize(Alive, newN); Alive[newN - 1] = true;
+        LastAction = Resize(LastAction, newN); LastAction[newN - 1] = 0;
+        LastSignalReceived = Resize(LastSignalReceived, newN); LastSignalReceived[newN - 1] = -1;
+        SignalMemory = Resize2D(SignalMemory, newN, ToolDefinitions.SignalValues);
+        TickCount = Resize(TickCount, newN);
+        AttackCount = Resize(AttackCount, newN);
+        EatCount = Resize(EatCount, newN);
+        SignalCount = Resize(SignalCount, newN);
+        StatusMirror = Resize(StatusMirror, newN); StatusMirror[newN - 1] = "ALIVE";
+        LastActionNameMirror = Resize(LastActionNameMirror, newN); LastActionNameMirror[newN - 1] = "";
+        BirthTimes = Resize(BirthTimes, newN); BirthTimes[newN - 1] = DateTime.UtcNow;
+        LastReproduceTick = Resize(LastReproduceTick, newN); LastReproduceTick[newN - 1] = 0;
+
+        // Resize GPU tensor and assembly buffer
+        StateMatrix.Dispose();
+        StateMatrix = torch.zeros(newN, ToolDefinitions.StateSize, device: Device);
+        _stateAssemblyBuffer = new float[newN * ToolDefinitions.StateSize];
+
+        N = newN;
+        return newN - 1;
+    }
+
+    private static T[] Resize<T>(T[] src, int newSize)
+    {
+        var dst = new T[newSize];
+        Array.Copy(src, dst, Math.Min(src.Length, newSize));
+        return dst;
+    }
+
+    private static T[,] Resize2D<T>(T[,] src, int dim0, int dim1)
+    {
+        var dst = new T[dim0, dim1];
+        for (int i = 0; i < Math.Min(src.GetLength(0), dim0); i++)
+            for (int j = 0; j < Math.Min(src.GetLength(1), dim1); j++)
+                dst[i, j] = src[i, j];
+        return dst;
+    }
 
     public void Dispose()
     {

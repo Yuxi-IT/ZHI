@@ -22,9 +22,9 @@ export function LogPanel({ logs }: Props) {
   };
 
   return (
-    <div className="border-t border-zhi-border flex flex-col flex-1 min-h-0">
-      <div className="px-4 py-1.5 text-[10px] text-zhi-muted uppercase tracking-wider border-b border-zhi-border shrink-0">
-        log
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="px-4 py-1.5 text-[10px] text-zhi-muted uppercase tracking-wider shrink-0">
+        event log
       </div>
       <div
         ref={containerRef}
@@ -42,18 +42,13 @@ export function LogPanel({ logs }: Props) {
 function LogLine({ msg }: { msg: LogMessage }) {
   const text = msg.message || '';
   let color = 'text-neutral-400';
-  if (text.includes('遗传')) color = 'text-yellow-400/70';
-  else if (text.includes('Steal')) color = 'text-orange-400';
+  if (text.includes('Gen')) color = 'text-yellow-400/70';
   else if (text.includes('Attack')) color = 'text-red-400/70';
-  else if (text.includes('死了')) color = 'text-red-400';
-  else if (text.includes('TERMINATION') || text.includes('OVERFLOW') || text.includes('DEPLETED')) color = 'text-red-500/70';
-  else if (text.includes('存活:')) color = 'text-neutral-500';
-  else if (text.includes('初始化')) color = 'text-green-500/70';
-  else if (text.includes('启动中')) color = 'text-green-500/70';
-  else if (text.includes('已连接')) color = 'text-green-400/50';
-  else if (text.includes('think成功')) color = 'text-purple-400';
-  else if (text.includes('expand')) color = 'text-zhi-accent';
+  else if (text.includes('DEAD')) color = 'text-red-400';
+  else if (text.includes('Reproduce')) color = 'text-purple-400';
+  else if (text.includes('PPO')) color = 'text-blue-400/60';
   else if (text.includes('Cosmos')) color = 'text-cyan-400/60';
+  else if (text.includes('initialized')) color = 'text-green-500/70';
 
   return (
     <div className="py-0.5 text-[11px] leading-relaxed">

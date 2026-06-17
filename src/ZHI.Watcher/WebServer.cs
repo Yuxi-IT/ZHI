@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using ZHI.Shared;
 
 namespace ZHI.Watcher;
 
@@ -197,6 +198,11 @@ public class WebServer : IDisposable
         var agents = new List<object>(n);
         for (int i = 0; i < n; i++)
         {
+            // Snapshot SignalMemory for this agent
+            var sigMem = new float[ToolDefinitions.SignalValues];
+            for (int ch = 0; ch < ToolDefinitions.SignalValues; ch++)
+                sigMem[ch] = v.SignalMemory[i, ch];
+
             agents.Add(new
             {
                 id = i,
@@ -208,6 +214,7 @@ public class WebServer : IDisposable
                 status = v.StatusMirror[i],
                 last_action = v.LastActionNameMirror[i],
                 last_signal = v.LastSignalReceived[i],
+                signal_memory = sigMem,
                 alive_seconds = v.Alive[i]
                     ? (DateTime.UtcNow - v.BirthTimes[i]).TotalSeconds : 0,
                 tick_count = v.TickCount[i],
@@ -218,18 +225,30 @@ public class WebServer : IDisposable
         }
 
         FoodTile[] foodSnap;
-        lock (v.LockObj) { foodSnap = v.FoodTiles.ToArray(); }
+        CorpseTile[] corpseSnap;
+        lock (v.LockObj)
+        {
+            foodSnap = v.FoodTiles.ToArray();
+            corpseSnap = v.CorpseTiles.ToArray();
+        }
         var food = new List<object>(foodSnap.Length);
         foreach (var f in foodSnap)
-            food.Add(new { x = f.X, y = f.Y, ttl = f.TTL, is_big = f.IsBig });
+            food.Add(new { x = f.X, y = f.Y, width = f.Width, height = f.Height, ttl = f.TTL, energy = f.Energy, is_big = f.IsBig });
+
+        var corpses = new List<object>(corpseSnap.Length);
+        foreach (var c in corpseSnap)
+            corpses.Add(new { x = c.X, y = c.Y, ttl = c.TTL, energy = c.Energy });
 
         var payload = new
         {
             generation = _engine.Generation,
             total_deaths = _engine.TotalDeaths,
             agent_count = n,
+            total_energy = _engine.TotalEnergyInWorld,
+            tick_exceptions = _engine.TickExceptionCount,
             agents,
             food,
+            corpses,
             grid_width = ZHI.Shared.ToolDefinitions.GridWidth,
             grid_height = ZHI.Shared.ToolDefinitions.GridHeight
         };

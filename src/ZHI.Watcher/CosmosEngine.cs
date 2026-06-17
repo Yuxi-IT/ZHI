@@ -35,8 +35,10 @@ public class CosmosEngine : IDisposable
     private int _generation;
     private int _totalDeaths;
     private int _globalTick;
+    private int _tickExceptionCount;
     private bool _paused;
     private float _effectiveMutationRate;
+    private float _totalEnergyInWorld;
 
     private readonly List<GenerationResult> _genResults = new();
 
@@ -48,6 +50,8 @@ public class CosmosEngine : IDisposable
     public int AgentCount => _v?.N ?? 0;
     public bool Paused => _paused;
     public VectorizedState State => _v;
+    public float TotalEnergyInWorld => _totalEnergyInWorld;
+    public int TickExceptionCount => _tickExceptionCount;
 
     // PLACEHOLDER_CONSTRUCTOR
 
@@ -90,9 +94,9 @@ public class CosmosEngine : IDisposable
                     try { Tick(); }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[Cosmos] Tick error: {ex}");
-                        Log($"[Cosmos] Tick error: {ex}");
-                        break;
+                        _tickExceptionCount++;
+                        Console.WriteLine($"[Cosmos] Tick error #{_tickExceptionCount}: {ex}");
+                        Log($"[Cosmos] Tick error #{_tickExceptionCount}: {ex.Message}");
                     }
                 }
                 try { await Task.Delay(_config.DecisionIntervalMs, _cts.Token); }
@@ -110,31 +114,17 @@ public class CosmosEngine : IDisposable
     {
         _genResults.Clear();
         _globalTick = 0;
-        int n = _v.N;
 
-        // Reset agent state
-        for (int i = 0; i < n; i++)
-        {
-            _v.PosX[i] = _rng.Next(ToolDefinitions.GridWidth);
-            _v.PosY[i] = _rng.Next(ToolDefinitions.GridHeight);
-            _v.Existence[i] = _config.Existence.Initial;
-            _v.Stress[i] = 0f;
-            _v.Alive[i] = true;
-            _v.LastAction[i] = 0;
-            _v.LastSignalReceived[i] = -1;
-            for (int ch = 0; ch < ToolDefinitions.SignalValues; ch++)
-                _v.SignalMemory[i, ch] = 0f;
-            _v.TickCount[i] = 0;
-            _v.AttackCount[i] = 0;
-            _v.EatCount[i] = 0;
-            _v.SignalCount[i] = 0;
-            _v.StatusMirror[i] = "ALIVE";
-            _v.LastActionNameMirror[i] = "";
-            _v.BirthTimes[i] = DateTime.UtcNow;
-        }
+        // Recreate state with configured agent count (resets any reproduction growth)
+        int n = _config.Cosmos.AgentCount;
+        _v.Dispose();
+        _v = new VectorizedState(n, ZHI.Core.Device.TorchDevice);
+
+        // Recreate PPO buffer for correct agent count
+        _ppoBuffer?.Dispose();
+        _ppoBuffer = new PPOBuffer(PpoRolloutSteps, n, ZHI.Core.Device.TorchDevice);
 
         // Reset grid
-        lock (_v.LockObj) { _v.FoodTiles.Clear(); }
         Array.Clear(_v.ScentGrid);
         SpawnInitialFood();
 
@@ -151,7 +141,6 @@ public class CosmosEngine : IDisposable
 
         _gruHidden?.Dispose();
         _gruHidden = torch.zeros(1, n, _gruBrain.HiddenSize, device: _v.Device);
-        _ppoBuffer?.Clear();
 
         _agentWeights.Clear();
         for (int i = 0; i < n; i++)
@@ -162,7 +151,7 @@ public class CosmosEngine : IDisposable
                 _agentWeights.Add(_gruBrain.SaveWeights());
         }
 
-        Log($"[Cosmos] Gen {_generation} initialized");
+        Log($"[Cosmos] Gen {_generation} initialized: {n} agents, {_v.FoodTiles.Count} food");
     }
 
     // PLACEHOLDER_TICK
@@ -209,7 +198,7 @@ public class CosmosEngine : IDisposable
                 _v.SignalMemory[i, ch] *= 0.9f;
         }
 
-        // 5. Food TTL & spawning + food scent emission
+        // 5. Food TTL decay + food scent emission
         lock (_v.LockObj)
         {
             for (int f = _v.FoodTiles.Count - 1; f >= 0; f--)
@@ -221,11 +210,52 @@ public class CosmosEngine : IDisposable
                 else
                 {
                     _v.FoodTiles[f] = food;
-                    _v.ScentGrid[food.X, food.Y] += 0.3f;
+                    float scentAmount = food.IsBig ? 1.0f : 0.3f;
+                    int fw = food.Width > 0 ? food.Width : 1;
+                    int fh = food.Height > 0 ? food.Height : 1;
+                    for (int fx = 0; fx < fw; fx++)
+                        for (int fy = 0; fy < fh; fy++)
+                        {
+                            int sx = food.X + fx;
+                            int sy = food.Y + fy;
+                            if (sx < W && sy < H)
+                                _v.ScentGrid[sx, sy] += scentAmount;
+                        }
                 }
             }
+
+            // Corpse TTL decay
+            for (int c = _v.CorpseTiles.Count - 1; c >= 0; c--)
+            {
+                var corpse = _v.CorpseTiles[c];
+                corpse.TTL--;
+                if (corpse.TTL <= 0)
+                    _v.CorpseTiles.RemoveAt(c);
+                else
+                    _v.CorpseTiles[c] = corpse;
+            }
         }
-        TrySpawnFood();
+
+        // 5b. Food respawn (slow trickle to prevent total extinction)
+        if (_config.Grid.FoodRespawnInterval > 0
+            && _globalTick % _config.Grid.FoodRespawnInterval == 0)
+        {
+            int currentFood = _v.FoodTiles.Count;
+            if (currentFood < _config.Grid.FoodRespawnThreshold)
+            {
+                int rx = _rng.Next(W);
+                int ry = _rng.Next(H);
+                lock (_v.LockObj)
+                    _v.FoodTiles.Add(new FoodTile
+                    {
+                        X = rx, Y = ry,
+                        Width = 1, Height = 1,
+                        TTL = _config.Grid.FoodTTL,
+                        Energy = _config.Grid.FoodEnergy,
+                        IsBig = false
+                    });
+            }
+        }
 
         // 6. Build state
         _v.BuildStateMatrix();
@@ -250,7 +280,7 @@ public class CosmosEngine : IDisposable
         float[] rewards = new float[n];
         ProcessActions(actionsArr, signalArr, rewards);
 
-        // 9. Death check
+        // 9. Death check + corpse spawning
         float[] donesArr = new float[n];
         for (int i = 0; i < n; i++)
         {
@@ -261,6 +291,16 @@ public class CosmosEngine : IDisposable
                 _v.StatusMirror[i] = "DEAD";
                 rewards[i] = -20f;
                 donesArr[i] = 1f;
+
+                // Spawn corpse at death position
+                lock (_v.LockObj)
+                    _v.CorpseTiles.Add(new CorpseTile
+                    {
+                        X = _v.PosX[i],
+                        Y = _v.PosY[i],
+                        TTL = _config.Corpse.TTL,
+                        Energy = _config.Corpse.Energy
+                    });
             }
         }
 
@@ -323,11 +363,60 @@ public class CosmosEngine : IDisposable
             _ppoBuffer.Clear();
         }
 
-        // 13. Check all dead → next generation
+        // 13. Reproduction (asexual: Existence>threshold + Age>threshold → split)
+        // Runs after PPO store so new agents start fresh next tick
+        int preReproCount = n;
+        int aliveNow = GetAliveCount();
+        for (int i = 0; i < preReproCount; i++)
+        {
+            if (!_v.Alive[i]) continue;
+            if (_v.Existence[i] >= _config.Reproduce.MinExistence
+                && _v.TickCount[i] >= _config.Reproduce.MinAge
+                && aliveNow < _config.Grid.MaxAgents
+                && (_globalTick - _v.LastReproduceTick[i]) >= _config.Reproduce.Cooldown)
+            {
+                // Population pressure: reduce reproduction chance when overcrowded
+                if (aliveNow > 128 && _rng.NextDouble() > 0.2) continue;
+                ReproduceAgent(i);
+                _v.LastReproduceTick[i] = _globalTick;
+            }
+        }
+
+        // Recreate buffers if agents increased from reproduction
+        if (_v.N != n)
+        {
+            n = _v.N;
+            var oldHidden = _gruHidden;
+            _gruHidden = torch.zeros(1, n, _gruBrain!.HiddenSize, device: _v.Device);
+            using (var _ = torch.no_grad())
+                _gruHidden!.narrow(1, 0, (int)oldHidden!.shape[1]).copy_(oldHidden);
+            oldHidden.Dispose();
+
+            // Recreate PPO buffer for new agent count (discard partial rollout)
+            _ppoBuffer?.Dispose();
+            _ppoBuffer = new PPOBuffer(PpoRolloutSteps, n, _v.Device);
+        }
+
+        // 14. Check all dead or timeout → next generation
         int aliveCount = 0;
         for (int i = 0; i < n; i++) if (_v.Alive[i]) aliveCount++;
-        if (aliveCount == 0 && n > 0)
+        bool timedOut = _globalTick > 5000 && aliveCount < 3;
+        if ((aliveCount == 0 || timedOut) && n > 0)
+        {
+            if (timedOut)
+                Log($"[Cosmos] Gen {_generation} timed out at tick {_globalTick}, alive={aliveCount}");
             EndGeneration();
+        }
+
+        // Compute total energy in world
+        _totalEnergyInWorld = 0f;
+        lock (_v.LockObj)
+        {
+            foreach (var f in _v.FoodTiles) _totalEnergyInWorld += f.Energy;
+            foreach (var c in _v.CorpseTiles) _totalEnergyInWorld += c.Energy;
+        }
+        for (int i = 0; i < n; i++)
+            if (_v.Alive[i]) _totalEnergyInWorld += Math.Max(0, _v.Existence[i]);
 
         // Cleanup
         actions.Dispose(); signalValues.Dispose();
@@ -393,13 +482,15 @@ public class CosmosEngine : IDisposable
 
     private void ResolveEatAttempts(List<int> eaters, float[] rewards)
     {
-        var consumed = new HashSet<int>();
+        var consumedFood = new HashSet<int>();
+        var consumedCorpses = new HashSet<int>();
         int minAgents = _config.Grid.BigFoodMinAgents;
 
         // Group eaters by position
         var byPos = new Dictionary<(int x, int y), List<int>>();
         foreach (int i in eaters)
         {
+            if (!_v.Alive[i]) continue;
             var pos = (_v.PosX[i], _v.PosY[i]);
             if (!byPos.TryGetValue(pos, out var list))
             {
@@ -411,21 +502,31 @@ public class CosmosEngine : IDisposable
 
         foreach (var (pos, agents) in byPos)
         {
-            // Find food at this position
+            // Check food first (area-based for multi-cell BigFood), then corpse
             int foodIdx = -1;
             for (int f = 0; f < _v.FoodTiles.Count; f++)
             {
-                if (consumed.Contains(f)) continue;
-                if (_v.FoodTiles[f].X == pos.x && _v.FoodTiles[f].Y == pos.y)
+                if (consumedFood.Contains(f)) continue;
+                var ft = _v.FoodTiles[f];
+                int fw = ft.Width > 0 ? ft.Width : 1;
+                int fh = ft.Height > 0 ? ft.Height : 1;
+                if (pos.x >= ft.X && pos.x < ft.X + fw && pos.y >= ft.Y && pos.y < ft.Y + fh)
+                { foodIdx = f; break; }
+            }
+
+            int corpseIdx = -1;
+            if (foodIdx < 0)
+            {
+                for (int c = 0; c < _v.CorpseTiles.Count; c++)
                 {
-                    foodIdx = f;
-                    break;
+                    if (consumedCorpses.Contains(c)) continue;
+                    if (_v.CorpseTiles[c].X == pos.x && _v.CorpseTiles[c].Y == pos.y)
+                    { corpseIdx = c; break; }
                 }
             }
 
-            if (foodIdx < 0)
+            if (foodIdx < 0 && corpseIdx < 0)
             {
-                // No food here — all eaters fail
                 foreach (int i in agents)
                 {
                     _v.Existence[i] -= _config.Existence.EatFailPenalty;
@@ -434,52 +535,77 @@ public class CosmosEngine : IDisposable
                 continue;
             }
 
-            var tile = _v.FoodTiles[foodIdx];
-
-            if (tile.IsBig)
+            if (foodIdx >= 0)
             {
-                if (agents.Count >= minAgents)
+                var tile = _v.FoodTiles[foodIdx];
+
+                if (tile.IsBig)
                 {
-                    // Cooperative eat succeeds — all participants get bonus
-                    consumed.Add(foodIdx);
-                    foreach (int i in agents)
+                    if (agents.Count >= minAgents)
                     {
-                        _v.Existence[i] += _config.Grid.BigFoodBonus;
-                        _v.EatCount[i]++;
-                        rewards[i] += 8.0f;
+                        // Cooperative eat: full energy shared equally
+                        float share = tile.Energy / agents.Count;
+                        consumedFood.Add(foodIdx);
+                        foreach (int i in agents)
+                        {
+                            _v.Existence[i] += share;
+                            _v.EatCount[i]++;
+                            rewards[i] += share * 0.3f;
+                        }
+                    }
+                    else
+                    {
+                        // Solo eat: 40% energy, food consumed
+                        float soloEnergy = tile.Energy * 0.4f;
+                        consumedFood.Add(foodIdx);
+                        foreach (int i in agents)
+                        {
+                            _v.Existence[i] += soloEnergy;
+                            _v.EatCount[i]++;
+                            rewards[i] += soloEnergy * 0.3f;
+                        }
                     }
                 }
                 else
                 {
-                    // Not enough agents — eat fails but no penalty (they tried)
-                    foreach (int i in agents)
-                        rewards[i] -= 0.5f;
+                    consumedFood.Add(foodIdx);
+                    int winner = agents[0];
+                    _v.Existence[winner] += tile.Energy;
+                    _v.EatCount[winner]++;
+                    rewards[winner] += 3.0f;
+
+                    for (int k = 1; k < agents.Count; k++)
+                    {
+                        _v.Existence[agents[k]] -= _config.Existence.EatFailPenalty;
+                        rewards[agents[k]] -= 1.0f;
+                    }
                 }
             }
             else
             {
-                // Normal food — first eater gets it
-                consumed.Add(foodIdx);
-                int winner = agents[0];
-                _v.Existence[winner] += _config.Existence.EatBonus;
-                _v.EatCount[winner]++;
-                rewards[winner] += 3.0f;
-
-                // Others at same position fail
-                for (int k = 1; k < agents.Count; k++)
+                // Eating corpse
+                var corpse = _v.CorpseTiles[corpseIdx];
+                consumedCorpses.Add(corpseIdx);
+                float share = corpse.Energy / agents.Count;
+                foreach (int i in agents)
                 {
-                    _v.Existence[agents[k]] -= _config.Existence.EatFailPenalty;
-                    rewards[agents[k]] -= 1.0f;
+                    _v.Existence[i] += share;
+                    _v.EatCount[i]++;
+                    rewards[i] += share * 0.3f;
                 }
             }
         }
 
-        // Remove consumed food tiles (reverse order)
+        // Remove consumed items (reverse order)
         lock (_v.LockObj)
         {
-            var sorted = consumed.OrderByDescending(x => x).ToList();
-            foreach (int idx in sorted)
+            var sortedFood = consumedFood.OrderByDescending(x => x).ToList();
+            foreach (int idx in sortedFood)
                 _v.FoodTiles.RemoveAt(idx);
+
+            var sortedCorpses = consumedCorpses.OrderByDescending(x => x).ToList();
+            foreach (int idx in sortedCorpses)
+                _v.CorpseTiles.RemoveAt(idx);
         }
     }
 
@@ -540,61 +666,175 @@ public class CosmosEngine : IDisposable
 
     private void SpawnInitialFood()
     {
-        int count = _config.Grid.MaxFood / 2;
-        for (int i = 0; i < count; i++)
-            TrySpawnOneFood();
-    }
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
 
-    private void TrySpawnFood()
-    {
-        if (_v.FoodTiles.Count >= _config.Grid.MaxFood) return;
-        if (_rng.NextDouble() < _config.Grid.FoodSpawnChance)
-            TrySpawnOneFood();
-    }
-
-    private void TrySpawnOneFood()
-    {
-        int W = ToolDefinitions.GridWidth, H = ToolDefinitions.GridHeight;
-        for (int attempt = 0; attempt < 10; attempt++)
+        // Spawn normal food
+        for (int i = 0; i < _config.Grid.InitialFood; i++)
         {
             int x = _rng.Next(W);
             int y = _rng.Next(H);
-
-            // Check food tile collision
-            bool occupied = false;
-            for (int f = 0; f < _v.FoodTiles.Count; f++)
-            {
-                if (_v.FoodTiles[f].X == x && _v.FoodTiles[f].Y == y)
-                { occupied = true; break; }
-            }
-            if (occupied) continue;
-
-            // Avoid spawning directly under an alive agent
-            bool agentHere = false;
-            for (int a = 0; a < _v.N; a++)
-            {
-                if (_v.Alive[a] && _v.PosX[a] == x && _v.PosY[a] == y)
-                { agentHere = true; break; }
-            }
-            if (agentHere) continue;
-
-            bool isBig = _rng.NextDouble() < _config.Grid.BigFoodChance;
             lock (_v.LockObj)
-                _v.FoodTiles.Add(new FoodTile { X = x, Y = y, TTL = _config.Grid.FoodTTL, IsBig = isBig });
-            return;
+                _v.FoodTiles.Add(new FoodTile
+                {
+                    X = x, Y = y,
+                    Width = 1, Height = 1,
+                    TTL = _config.Grid.FoodTTL,
+                    Energy = _config.Grid.FoodEnergy,
+                    IsBig = false
+                });
         }
+
+        // Spawn BigFood (2x2 multi-cell)
+        for (int i = 0; i < _config.Grid.InitialBigFood; i++)
+        {
+            bool placed = false;
+            for (int attempt = 0; attempt < 50; attempt++)
+            {
+                int x = _rng.Next(W - 1);
+                int y = _rng.Next(H - 1);
+
+                // Check overlap with existing food
+                bool overlap = false;
+                for (int fx = 0; fx < 2 && !overlap; fx++)
+                    for (int fy = 0; fy < 2 && !overlap; fy++)
+                        if (_v.HasFoodAt(x + fx, y + fy, out _))
+                            overlap = true;
+
+                if (overlap) continue;
+
+                lock (_v.LockObj)
+                    _v.FoodTiles.Add(new FoodTile
+                    {
+                        X = x, Y = y,
+                        Width = 2, Height = 2,
+                        TTL = _config.Grid.BigFoodTTL,
+                        Energy = _config.Grid.BigFoodEnergy,
+                        EatTime = _config.Grid.BigFoodEatTime,
+                        IsBig = true
+                    });
+                placed = true;
+                break;
+            }
+            if (!placed)
+                Log($"[Cosmos] WARNING: Could not place BigFood #{i} after 50 attempts");
+        }
+    }
+
+    private int GetAliveCount()
+    {
+        int count = 0;
+        for (int i = 0; i < _v.N; i++)
+            if (_v.Alive[i]) count++;
+        return count;
+    }
+
+    private void ReproduceAgent(int parentIdx)
+    {
+        // Find adjacent empty cell
+        int px = _v.PosX[parentIdx];
+        int py = _v.PosY[parentIdx];
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+
+        int cx = px, cy = py;
+        bool found = false;
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            int dx = _rng.Next(-1, 2);
+            int dy = _rng.Next(-1, 2);
+            if (dx == 0 && dy == 0) continue;
+            int nx = px + dx;
+            int ny = py + dy;
+            if (nx >= 0 && nx < W && ny >= 0 && ny < H)
+            {
+                bool occupied = false;
+                for (int a = 0; a < _v.N; a++)
+                {
+                    if (_v.Alive[a] && _v.PosX[a] == nx && _v.PosY[a] == ny)
+                    { occupied = true; break; }
+                }
+                if (!occupied) { cx = nx; cy = ny; found = true; break; }
+            }
+        }
+
+        if (!found) return; // No empty adjacent cell
+
+        // Parent pays cost
+        _v.Existence[parentIdx] -= _config.Reproduce.ParentCost;
+
+        // Create child with mutated brain
+        int childIdx = _v.AddAgent(cx, cy, _config.Reproduce.ChildStart);
+
+        // Copy and mutate parent's weights
+        byte[] parentWeights = _agentWeights[parentIdx];
+        byte[] childWeights = MutateChild(parentWeights);
+
+        // Ensure agentWeights list is large enough
+        while (_agentWeights.Count <= childIdx)
+            _agentWeights.Add(childWeights);
+
+        Log($"[Reproduce] agent {parentIdx} → child {childIdx} at ({cx},{cy})");
+    }
+
+    private byte[] MutateChild(byte[] parentWeights)
+    {
+        using var brain = new GRUBrain();
+        brain.load(new MemoryStream(parentWeights));
+
+        foreach (var (_, param) in brain.named_parameters())
+        {
+            if (_rng.NextDouble() < _config.Reproduce.MutationScale)
+            {
+                using var noise = torch.randn(param.shape, device: ZHI.Core.Device.TorchDevice)
+                    * _config.Cosmos.MutationStd * _config.Reproduce.MutationScale;
+                using (var _ = torch.no_grad()) param.add_(noise);
+            }
+        }
+
+        using var ms = new MemoryStream();
+        brain.save(ms);
+        return ms.ToArray();
     }
 
     private void EndGeneration()
     {
-        Log($"[Cosmos] Gen {_generation} all dead, tick {_globalTick}");
-        int n = _v.N;
+        try
+        {
+            EndGenerationInternal();
+        }
+        catch (Exception ex)
+        {
+            Log($"[Cosmos] ERROR in EndGeneration: {ex.Message}");
+            Console.WriteLine($"[Cosmos] ERROR in EndGeneration: {ex}");
+            try
+            {
+                Log($"[Cosmos] Attempting generation recovery...");
+                _generation++;
+                InitializeGeneration(loadWeights: null);
+                Log($"[Cosmos] ===== Gen {_generation} START (recovery) =====");
+            }
+            catch (Exception ex2)
+            {
+                Log($"[Cosmos] FATAL: Recovery failed: {ex2.Message}");
+                Console.WriteLine($"[Cosmos] FATAL: Recovery failed: {ex2}");
+                HardResetWorld();
+            }
+        }
+    }
 
-        _totalDeaths += n;
+    private void EndGenerationInternal()
+    {
+        Log($"[Cosmos] ===== Gen {_generation} END (tick {_globalTick}, exceptions={_tickExceptionCount}) =====");
+        _tickExceptionCount = 0;
+        int actualN = _v.N;
+        int configuredN = _config.Cosmos.AgentCount;
+
+        _totalDeaths += actualN;
         _config.DeathCount = _totalDeaths;
         SaveConfig();
 
-        for (int i = 0; i < n; i++)
+        for (int i = 0; i < actualN; i++)
         {
             double aliveSecs = (DateTime.UtcNow - _v.BirthTimes[i]).TotalSeconds;
             double fitness = aliveSecs * (1.0 + _v.EatCount[i] * 0.2 + _v.AttackCount[i] * 0.05);
@@ -642,12 +882,12 @@ public class CosmosEngine : IDisposable
             _mapElites!.TryInsert(r.Weights, r.Fitness, aggression, exploration);
         }
 
-        // Genetic selection
+        // Genetic selection — build exactly configuredN weights
         var sorted = _genResults.OrderByDescending(r => r.Fitness).ToList();
         var nextWeights = new List<byte[]>();
         int eliteCount = _config.Cosmos.EliteCount;
 
-        for (int i = 0; i < n; i++)
+        for (int i = 0; i < configuredN; i++)
         {
             if (i < eliteCount)
             {
@@ -675,7 +915,28 @@ public class CosmosEngine : IDisposable
         Log($"[Gen] best={best.Fitness:F1} alive={best.AliveSeconds:F1}s eat={best.EatCount} atk={best.AttackCount}");
 
         _generation++;
+        Log($"[Cosmos] ===== Gen {_generation} START =====");
         InitializeGeneration(nextWeights);
+    }
+
+    private void HardResetWorld()
+    {
+        Log($"[Cosmos] HARD RESET — reinitializing world from scratch");
+        Console.WriteLine($"[Cosmos] HARD RESET");
+        try
+        {
+            _generation++;
+            _tickExceptionCount = 0;
+            _genResults.Clear();
+            InitializeGeneration(loadWeights: null);
+            Log($"[Cosmos] ===== Gen {_generation} START (hard reset) =====");
+        }
+        catch (Exception ex)
+        {
+            Log($"[Cosmos] FATAL: Hard reset failed: {ex.Message}");
+            Console.WriteLine($"[Cosmos] FATAL: Hard reset failed: {ex}");
+            throw;
+        }
     }
 
     // PLACEHOLDER_GENETIC

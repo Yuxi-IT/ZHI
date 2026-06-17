@@ -8,6 +8,7 @@ export interface AgentSnapshot {
   status: string
   last_action: string
   last_signal: number
+  signal_memory: number[]
   alive_seconds: number
   tick_count: number
   attack_count: number
@@ -18,8 +19,18 @@ export interface AgentSnapshot {
 export interface FoodTile {
   x: number
   y: number
+  width: number
+  height: number
   ttl: number
+  energy: number
   is_big: boolean
+}
+
+export interface CorpseTile {
+  x: number
+  y: number
+  ttl: number
+  energy: number
 }
 
 export interface CosmosState {
@@ -30,6 +41,7 @@ export interface CosmosState {
   grid_height: number
   agents: AgentSnapshot[]
   food: FoodTile[]
+  corpses: CorpseTile[]
 }
 
 export interface LogMessage {
