@@ -5,6 +5,8 @@ const WS_URL = import.meta.env.DEV
   ? 'ws://localhost:8088/ws'
   : `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`;
 
+const MAX_EVENTS = 2000;
+
 export function useWebSocket() {
   const [connected, setConnected] = useState(false);
   const [generation, setGeneration] = useState(1);
@@ -14,6 +16,7 @@ export function useWebSocket() {
   const [corpses, setCorpses] = useState<CorpseTile[]>([]);
   const [river, setRiver] = useState<number[]>([]);
   const [scent, setScent] = useState<number[]>([]);
+  const [signalField, setSignalField] = useState<number[]>([]);
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const [events, setEvents] = useState<WorldEvent[]>([]);
   const [stats, setStats] = useState<CosmosStats | null>(null);
@@ -47,6 +50,7 @@ export function useWebSocket() {
           setCorpses(data.corpses ?? []);
           if (data.river) setRiver(data.river);
           if (data.scent) setScent(data.scent);
+          if (data.signal_field) setSignalField(data.signal_field);
           if (data.stats) setStats(data.stats);
           break;
         }
@@ -54,7 +58,7 @@ export function useWebSocket() {
           const newEvents = msg.data as WorldEvent[];
           setEvents(prev => {
             const next = [...prev, ...newEvents];
-            return next.length > 200 ? next.slice(-200) : next;
+            return next.length > MAX_EVENTS ? next.slice(-MAX_EVENTS) : next;
           });
           break;
         }
@@ -76,5 +80,7 @@ export function useWebSocket() {
     };
   }, [connect]);
 
-  return { connected, generation, totalDeaths, agents, food, corpses, river, scent, logs, events, stats };
+  const clearEvents = useCallback(() => setEvents([]), []);
+
+  return { connected, generation, totalDeaths, agents, food, corpses, river, scent, signalField, logs, events, clearEvents, stats };
 }

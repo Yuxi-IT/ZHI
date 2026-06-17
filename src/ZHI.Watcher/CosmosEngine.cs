@@ -546,7 +546,7 @@ public class CosmosEngine : IDisposable
             if (!_v.Alive[i]) continue;
             if (_v.Existence[i] >= _config.Reproduce.MinExistence
                 && _v.TickCount[i] >= _config.Reproduce.MinAge
-                && aliveNow < _config.Grid.MaxAgents
+                && aliveNow < _config.Cosmos.AgentCount
                 && (_globalTick - _v.LastReproduceTick[i]) >= _config.Reproduce.Cooldown)
             {
                 // Population pressure: reduce reproduction chance when overcrowded
@@ -1075,7 +1075,7 @@ public class CosmosEngine : IDisposable
     {
         int delay = _config.Cosmos.RespawnDelayTicks;
         int n = _v.N;
-        int maxAgents = _config.Grid.MaxAgents;
+        int maxAgents = _config.Cosmos.AgentCount;
         int aliveCount = GetAliveCount();
 
         for (int i = 0; i < n; i++)

@@ -10,7 +10,7 @@ import { EventMonitor } from './components/EventMonitor'
 import { EventLog } from './components/EventLog'
 
 function App() {
-  const { generation, totalDeaths, agents, food, corpses, river, scent, signalField, logs, events, stats, connected } = useWebSocket()
+  const { generation, totalDeaths, agents, food, corpses, river, scent, signalField, logs, events, clearEvents, stats, connected } = useWebSocket()
   const { stats: dbStats, loading } = useStats()
   const { history, record } = useEcoHistory()
   const [bottomTab, setBottomTab] = useState<'log' | 'charts' | 'events'>('log')
@@ -76,7 +76,7 @@ function App() {
       <div className="flex-1 flex min-h-0">
         {/* Left Sidebar: Event Monitor */}
         <aside className="w-64 shrink-0 border-r border-neutral-800 flex flex-col min-h-0">
-          <EventMonitor events={events} energySource={stats?.energy_source} />
+          <EventMonitor events={events} energySource={stats?.energy_source} onClear={clearEvents} />
         </aside>
 
         {/* Center: Map top + Bottom panel */}

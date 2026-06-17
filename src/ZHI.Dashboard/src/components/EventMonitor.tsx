@@ -4,6 +4,7 @@ import type { WorldEvent, WorldEventType, EnergySource } from '../types'
 interface Props {
   events: WorldEvent[]
   energySource?: EnergySource | null
+  onClear?: () => void
 }
 
 const EVENT_COLORS: Record<string, string> = {
@@ -42,9 +43,10 @@ function formatEvent(e: WorldEvent): string {
   }
 }
 
-export function EventMonitor({ events, energySource }: Props) {
+export function EventMonitor({ events, energySource, onClear }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const autoScrollRef = useRef(true)
+  const [autoScroll, setAutoScroll] = useState(true)
   const [activeFilters, setActiveFilters] = useState<Set<WorldEventType>>(
     new Set(['death', 'attack', 'respawn', 'eat', 'signal'])
   )
@@ -66,15 +68,17 @@ export function EventMonitor({ events, energySource }: Props) {
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    if (autoScrollRef.current) {
+    if (autoScroll) {
       el.scrollTop = el.scrollHeight
     }
-  }, [filteredEvents])
+  }, [filteredEvents, autoScroll])
 
   const handleScroll = () => {
     const el = scrollRef.current
     if (!el) return
-    autoScrollRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40
+    autoScrollRef.current = atBottom
+    if (atBottom !== autoScroll) setAutoScroll(atBottom)
   }
 
   return (
@@ -83,6 +87,35 @@ export function EventMonitor({ events, energySource }: Props) {
       <div className="px-3 py-1.5 border-b border-neutral-800 shrink-0">
         <div className="text-neutral-500 text-[10px] flex items-center justify-between">
           <span>events ({filteredEvents.length})</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                setAutoScroll(v => !v)
+                autoScrollRef.current = !autoScrollRef.current
+                if (!autoScroll) {
+                  const el = scrollRef.current
+                  if (el) el.scrollTop = el.scrollHeight
+                }
+              }}
+              className={`px-1 py-0.5 text-[9px] rounded border ${
+                autoScroll
+                  ? 'border-cyan-700 text-cyan-400'
+                  : 'border-neutral-800 text-neutral-600 hover:text-neutral-400'
+              }`}
+              title={autoScroll ? '自动滚动: ON' : '自动滚动: OFF'}
+            >
+              {autoScroll ? '⇩' : '⇩'}
+            </button>
+            {onClear && (
+              <button
+                onClick={onClear}
+                className="px-1 py-0.5 text-[9px] rounded border border-neutral-800 text-neutral-600 hover:text-red-400"
+                title="清除所有事件"
+              >
+                清除
+              </button>
+            )}
+          </div>
         </div>
         {energySource && (
           <div className="text-[9px] text-neutral-600 mt-0.5 flex gap-2">
