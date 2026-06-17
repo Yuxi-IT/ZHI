@@ -9,8 +9,16 @@ import { ChartsPanel } from './components/ChartsPanel'
 import { EventMonitor } from './components/EventMonitor'
 import { EventLog } from './components/EventLog'
 
+function formatGameTime(hours: number): string {
+  const h = Math.floor(hours)
+  const m = Math.floor((hours - h) * 60)
+  const hh = h.toString().padStart(2, '0')
+  const mm = m.toString().padStart(2, '0')
+  return `☀ ${hh}:${mm}`
+}
+
 function App() {
-  const { generation, totalDeaths, agents, food, corpses, river, scent, foodScent, signalField, logs, events, clearEvents, stats, connected } = useWebSocket()
+  const { generation, totalDeaths, timeOfDay, temperature, agents, food, corpses, river, scent, foodScent, signalField, logs, events, clearEvents, stats, connected } = useWebSocket()
   const { stats: dbStats, loading } = useStats()
   const { history, record } = useEcoHistory()
   const [bottomTab, setBottomTab] = useState<'log' | 'charts' | 'events'>('log')
@@ -47,6 +55,11 @@ function App() {
       <header className="flex items-center gap-4 px-5 py-2 border-b border-neutral-800 shrink-0">
         <h1 className="text-sm font-normal tracking-[0.2em] text-neutral-400">ZHI</h1>
         <span className="text-neutral-600">栀 · Cosmos V2.7</span>
+        <div className="flex items-center gap-2 text-[10px] text-neutral-500">
+          <span>{formatGameTime(timeOfDay)}</span>
+          <span className="text-neutral-700">|</span>
+          <span>{temperature.toFixed(1)}°C</span>
+        </div>
         <div className="flex items-center gap-3 ml-auto">
           <span className="text-[10px] text-neutral-500">Gen {generation}</span>
           <span className="text-[10px] text-neutral-500">|</span>

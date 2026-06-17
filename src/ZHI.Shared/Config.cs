@@ -16,6 +16,7 @@ public sealed class ZhiConfig
     public ThirstConfig Thirst { get; set; } = new();
     public HungerConfig Hunger { get; set; } = new();
     public RiverConfig River { get; set; } = new();
+    public TemperatureConfig Temperature { get; set; } = new();
     public int Port { get; set; } = 19816;
     public int DecisionIntervalMs { get; set; } = 200;
     public int DeathCount { get; set; } = 0;
@@ -148,10 +149,23 @@ public sealed class HungerConfig
 
 public sealed class RiverConfig
 {
-    public int Width { get; set; } = 3;          // shallow water width
+    public int Width { get; set; } = 5;          // total river corridor width
     public int DeepWidth { get; set; } = 1;       // deep water center width
+    public int FordChance { get; set; } = 25;     // % chance per step to make deep→shallow (ford)
     public int SoundRange { get; set; } = 10;     // water sound propagation range
     public float SoundDecay { get; set; } = 0.9f; // per-cell sound decay
+}
+
+public sealed class TemperatureConfig
+{
+    public float MaxTemp { get; set; } = 35f;       // peak @ 14:00
+    public float MinTemp { get; set; } = 5f;        // trough @ 04:00
+    public float ColdThreshold { get; set; } = 15f;  // below this → cold HP decay
+    public float MaxColdDecay { get; set; } = 0.15f; // extra HP/tick at coldest
+    public float HotThreshold { get; set; } = 30f;   // above this → thirst accelerates
+    public float MaxThirstAccel { get; set; } = 1.5f;// thirst multiplier at hottest
+    public float HuddleRange { get; set; } = 2f;     // Manhattan distance for warmth sharing
+    public float HuddleWarmthPerAgent { get; set; } = 3f; // effective °C per nearby agent
 }
 
 

@@ -40,7 +40,10 @@ public class CosmosEngine : IDisposable
     private float _effectiveMutationRate = 0.1f;
     private float _totalEnergyInWorld;
     private int[] _deathTick = Array.Empty<int>();
+    private int[] _lastAttackTick = Array.Empty<int>();
     private int _respawnCount;
+    private float _gameTimeOfDay;
+    private float _temperature;
 
     // Event broadcasting
     private readonly List<WorldEvent> _tickEvents = new();
@@ -77,6 +80,8 @@ public class CosmosEngine : IDisposable
     public VectorizedState State => _v;
     public float TotalEnergyInWorld => _totalEnergyInWorld;
     public int TickExceptionCount => _tickExceptionCount;
+    public float GameTimeOfDay => _gameTimeOfDay;
+    public float Temperature => _temperature;
 
     // PLACEHOLDER_CONSTRUCTOR
 
@@ -102,6 +107,7 @@ public class CosmosEngine : IDisposable
 
         _deathTick = new int[n];
         Array.Fill(_deathTick, -1);
+        _lastAttackTick = new int[n];
 
         _generation = config.DeathCount + 1;
         _totalDeaths = config.DeathCount;
@@ -176,6 +182,7 @@ public class CosmosEngine : IDisposable
         // Initialize death tracking
         _deathTick = new int[n];
         Array.Fill(_deathTick, -1);
+        _lastAttackTick = new int[n];
 
         // Reset grid
         Array.Clear(_v.ScentGrid);
@@ -241,6 +248,11 @@ public class CosmosEngine : IDisposable
         _tickEvents.Clear();
         _genTotalTicks++;
 
+        // 0. Game time & temperature
+        _gameTimeOfDay = (_globalTick % 3600) / 150f;
+        float hourAngle = (_gameTimeOfDay - 8f) * MathF.PI / 12f;
+        _temperature = 20f + 15f * MathF.Sin(hourAngle);
+
         // 1. Stress damage: Existence -= Stress * StressDamage
         for (int i = 0; i < n; i++)
         {
@@ -288,6 +300,40 @@ public class CosmosEngine : IDisposable
             // Passive HP recovery when well-fed AND hydrated
             if (_v.Hunger[i] > 80f && _v.Thirst[i] > 80f)
                 _v.Existence[i] = MathF.Min(_v.Existence[i] + 0.2f, _config.Existence.Initial);
+        }
+
+        // 3b. Temperature effects
+        if (_temperature < _config.Temperature.ColdThreshold)
+        {
+            // Cold: extra HP decay, mitigated by huddling (nearby agents provide warmth)
+            float coldRatio = 1f - (_temperature - _config.Temperature.MinTemp)
+                / (_config.Temperature.ColdThreshold - _config.Temperature.MinTemp);
+            float baseColdDecay = coldRatio * _config.Temperature.MaxColdDecay;
+            int huddleRange = (int)_config.Temperature.HuddleRange;
+
+            for (int i = 0; i < n; i++)
+            {
+                if (!_v.Alive[i]) continue;
+                int neighbors = CountNearbyAgents(i, huddleRange);
+                float warmthBonus = neighbors * _config.Temperature.HuddleWarmthPerAgent;
+                float effectiveDecay = MathF.Max(0, baseColdDecay * (1f - warmthBonus / 15f));
+                _v.Existence[i] -= effectiveDecay;
+            }
+        }
+
+        // 3c. Hot temperature: thirst accelerates
+        if (_temperature > _config.Temperature.HotThreshold)
+        {
+            float hotRatio = (_temperature - _config.Temperature.HotThreshold)
+                / (_config.Temperature.MaxTemp - _config.Temperature.HotThreshold);
+            float thirstMult = 1f + hotRatio * (_config.Temperature.MaxThirstAccel - 1f);
+
+            for (int i = 0; i < n; i++)
+            {
+                if (!_v.Alive[i]) continue;
+                _v.Thirst[i] = MathF.Max(0f, _v.Thirst[i]
+                    - _config.Thirst.DecayRate * thirstMult);
+            }
         }
 
         // 4. Scent decay
@@ -611,6 +657,11 @@ public class CosmosEngine : IDisposable
             _deathTick = new int[n];
             Array.Fill(_deathTick, -1);
             Array.Copy(oldDeathTick, _deathTick, oldDeathTick.Length);
+
+            // Grow attack tick array
+            var oldAttackTick = _lastAttackTick;
+            _lastAttackTick = new int[n];
+            Array.Copy(oldAttackTick, _lastAttackTick, oldAttackTick.Length);
         }
 
         // 14. Individual respawn: dead agents respawn after RespawnDelayTicks
@@ -867,6 +918,13 @@ public class CosmosEngine : IDisposable
 
     private void ProcessAttack(int attacker)
     {
+        // Attack cooldown: 4 ticks between attacks
+        if (_globalTick - _lastAttackTick[attacker] < 4)
+        {
+            _v.LastActionNameMirror[attacker] = "attack_cooldown";
+            return;
+        }
+
         int range = _config.Combat.AttackRange;
         int ax = _v.PosX[attacker], ay = _v.PosY[attacker];
         int bestTarget = -1;
@@ -893,6 +951,7 @@ public class CosmosEngine : IDisposable
             _v.Stress[bestTarget] += _config.Combat.StressPerAttack;
             _v.Existence[bestTarget] -= damage;
             _v.LastActionNameMirror[attacker] = $"attack#{bestTarget}";
+            _lastAttackTick[attacker] = _globalTick;
             _tickEvents.Add(new WorldEvent
             {
                 Type = "attack", AgentId = attacker, TargetId = bestTarget,
@@ -949,6 +1008,7 @@ public class CosmosEngine : IDisposable
         int H = ToolDefinitions.GridHeight;
         int riverWidth = _config.River.Width;
         int deepWidth = _config.River.DeepWidth;
+        int fordChance = _config.River.FordChance;
 
         // Random river: starts from one edge, walks across map with slight randomness
         // Choose orientation: horizontal or vertical
@@ -963,13 +1023,16 @@ public class CosmosEngine : IDisposable
                 yCenter += _rng.Next(-1, 2);
                 yCenter = Math.Clamp(yCenter, riverWidth, H - riverWidth - 1);
 
+                // Random ford: this column is entirely shallow (no deep), creating a crossing
+                bool isFord = _rng.Next(100) < fordChance;
+
                 for (int dy = -riverWidth / 2; dy <= riverWidth / 2; dy++)
                 {
                     int y = yCenter + dy;
                     if (y < 0 || y >= H) continue;
 
                     int distFromCenter = Math.Abs(dy);
-                    if (distFromCenter < deepWidth)
+                    if (!isFord && distFromCenter < deepWidth)
                         _v.RiverGrid[x, y] = 2; // deep
                     else
                         _v.RiverGrid[x, y] = 1; // shallow
@@ -984,13 +1047,15 @@ public class CosmosEngine : IDisposable
                 xCenter += _rng.Next(-1, 2);
                 xCenter = Math.Clamp(xCenter, riverWidth, W - riverWidth - 1);
 
+                bool isFord = _rng.Next(100) < fordChance;
+
                 for (int dx = -riverWidth / 2; dx <= riverWidth / 2; dx++)
                 {
                     int x = xCenter + dx;
                     if (x < 0 || x >= W) continue;
 
                     int distFromCenter = Math.Abs(dx);
-                    if (distFromCenter < deepWidth)
+                    if (!isFord && distFromCenter < deepWidth)
                         _v.RiverGrid[x, y] = 2; // deep
                     else
                         _v.RiverGrid[x, y] = 1; // shallow
@@ -1099,6 +1164,19 @@ public class CosmosEngine : IDisposable
         int count = 0;
         for (int i = 0; i < _v.N; i++)
             if (_v.Alive[i]) count++;
+        return count;
+    }
+
+    private int CountNearbyAgents(int agentIdx, int range)
+    {
+        int count = 0;
+        int ax = _v.PosX[agentIdx], ay = _v.PosY[agentIdx];
+        for (int j = 0; j < _v.N; j++)
+        {
+            if (j == agentIdx || !_v.Alive[j]) continue;
+            if (Math.Abs(_v.PosX[j] - ax) + Math.Abs(_v.PosY[j] - ay) <= range)
+                count++;
+        }
         return count;
     }
 

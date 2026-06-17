@@ -301,6 +301,8 @@ public class WebServer : IDisposable
         {
             generation = _engine.Generation,
             total_deaths = _engine.TotalDeaths,
+            time_of_day = _engine.GameTimeOfDay,
+            temperature = _engine.Temperature,
             agent_count = n,
             total_energy = _engine.TotalEnergyInWorld,
             tick_exceptions = _engine.TickExceptionCount,
