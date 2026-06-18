@@ -199,6 +199,8 @@ public partial class CosmosEngine : IDisposable
         _tickEvents.Clear();
         _genTotalTicks++;
 
+        ApplySeasonCycle();
+
         ApplyWorldTemperature(n);
 
         ApplyAgentPhysiology(n);

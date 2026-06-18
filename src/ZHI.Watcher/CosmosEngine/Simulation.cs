@@ -8,7 +8,7 @@ public partial class CosmosEngine
     {
         _gameTimeOfDay = ((_globalTick + 1200) % 3600) / 150f;
         float hourAngle = (_gameTimeOfDay - 8f) * MathF.PI / 12f;
-        _temperature = 20f + 15f * MathF.Sin(hourAngle);
+        _temperature = 20f + 15f * _seasonTemperatureModifier * MathF.Sin(hourAngle);
 
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
