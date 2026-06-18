@@ -65,8 +65,14 @@ export function WorldMap3D({ drawDataRef, gridW, gridH, trackedAgent, showBiome 
   }, [brightness]);
 
   // Camera: start from a low side angle so height differences are visible
-  const camTarget: [number, number, number] = [0, heightScale * 0.15, 0];
-  const camPos: [number, number, number] = [gridW * 0.6, heightScale * 0.5, gridH * 0.8];
+  const camTarget = useMemo<[number, number, number]>(
+    () => [0, heightScale * 0.15, 0],
+    [heightScale],
+  );
+  const camPos = useMemo<[number, number, number]>(
+    () => [gridW * 0.6, heightScale * 0.5, gridH * 0.8],
+    [gridW, gridH, heightScale],
+  );
 
   if (!data || gridW <= 0 || gridH <= 0) {
     return <div className="flex-1 bg-zhi-bg flex items-center justify-center text-zhi-muted text-xs">{t('map.loading')}</div>;

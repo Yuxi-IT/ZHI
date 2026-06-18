@@ -1,6 +1,6 @@
 import { OrbitControls } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface Props {
   heightScale: number;
@@ -9,13 +9,17 @@ interface Props {
 
 export function MapControls3D({ heightScale, camTarget }: Props) {
   const { camera } = useThree();
+  const initRef = useRef(false);
 
+  // Set initial camera position once, then OrbitControls takes over
   useEffect(() => {
-    const hw = 32; // gridW/2
-    const hh = 32; // gridH/2
+    if (initRef.current) return;
+    initRef.current = true;
+    const hw = 32;
+    const hh = 32;
     camera.position.set(hw * 0.6, heightScale * 0.5, hh * 0.8);
     camera.lookAt(...camTarget);
-  }, [camera, heightScale, camTarget]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <OrbitControls
