@@ -39,7 +39,9 @@ export function AgentMarkers({ agents, gridW, gridH, heightMap, heightScale, tra
       const gx = a.x + 0.5;
       const gz = gridH - a.y - 0.5;
       const idx = a.y * gridW + a.x;
-      const h = (heightMap[idx] ?? 128) / 255 * heightScale + 0.5;
+      const hRaw = Number(heightMap[idx]) || 128;
+      const columnHeight = 3 + Math.round((hRaw / 255) * heightScale);
+      const h = columnHeight + 0.5;
 
       dummy.position.set(gx, h, gz);
       const t = Math.min(a.energy / 100, 1);
@@ -62,8 +64,9 @@ export function AgentMarkers({ agents, gridW, gridH, heightMap, heightScale, tra
           const gx = target.x + 0.5;
           const gz = gridH - target.y - 0.5;
           const idx = target.y * gridW + target.x;
-          const h = (heightMap[idx] ?? 128) / 255 * heightScale + 0.5;
-          ring.position.set(gx, h, gz);
+          const hRaw = Number(heightMap[idx]) || 128;
+          const columnHeight = 3 + Math.round((hRaw / 255) * heightScale);
+          ring.position.set(gx, columnHeight + 0.5, gz);
           ring.visible = true;
         } else {
           ring.visible = false;
@@ -76,7 +79,7 @@ export function AgentMarkers({ agents, gridW, gridH, heightMap, heightScale, tra
 
   return (
     <>
-      <instancedMesh ref={meshRef} args={[sphereGeo, mat, aliveAgents.length]}>
+      <instancedMesh ref={meshRef} args={[sphereGeo, mat, aliveAgents.length]} frustumCulled={false}>
       </instancedMesh>
       <mesh ref={ringRef} visible={trackedAgent !== null} renderOrder={2}>
         <ringGeometry args={[0.8, 1.0, 32]} />

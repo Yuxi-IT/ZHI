@@ -35,7 +35,9 @@ export function CorpseMarkers({ corpses, gridW, gridH, heightMap, heightScale }:
       const gx = c.x + 0.5;
       const gz = gridH - c.y - 0.5;
       const idx = c.y * gridW + c.x;
-      const h = (heightMap[idx] ?? 128) / 255 * heightScale + 0.08;
+      const hRaw = Number(heightMap[idx]) || 128;
+      const columnHeight = 3 + Math.round((hRaw / 255) * heightScale);
+      const h = columnHeight + 0.08;
 
       dummy.position.set(gx, h, gz);
 
@@ -53,7 +55,7 @@ export function CorpseMarkers({ corpses, gridW, gridH, heightMap, heightScale }:
   }, [corpses, heightMap, heightScale, gridW, gridH]);
 
   return (
-    <instancedMesh ref={meshRef} args={[boxGeo, mat, corpses.length]}>
+    <instancedMesh ref={meshRef} args={[boxGeo, mat, corpses.length]} frustumCulled={false}>
     </instancedMesh>
   );
 }

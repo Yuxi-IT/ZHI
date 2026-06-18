@@ -40,7 +40,9 @@ export function PlantMarkers({ food, gridW, gridH, heightMap, heightScale }: Pro
       const gx = p.x + 0.5;
       const gz = gridH - p.y - 0.5;
       const idx = p.y * gridW + p.x;
-      const h = (heightMap[idx] ?? 128) / 255 * heightScale + 0.15;
+      const hRaw = Number(heightMap[idx]) || 128;
+      const columnHeight = 3 + Math.round((hRaw / 255) * heightScale);
+      const h = columnHeight + 0.15;
 
       dummy.position.set(gx, h, gz);
 
@@ -63,7 +65,7 @@ export function PlantMarkers({ food, gridW, gridH, heightMap, heightScale }: Pro
   }, [food, heightMap, heightScale, gridW, gridH]);
 
   return (
-    <instancedMesh ref={meshRef} args={[boxGeo, mat, food.length]}>
+    <instancedMesh ref={meshRef} args={[boxGeo, mat, food.length]} frustumCulled={false}>
     </instancedMesh>
   );
 }
