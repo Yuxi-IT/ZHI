@@ -48,6 +48,21 @@ public class CosmosEngine : IDisposable
     private float _gameTimeOfDay;
     private float _temperature;
 
+    // Per-tick reusable buffers (avoid GC allocations)
+    private float[] _rewardBuf = Array.Empty<float>();
+    private float[] _donesBuf = Array.Empty<float>();
+    private long[] _actionsBuf = Array.Empty<long>();
+    private long[] _signalBuf = Array.Empty<long>();
+    private float[] _logProbsBuf = Array.Empty<float>();
+    private float[] _valuesBuf = Array.Empty<float>();
+    private float[] _aliveMaskBuf = Array.Empty<float>();
+    private float[] _intrinsicBuf = Array.Empty<float>();
+    private float[] _scentBuf = Array.Empty<float>();
+    private float[] _foodScentBuf = Array.Empty<float>();
+    private float[] _stateForPpoBuf = Array.Empty<float>();
+    private readonly HashSet<int> _depletedFoodSet = new();
+    private readonly HashSet<int> _depletedCorpsesSet = new();
+
     // Event broadcasting
     private readonly List<WorldEvent> _tickEvents = new();
     public IReadOnlyList<WorldEvent> TickEvents => _tickEvents;
@@ -204,6 +219,12 @@ public class CosmosEngine : IDisposable
         _ppoBuffer?.Dispose();
         _ppoBuffer = new PPOBuffer(PpoRolloutSteps, n, ZHI.Core.Device.TorchDevice);
 
+        // Allocate per-tick reusable buffers
+        int gw = ToolDefinitions.GridWidth, gh = ToolDefinitions.GridHeight;
+        _scentBuf = new float[gw * gh];
+        _foodScentBuf = new float[gw * gh];
+        ResizeTickBuffers(n);
+
         // Initialize death tracking
         _deathTick = new int[n];
         Array.Fill(_deathTick, -1);
@@ -262,6 +283,18 @@ public class CosmosEngine : IDisposable
         }
 
         Log($"[Cosmos] Gen {_generation} initialized: {n} agents, {_v.FoodTiles.Count} food");
+    }
+
+    private void ResizeTickBuffers(int n)
+    {
+        if (_rewardBuf.Length < n) _rewardBuf = new float[n];
+        if (_donesBuf.Length < n) _donesBuf = new float[n];
+        if (_actionsBuf.Length < n) _actionsBuf = new long[n];
+        if (_signalBuf.Length < n) _signalBuf = new long[n];
+        if (_logProbsBuf.Length < n) _logProbsBuf = new float[n];
+        if (_valuesBuf.Length < n) _valuesBuf = new float[n];
+        if (_aliveMaskBuf.Length < n) _aliveMaskBuf = new float[n];
+        if (_intrinsicBuf.Length < n) _intrinsicBuf = new float[n];
     }
 
     // PLACEHOLDER_TICK
@@ -454,21 +487,21 @@ public class CosmosEngine : IDisposable
         float diffRate = _config.Scent.DiffusionRate;
         if (diffRate > 0f)
         {
-            var scentBuf = new float[W * H];
+            Array.Clear(_scentBuf, 0, _scentBuf.Length);
             for (int x = 0; x < W; x++)
                 for (int y = 0; y < H; y++)
                 {
                     float s = _v.ScentGrid[x, y];
                     float share = s * diffRate;
-                    if (x > 0) scentBuf[(x - 1) * H + y] += share * 0.25f;
-                    if (x < W - 1) scentBuf[(x + 1) * H + y] += share * 0.25f;
-                    if (y > 0) scentBuf[x * H + (y - 1)] += share * 0.25f;
-                    if (y < H - 1) scentBuf[x * H + (y + 1)] += share * 0.25f;
-                    scentBuf[x * H + y] += s * (1f - diffRate);
+                    if (x > 0) _scentBuf[(x - 1) * H + y] += share * 0.25f;
+                    if (x < W - 1) _scentBuf[(x + 1) * H + y] += share * 0.25f;
+                    if (y > 0) _scentBuf[x * H + (y - 1)] += share * 0.25f;
+                    if (y < H - 1) _scentBuf[x * H + (y + 1)] += share * 0.25f;
+                    _scentBuf[x * H + y] += s * (1f - diffRate);
                 }
             for (int x = 0; x < W; x++)
                 for (int y = 0; y < H; y++)
-                    _v.ScentGrid[x, y] = scentBuf[x * H + y];
+                    _v.ScentGrid[x, y] = _scentBuf[x * H + y];
         }
 
         // 4b. Food scent decay + diffusion (independent from agent scent)
@@ -480,21 +513,21 @@ public class CosmosEngine : IDisposable
         float foodDiffRate = _config.FoodScent.DiffusionRate;
         if (foodDiffRate > 0f)
         {
-            var foodScentBuf = new float[W * H];
+            Array.Clear(_foodScentBuf, 0, _foodScentBuf.Length);
             for (int x = 0; x < W; x++)
                 for (int y = 0; y < H; y++)
                 {
                     float s = _v.FoodScentGrid[x, y];
                     float share = s * foodDiffRate;
-                    if (x > 0) foodScentBuf[(x - 1) * H + y] += share * 0.25f;
-                    if (x < W - 1) foodScentBuf[(x + 1) * H + y] += share * 0.25f;
-                    if (y > 0) foodScentBuf[x * H + (y - 1)] += share * 0.25f;
-                    if (y < H - 1) foodScentBuf[x * H + (y + 1)] += share * 0.25f;
-                    foodScentBuf[x * H + y] += s * (1f - foodDiffRate);
+                    if (x > 0) _foodScentBuf[(x - 1) * H + y] += share * 0.25f;
+                    if (x < W - 1) _foodScentBuf[(x + 1) * H + y] += share * 0.25f;
+                    if (y > 0) _foodScentBuf[x * H + (y - 1)] += share * 0.25f;
+                    if (y < H - 1) _foodScentBuf[x * H + (y + 1)] += share * 0.25f;
+                    _foodScentBuf[x * H + y] += s * (1f - foodDiffRate);
                 }
             for (int x = 0; x < W; x++)
                 for (int y = 0; y < H; y++)
-                    _v.FoodScentGrid[x, y] = foodScentBuf[x * H + y];
+                    _v.FoodScentGrid[x, y] = _foodScentBuf[x * H + y];
         }
 
         // 4a. Hunger decay
@@ -619,18 +652,14 @@ public class CosmosEngine : IDisposable
         }
 
         // Extract to CPU
-        long[] actionsArr = new long[n];
-        using (var cpuActs = actions.cpu()) cpuActs.data<long>().CopyTo(actionsArr);
-        long[] signalArr = new long[n];
-        using (var cpuSigs = signalValues.cpu()) cpuSigs.data<long>().CopyTo(signalArr);
-        float[] logProbsArr = new float[n];
-        using (var cpuLp = logProbs.cpu()) cpuLp.data<float>().CopyTo(logProbsArr);
-        float[] valuesArr = new float[n];
-        using (var cpuVals = values.cpu()) cpuVals.data<float>().CopyTo(valuesArr);
+        using (var cpuActs = actions.cpu()) cpuActs.data<long>().CopyTo(_actionsBuf);
+        using (var cpuSigs = signalValues.cpu()) cpuSigs.data<long>().CopyTo(_signalBuf);
+        using (var cpuLp = logProbs.cpu()) cpuLp.data<float>().CopyTo(_logProbsBuf);
+        using (var cpuVals = values.cpu()) cpuVals.data<float>().CopyTo(_valuesBuf);
 
         // 8. Process actions
-        float[] rewards = new float[n];
-        ProcessActions(actionsArr, signalArr, rewards);
+        Array.Clear(_rewardBuf, 0, n);
+        ProcessActions(_actionsBuf, _signalBuf, _rewardBuf);
 
         // 8b. Stationary detection + Stamina recovery
         for (int i = 0; i < n; i++)
@@ -638,7 +667,7 @@ public class CosmosEngine : IDisposable
             if (!_v.Alive[i]) continue;
 
             // Stationary判定: Attack also resets counter
-            long act = actionsArr[i];
+            long act = _actionsBuf[i];
             bool isMovingOrFighting = act >= 0 && act <= 3 || act == 8 || act == 9 || act == 5;
             if (isMovingOrFighting)
                 _v.TicksSinceLastMove[i] = 0;
@@ -670,7 +699,7 @@ public class CosmosEngine : IDisposable
                     _v.SignalField[x, y, ch] *= 0.9f;
 
         // 9. Death check + corpse spawning
-        float[] donesArr = new float[n];
+        Array.Clear(_donesBuf, 0, n);
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
@@ -678,8 +707,8 @@ public class CosmosEngine : IDisposable
             {
                 _v.Alive[i] = false;
                 _v.StatusMirror[i] = "DEAD";
-                rewards[i] = -20f;
-                donesArr[i] = 1f;
+                _rewardBuf[i] = -20f;
+                _donesBuf[i] = 1f;
                 _deathTick[i] = _globalTick;
 
                 _tickEvents.Add(new WorldEvent { Type = "death", AgentId = i, Tick = _globalTick });
@@ -698,27 +727,26 @@ public class CosmosEngine : IDisposable
         // Survival reward for alive agents
         for (int i = 0; i < n; i++)
         {
-            if (_v.Alive[i])
-                rewards[i] += 0.1f;
+                if (_v.Alive[i])
+                _rewardBuf[i] += 0.1f;
         }
 
         // RND intrinsic curiosity
         using (var scope = torch.NewDisposeScope())
         {
             using var intrinsic = _rnd!.ComputeIntrinsicReward(_v.StateMatrix);
-            float[] intrinsicArr = new float[n];
-            using (var cpuIntr = intrinsic.cpu()) cpuIntr.data<float>().CopyTo(intrinsicArr);
+            using (var cpuIntr = intrinsic.cpu()) cpuIntr.data<float>().CopyTo(_intrinsicBuf);
             for (int i = 0; i < n; i++)
-                if (_v.Alive[i]) rewards[i] += intrinsicArr[i];
+                if (_v.Alive[i]) _rewardBuf[i] += _intrinsicBuf[i];
         }
 
         // 10. Update tracking
         for (int i = 0; i < n; i++)
         {
-            if (_v.Alive[i] || donesArr[i] == 1f)
+            if (_v.Alive[i] || _donesBuf[i] == 1f)
             {
-                _v.LastAction[i] = actionsArr[i];
-                _v.LastActionNameMirror[i] = ToolDefinitions.ActionNames[(int)actionsArr[i]];
+                _v.LastAction[i] = _actionsBuf[i];
+                _v.LastActionNameMirror[i] = ToolDefinitions.ActionNames[(int)_actionsBuf[i]];
                 _v.TickCount[i]++;
             }
         }
@@ -726,9 +754,8 @@ public class CosmosEngine : IDisposable
         // Reset GRU hidden for dead agents
         using (var dScope = torch.NewDisposeScope())
         {
-            var aliveMask = new float[n];
-            for (int i = 0; i < n; i++) aliveMask[i] = _v.Alive[i] ? 1f : 0f;
-            using var mask = tensor(aliveMask, device: _v.Device).unsqueeze(0).unsqueeze(-1);
+            for (int i = 0; i < n; i++) _aliveMaskBuf[i] = _v.Alive[i] ? 1f : 0f;
+            using var mask = tensor(_aliveMaskBuf, device: _v.Device).unsqueeze(0).unsqueeze(-1);
             _gruHidden!.mul_(mask);
         }
 
@@ -738,15 +765,15 @@ public class CosmosEngine : IDisposable
         // 11. Snapshot current observation (s_t) for PPO storage
         int stateSize = ToolDefinitions.StateSize;
         int nn = _v.N;
-        float[] stateForPpo = new float[nn * stateSize];
-        Array.Copy(_v.GetStateBuffer(), stateForPpo, nn * stateSize);
+        if (_stateForPpoBuf.Length < nn * stateSize) _stateForPpoBuf = new float[nn * stateSize];
+        Array.Copy(_v.GetStateBuffer(), _stateForPpoBuf, nn * stateSize);
 
         // 11b. Rebuild spatial grids + build next observation (s_{t+1}) for GRU
         _v.RebuildSpatialGrids();
         _v.BuildStateMatrix();
 
         // 11c. Store in PPO buffer (s_t, a_t, r_t, v_t)
-        _ppoBuffer!.Store(stateForPpo, actionsArr, signalArr, logProbsArr, rewards, donesArr, valuesArr);
+        _ppoBuffer!.Store(_stateForPpoBuf, _actionsBuf, _signalBuf, _logProbsBuf, _rewardBuf, _donesBuf, _valuesBuf);
 
         // 12. PPO update
         if (_ppoBuffer.IsFull)
@@ -807,6 +834,7 @@ public class CosmosEngine : IDisposable
             // Recreate PPO buffer for new agent count (discard partial rollout)
             _ppoBuffer?.Dispose();
             _ppoBuffer = new PPOBuffer(PpoRolloutSteps, n, _v.Device);
+            ResizeTickBuffers(n);
 
             // Grow death tick array
             var oldDeathTick = _deathTick;
@@ -849,8 +877,8 @@ public class CosmosEngine : IDisposable
         int H = ToolDefinitions.GridHeight;
 
         // Track depleted food/corpse indices for cleanup
-        var depletedFood = new HashSet<int>();
-        var depletedCorpses = new HashSet<int>();
+        _depletedFoodSet.Clear();
+        _depletedCorpsesSet.Clear();
 
         for (int i = 0; i < n; i++)
         {
@@ -861,7 +889,7 @@ public class CosmosEngine : IDisposable
             // Auto-extract energy if in eating toggle state (before action processing)
             if (_v.IsEating[i])
             {
-                bool stillEating = AutoExtractEating(i, rewards, depletedFood, depletedCorpses);
+                bool stillEating = AutoExtractEating(i, rewards, _depletedFoodSet, _depletedCorpsesSet);
                 if (!stillEating)
                     _v.IsEating[i] = false;
             }
@@ -953,7 +981,7 @@ public class CosmosEngine : IDisposable
                     break;
 
                 case ZhiAction.Eat:
-                    ProcessEat(i, rewards, depletedFood, depletedCorpses);
+                    ProcessEat(i, rewards, _depletedFoodSet, _depletedCorpsesSet);
                     break;
 
                 case ZhiAction.Attack:
@@ -995,15 +1023,15 @@ public class CosmosEngine : IDisposable
         }
 
         // Cleanup depleted foods and corpses
-        if (depletedFood.Count > 0 || depletedCorpses.Count > 0)
+        if (_depletedFoodSet.Count > 0 || _depletedCorpsesSet.Count > 0)
         {
             lock (_v.LockObj)
             {
-                var sortedFood = depletedFood.OrderByDescending(x => x).ToList();
+                var sortedFood = _depletedFoodSet.OrderByDescending(x => x).ToList();
                 foreach (int idx in sortedFood)
                     _v.FoodTiles.RemoveAt(idx);
 
-                var sortedCorpses = depletedCorpses.OrderByDescending(x => x).ToList();
+                var sortedCorpses = _depletedCorpsesSet.OrderByDescending(x => x).ToList();
                 foreach (int idx in sortedCorpses)
                     _v.CorpseTiles.RemoveAt(idx);
             }
