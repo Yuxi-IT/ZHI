@@ -70,11 +70,11 @@ public partial class VectorizedState : IDisposable
     public float[,] WaterSoundGrid;
     public float[,] TemperatureGrid;
     public float[,] ChemicalField;   // [W, H] — continuous chemical diffusion field
-    public byte[,] TerrainType;
-    public int[,] TerrainTTL;
     public byte[,] RiverFlow;
     public int[,] DistanceToRiver;
-    public float[,] HeightMap;       // [W, H] — continuous elevation (-10 to +10)
+    public byte[,] HeightMap;        // [W, H] — elevation 0..255
+    public float[,] Slope;           // [W, H] — gradient magnitude (height units / cell)
+    public byte[,] Aspect;           // [W, H] — slope direction (0-7 = N..NW, 255 = flat)
     public float[,] NutrientGrid;    // [W, H] — soil nutrients (0 to MaxNutrient)
     public float[,] SurfaceWaterGrid; // [W, H] — surface water depth (0 to SurfaceWaterMaxDepth)
     public float[,] GroundwaterGrid;  // [W, H] — groundwater saturation (0 to 1)
@@ -146,11 +146,11 @@ public partial class VectorizedState : IDisposable
         WaterSoundGrid = new float[W, H];
         TemperatureGrid = new float[W, H];
         ChemicalField = new float[W, H];
-        TerrainType = new byte[W, H];
-        TerrainTTL = new int[W, H];
         RiverFlow = new byte[W, H];
         DistanceToRiver = new int[W, H];
-        HeightMap = new float[W, H];
+        HeightMap = new byte[W, H];
+        Slope = new float[W, H];
+        Aspect = new byte[W, H];
         NutrientGrid = new float[W, H];
         SurfaceWaterGrid = new float[W, H];
         GroundwaterGrid = new float[W, H];
@@ -218,40 +218,11 @@ public partial class VectorizedState : IDisposable
                IsAnyWater(x, y - 1) || IsAnyWater(x, y + 1);
     }
 
-    public byte GetTerrainAt(int x, int y)
-    {
-        if (x < 0 || x >= ToolDefinitions.GridWidth || y < 0 || y >= ToolDefinitions.GridHeight) return 0;
-        return TerrainType[x, y];
-    }
-
-    public bool IsMoundAt(int x, int y)
-    {
-        return GetTerrainAt(x, y) == ToolDefinitions.TerrainMound;
-    }
-
     public bool IsAnyWater(int x, int y)
     {
         if (x < 0 || x >= ToolDefinitions.GridWidth || y < 0 || y >= ToolDefinitions.GridHeight) return false;
-        return RiverGrid[x, y] > 0 || TerrainType[x, y] == ToolDefinitions.TerrainDynamicWater
+        return RiverGrid[x, y] > 0
             || (SurfaceWaterGrid != null && SurfaceWaterGrid[x, y] > 0);
-    }
-
-    public int CountAdjacentTerrain(int x, int y, byte terrainType)
-    {
-        int W = ToolDefinitions.GridWidth;
-        int H = ToolDefinitions.GridHeight;
-        int count = 0;
-        for (int dx = -1; dx <= 1; dx++)
-        {
-            for (int dy = -1; dy <= 1; dy++)
-            {
-                if (dx == 0 && dy == 0) continue;
-                int nx = x + dx, ny = y + dy;
-                if (nx >= 0 && nx < W && ny >= 0 && ny < H && TerrainType[nx, ny] == terrainType)
-                    count++;
-            }
-        }
-        return count;
     }
 
     public void ComputeDistanceToRiver(int maxInfluence)
@@ -294,6 +265,47 @@ public partial class VectorizedState : IDisposable
                     }
                 }
         }
+    }
+
+    /// <summary>
+    /// Compute slope (gradient magnitude) and aspect (8-direction) from HeightMap.
+    /// Slope units: height difference per cell (0..255 range).
+    /// Aspect: 0=N,1=NE,2=E,3=SE,4=S,5=SW,6=W,7=NW,255=flat.
+    /// </summary>
+    public void ComputeSlopeAndAspect()
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        for (int x = 0; x < W; x++)
+        {
+            for (int y = 0; y < H; y++)
+            {
+                float dx = 0, dy = 0;
+                if (x > 0 && x < W - 1) dx = (HeightMap[x + 1, y] - HeightMap[x - 1, y]) / 2f;
+                else if (x == 0 && W > 1) dx = HeightMap[1, y] - HeightMap[0, y];
+                else if (x == W - 1 && W > 1) dx = HeightMap[W - 1, y] - HeightMap[W - 2, y];
+                if (y > 0 && y < H - 1) dy = (HeightMap[x, y + 1] - HeightMap[x, y - 1]) / 2f;
+                else if (y == 0 && H > 1) dy = HeightMap[x, 1] - HeightMap[x, 0];
+                else if (y == H - 1 && H > 1) dy = HeightMap[x, H - 1] - HeightMap[x, H - 2];
+
+                Slope[x, y] = MathF.Sqrt(dx * dx + dy * dy);
+
+                if (Slope[x, y] < 0.5f)
+                    Aspect[x, y] = ToolDefinitions.AspectFlat;
+                else
+                    Aspect[x, y] = QuantizeAspect(dx, dy);
+            }
+        }
+    }
+
+    private static byte QuantizeAspect(float dx, float dy)
+    {
+        float angle = MathF.Atan2(dy, dx); // atan2(dy,dx): 0=E, PI/2=S, -PI/2=N, ±PI=W
+        // Shift so 0 = N (up, dy<0), clockwise: N,NE,E,SE,S,SW,W,NW
+        float shifted = angle + MathF.PI / 2f; // now 0=N
+        if (shifted < 0) shifted += 2f * MathF.PI;
+        int octant = (int)MathF.Round(shifted / (MathF.PI / 4f)) % 8;
+        return (byte)octant;
     }
 
     public int GetCellOccupancy(int x, int y)
@@ -362,7 +374,6 @@ public partial class VectorizedState : IDisposable
             PosY[i] = rng.Next(H);
             attempts++;
         } while ((IsDeepWater(PosX[i], PosY[i])
-                   || TerrainType[PosX[i], PosY[i]] == ToolDefinitions.TerrainDynamicWater
                    || GetCellOccupancy(PosX[i], PosY[i]) >= 2)
                   && attempts < 50);
 

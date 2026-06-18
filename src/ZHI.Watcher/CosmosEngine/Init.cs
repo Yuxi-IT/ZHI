@@ -41,6 +41,7 @@ public partial class CosmosEngine
         Array.Clear(_v.RiverGrid);
         Array.Clear(_v.WaterSoundGrid);
         GenerateHeightMap();
+        _v.ComputeSlopeAndAspect();
         GenerateRiver();
         _v.ComputeDistanceToRiver(_config.Temperature.RiverLandInfluence);
         ComputeWaterSound();

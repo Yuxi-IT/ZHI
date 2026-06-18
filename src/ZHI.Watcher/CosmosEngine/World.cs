@@ -4,75 +4,6 @@ namespace ZHI.Watcher;
 
 public partial class CosmosEngine
 {
-    /// <summary>Check if cell has any water in its Moore (8) neighborhood.</summary>
-    private bool HasAdjacentWater(int x, int y)
-    {
-        int W = ToolDefinitions.GridWidth;
-        int H = ToolDefinitions.GridHeight;
-        for (int dx = -1; dx <= 1; dx++)
-        {
-            for (int dy = -1; dy <= 1; dy++)
-            {
-                if (dx == 0 && dy == 0) continue;
-                int nx = x + dx, ny = y + dy;
-                if (nx >= 0 && nx < W && ny >= 0 && ny < H && _v.IsAnyWater(nx, ny))
-                    return true;
-            }
-        }
-        return false;
-    }
-
-    /// <summary>
-    /// Per-tick terrain physics v4.2:
-    /// - Weathering: Pit/Mound TTL decrement → Flat when expired (DynamicWater is permanent, -1 TTL).
-    /// - Flooding: only Pit floods (Mound/Flat block water). DynamicWater is permanent.
-    /// </summary>
-    private void SettleTerrainPhysics()
-    {
-        int W = ToolDefinitions.GridWidth;
-        int H = ToolDefinitions.GridHeight;
-
-        for (int x = 0; x < W; x++)
-        {
-            for (int y = 0; y < H; y++)
-            {
-                byte type = _v.TerrainType[x, y];
-                int ttl = _v.TerrainTTL[x, y];
-
-                // 1. Weathering: only Pit and Mound decay (TTL > 0 means active lifespan)
-                if ((type == ToolDefinitions.TerrainPit || type == ToolDefinitions.TerrainMound) && ttl > 0)
-                {
-                    _v.TerrainTTL[x, y] = --ttl;
-                    if (ttl == 0)
-                    {
-                        _v.TerrainType[x, y] = ToolDefinitions.TerrainFlat;
-                        _tickEvents.Add(new WorldEvent
-                        {
-                            Type = "weather", AgentId = -1,
-                            FoodType = type == ToolDefinitions.TerrainPit ? "pit" : "mound",
-                            Value = x * 1000 + y,
-                            Tick = _globalTick
-                        });
-                    }
-                }
-
-                // 2. Flooding: only Pit can be flooded. Mound and Flat block water.
-                if (type == ToolDefinitions.TerrainPit && HasAdjacentWater(x, y))
-                {
-                    _v.TerrainType[x, y] = ToolDefinitions.TerrainDynamicWater;
-                    _v.TerrainTTL[x, y] = ToolDefinitions.PermaWaterTTL; // permanent, no evaporation
-                    _tickEvents.Add(new WorldEvent
-                    {
-                        Type = "flood", AgentId = -1,
-                        FoodType = "pit_flooded",
-                        Value = x * 1000 + y,
-                        Tick = _globalTick
-                    });
-                }
-            }
-        }
-    }
-
     /// <summary>Convert dx,dy delta to 8-direction byte: 1=N, 2=NE, 3=E, 4=SE, 5=S, 6=SW, 7=W, 8=NW.</summary>
     private static byte DeltaToFlowDir(int dx, int dy)
     {
@@ -94,7 +25,7 @@ public partial class CosmosEngine
 
     /// <summary>
     /// Generate continuous height map using layered value noise.
-    /// Heights range from -10 (basin) to +10 (peak). River will later follow the gradient.
+    /// Heights range from 0 (basin) to 255 (peak). Output stored as byte[,].
     /// </summary>
     private void GenerateHeightMap()
     {
@@ -141,8 +72,7 @@ public partial class CosmosEngine
                     amp *= 0.5f;
                 }
                 h /= totalAmp;        // normalize to 0–1
-                h = (h - 0.5f) * 20f; // map to -10..+10
-                _v.HeightMap[x, y] = h;
+                _v.HeightMap[x, y] = (byte)(h * 255f); // map to 0..255
             }
         }
     }
