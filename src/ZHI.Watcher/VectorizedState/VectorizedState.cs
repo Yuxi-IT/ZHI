@@ -79,6 +79,7 @@ public partial class VectorizedState : IDisposable
     public byte[,] TerrainType;     // [GridWidth, GridHeight] — 0=Flat, 1=Pit, 2=Mound, 3=DynamicWater
     public int[,] TerrainTTL;       // [GridWidth, GridHeight] — remaining lifespan, -1=permanent
     public byte[,] RiverFlow;       // [GridWidth, GridHeight] — 0=none, 1-8=8-direction flow
+    public int[,] DistanceToRiver;  // [GridWidth, GridHeight] — Chebyshev dist to nearest water cell, -1=far
 
     // Spatial query grids (rebuilt each tick, pre-allocated once)
     private int[] _agentGrid;      // [W*H] → agent index or -1
@@ -144,6 +145,7 @@ public partial class VectorizedState : IDisposable
         TerrainType = new byte[W, H];
         TerrainTTL = new int[W, H];
         RiverFlow = new byte[W, H];
+        DistanceToRiver = new int[W, H];
 
         // Spatial query grids (pre-allocated, cleared each tick)
         int gridSize = W * H;
@@ -240,6 +242,53 @@ public partial class VectorizedState : IDisposable
             }
         }
         return count;
+    }
+
+    /// <summary>
+    /// Compute Chebyshev distance from each cell to the nearest water cell (RiverGrid > 0).
+    /// Water cells get distance 0. Cells beyond RiverLandInfluence cap at influence+1.
+    /// </summary>
+    public void ComputeDistanceToRiver(int maxInfluence)
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        int sentinel = maxInfluence + 1;
+
+        var queue = new Queue<(int x, int y)>();
+        for (int x = 0; x < W; x++)
+            for (int y = 0; y < H; y++)
+            {
+                if (RiverGrid[x, y] > 0)
+                {
+                    DistanceToRiver[x, y] = 0;
+                    queue.Enqueue((x, y));
+                }
+                else
+                {
+                    DistanceToRiver[x, y] = sentinel;
+                }
+            }
+
+        // Moore neighborhood (8-direction) BFS → Chebyshev distance
+        while (queue.Count > 0)
+        {
+            var (cx, cy) = queue.Dequeue();
+            int nd = DistanceToRiver[cx, cy] + 1;
+            if (nd > maxInfluence) continue;
+
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+                    int nx = cx + dx, ny = cy + dy;
+                    if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
+                    if (nd < DistanceToRiver[nx, ny])
+                    {
+                        DistanceToRiver[nx, ny] = nd;
+                        queue.Enqueue((nx, ny));
+                    }
+                }
+        }
     }
 
     public bool HasAnyAgentAt(int x, int y)

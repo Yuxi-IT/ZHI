@@ -12,10 +12,69 @@ public partial class CosmosEngine
 
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
+        float ambientTarget = _temperature;
+        float landRate = _config.Temperature.LandLerpRate;
+        float waterRate = landRate / _config.Temperature.WaterHeatCapacity;
+        float diffRate = _config.Temperature.ThermalDiffusionRate;
+        int influence = _config.Temperature.RiverLandInfluence;
+        float deepOffset = _config.Temperature.DeepWaterExtraCold;
+
+        // Pre-compute per-cell lerp rate based on distance to nearest water
+        var lerpRates = new float[W, H];
         for (int x = 0; x < W; x++)
             for (int y = 0; y < H; y++)
-                _v.TemperatureGrid[x, y] = _temperature;
+            {
+                int dist = _v.DistanceToRiver[x, y];
+                if (dist == 0)
+                {
+                    // Water cell: high heat capacity → slow temp change
+                    lerpRates[x, y] = waterRate;
+                }
+                else if (dist <= influence)
+                {
+                    // Land near river: interpolated between water and land rates
+                    float t = (float)dist / influence;
+                    lerpRates[x, y] = waterRate + (landRate - waterRate) * t;
+                }
+                else
+                {
+                    // Inland: fast temp change
+                    lerpRates[x, y] = landRate;
+                }
+            }
 
+        // Pass 1: ambient convergence + thermal diffusion (write to new grid)
+        var newGrid = new float[W, H];
+        for (int x = 0; x < W; x++)
+            for (int y = 0; y < H; y++)
+            {
+                float oldTemp = _v.TemperatureGrid[x, y];
+                float target = ambientTarget;
+
+                // Deep water is slightly colder than surface water
+                if (_v.DistanceToRiver[x, y] == 0 && _v.RiverGrid[x, y] == 2)
+                    target -= deepOffset;
+
+                // Ambient convergence
+                float newTemp = oldTemp + (target - oldTemp) * lerpRates[x, y];
+
+                // Thermal diffusion: blend toward average of 4 cardinal neighbors
+                float neighborSum = 0f;
+                int nc = 0;
+                if (x > 0) { neighborSum += _v.TemperatureGrid[x - 1, y]; nc++; }
+                if (x < W - 1) { neighborSum += _v.TemperatureGrid[x + 1, y]; nc++; }
+                if (y > 0) { neighborSum += _v.TemperatureGrid[x, y - 1]; nc++; }
+                if (y < H - 1) { neighborSum += _v.TemperatureGrid[x, y + 1]; nc++; }
+                if (nc > 0)
+                {
+                    float neighborAvg = neighborSum / nc;
+                    newTemp += (neighborAvg - newTemp) * diffRate;
+                }
+
+                newGrid[x, y] = newTemp;
+            }
+
+        // Pass 2: additive contributions — agent body heat
         float bodyHeat = _config.Temperature.AgentBodyHeat;
         float initialHP = _config.Existence.Initial;
         for (int i = 0; i < n; i++)
@@ -28,57 +87,29 @@ public partial class CosmosEngine
             float selfBonus = _v.IsStationary[i] ? _config.Stamina.StationarySelfHeat : 0f;
             float neighborBonus = _v.IsStationary[i] ? _config.Stamina.StationaryNeighborHeat : 0f;
 
-            _v.TemperatureGrid[ax, ay] += agentHeat + selfBonus;
+            newGrid[ax, ay] += agentHeat + selfBonus;
             for (int dx = -1; dx <= 1; dx++)
                 for (int dy = -1; dy <= 1; dy++)
                 {
                     if (dx == 0 && dy == 0) continue;
                     int nx = ax + dx, ny = ay + dy;
                     if (nx >= 0 && nx < W && ny >= 0 && ny < H)
-                        _v.TemperatureGrid[nx, ny] += agentHeat * 0.5f + neighborBonus;
+                        newGrid[nx, ny] += agentHeat * 0.5f + neighborBonus;
                 }
         }
 
-        float riverCooling = _config.Temperature.RiverCooling;
-        int riverCoolRange = _config.Temperature.RiverCoolingRange;
-        float deepExtraCold = _config.Temperature.DeepWaterExtraCold;
-        if (riverCooling > 0f && riverCoolRange > 0)
-        {
-            for (int x = 0; x < W; x++)
-                for (int y = 0; y < H; y++)
-                {
-                    int rv = _v.RiverGrid[x, y];
-                    if (rv == 0) continue;
-                    float depthFactor = rv == 2 ? 1f : 0.5f;
-                    for (int dx = -riverCoolRange; dx <= riverCoolRange; dx++)
-                        for (int dy = -riverCoolRange; dy <= riverCoolRange; dy++)
-                        {
-                            int nx = x + dx, ny = y + dy;
-                            if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
-                            int dist = Math.Max(Math.Abs(dx), Math.Abs(dy));
-                            float falloff = 1f - (float)dist / (riverCoolRange + 1);
-                            _v.TemperatureGrid[nx, ny] -= riverCooling * depthFactor * falloff;
-                        }
-                }
-        }
-
-        // Deep water extra cold (applied directly to deep water cells)
-        if (deepExtraCold > 0f)
-        {
-            for (int x = 0; x < W; x++)
-                for (int y = 0; y < H; y++)
-                    if (_v.RiverGrid[x, y] == 2)
-                        _v.TemperatureGrid[x, y] -= deepExtraCold;
-        }
-
+        // Pass 3: daytime mound shade
         bool isDaytime = _gameTimeOfDay >= 6f && _gameTimeOfDay < 20f;
         if (isDaytime)
         {
             for (int x = 0; x < W; x++)
                 for (int y = 0; y < H; y++)
                     if (_v.TerrainType[x, y] == ToolDefinitions.TerrainMound)
-                        _v.TemperatureGrid[x, y] -= 3f;
+                        newGrid[x, y] -= 3f;
         }
+
+        // Swap grids
+        _v.TemperatureGrid = newGrid;
     }
 
     private void ApplyAgentPhysiology(int n)

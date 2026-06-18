@@ -43,6 +43,7 @@ public partial class CosmosEngine
         Array.Clear(_v.RiverGrid);
         Array.Clear(_v.WaterSoundGrid);
         GenerateRiver();
+        _v.ComputeDistanceToRiver(_config.Temperature.RiverLandInfluence);
         ComputeWaterSound();
         SpawnInitialFood();
 

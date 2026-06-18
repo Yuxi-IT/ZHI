@@ -172,8 +172,14 @@ public sealed class TemperatureConfig
     public float HuddleRange { get; set; } = 2f;     // Manhattan distance for warmth sharing
     public float HuddleWarmthPerAgent { get; set; } = 3f; // effective °C per nearby agent
     public float AgentBodyHeat { get; set; } = 2f;   // °C per agent on own cell (half on 8 neighbors), scaled by HP ratio
-    public float RiverCooling { get; set; } = 5f;     // °C cooling from deep water on own cell
-    public int RiverCoolingRange { get; set; } = 2;   // cooling falloff distance (Chebyshev)
+    [Obsolete("Replaced by thermal diffusion + distance field in v4.3")]
+    public float RiverCooling { get; set; } = 5f;
+    [Obsolete("Replaced by thermal diffusion + distance field in v4.3")]
+    public int RiverCoolingRange { get; set; } = 2;
+    public float LandLerpRate { get; set; } = 0.25f;     // land temp convergence rate to ambient per tick
+    public float WaterHeatCapacity { get; set; } = 4.0f;  // water temp change multiplier (higher = slower)
+    public float ThermalDiffusionRate { get; set; } = 0.12f; // heat spread rate to 4 neighbors per tick
+    public int RiverLandInfluence { get; set; } = 8;      // max Chebyshev distance river affects land lerp rate
     public float HypothermiaThreshold { get; set; } = 33f;   // below this body temp → HP decay
     public float HypothermiaMaxDamage { get; set; } = 0.08f; // max HP/tick at body temp 26°C
     public float WaterCoolingMult { get; set; } = 2f;       // body temp lerp multiplier in water
