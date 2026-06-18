@@ -85,15 +85,15 @@ public partial class WebServer
             for (int sy = 0; sy < gh; sy++)
                 chemicalField[sy * gw + sx] = v.ChemicalField[sx, sy];
 
-        var terrain = new int[gw * gh];
-        for (int tx = 0; tx < gw; tx++)
-            for (int ty = 0; ty < gh; ty++)
-                terrain[ty * gw + tx] = v.TerrainType[tx, ty];
+        var heightMap = new byte[gw * gh];
+        for (int hx = 0; hx < gw; hx++)
+            for (int hy = 0; hy < gh; hy++)
+                heightMap[hy * gw + hx] = v.HeightMap[hx, hy];
 
-        var terrainTtl = new int[gw * gh];
-        for (int tx = 0; tx < gw; tx++)
-            for (int ty = 0; ty < gh; ty++)
-                terrainTtl[ty * gw + tx] = v.TerrainTTL[tx, ty];
+        var slope = new float[gw * gh];
+        for (int sx = 0; sx < gw; sx++)
+            for (int sy = 0; sy < gh; sy++)
+                slope[sy * gw + sx] = v.Slope[sx, sy];
 
         var riverFlow = new int[gw * gh];
         for (int fx = 0; fx < gw; fx++)
@@ -150,8 +150,8 @@ public partial class WebServer
             food_scent = foodScent,
             temperature_grid = tempGrid,
             chemical_field = chemicalField,
-            terrain,
-            terrain_ttl = terrainTtl,
+            height_map = heightMap,
+            slope,
             river_flow = riverFlow,
             surface_water = surfaceWater,
             groundwater,
