@@ -5,7 +5,7 @@ import { useT } from '../i18n/I18nContext';
 export interface ZhiConfig {
   grid: { width: number; height: number; initial_food: number; initial_big_food: number; food_energy: number; big_food_energy: number; food_decay_per_tick: number; big_food_decay_per_tick: number; max_food: number; food_respawn_interval: number; food_per_tick_energy: number; big_food_per_tick_energy: number; corpse_per_tick_energy: number };
   cosmos: { agent_count: number; respawn_delay_ticks: number; mutation_std: number };
-  temperature: { max_temp: number; min_temp: number; cold_threshold: number; max_cold_decay: number; hot_threshold: number; max_thirst_accel: number; huddle_range: number; huddle_warmth_per_agent: number; agent_body_heat: number; river_cooling: number; river_cooling_range: number };
+  temperature: { max_temp: number; min_temp: number; cold_threshold: number; max_cold_decay: number; hot_threshold: number; max_thirst_accel: number; huddle_range: number; huddle_warmth_per_agent: number; agent_body_heat: number; land_lerp_rate: number; water_heat_capacity: number; thermal_diffusion_rate: number; river_land_influence: number };
   combat: { attack_range: number; stress_per_attack: number; stress_damage: number; attack_cost: number };
   hunger: { decay_rate: number; penalty_start: number; max_penalty: number; initial: number };
   thirst: { decay_rate: number; drink_restore: number; penalty_start: number; max_penalty: number; initial: number };
@@ -18,7 +18,7 @@ export interface ZhiConfig {
 export const DEFAULT_CONFIG: ZhiConfig = {
   grid: { width: 64, height: 64, initial_food: 70, initial_big_food: 10, food_energy: 30, big_food_energy: 100, food_decay_per_tick: 0.002, big_food_decay_per_tick: 0.001, max_food: 100, food_respawn_interval: 60, food_per_tick_energy: 3, big_food_per_tick_energy: 8, corpse_per_tick_energy: 2 },
   cosmos: { agent_count: 64, respawn_delay_ticks: 30, mutation_std: 0.1 },
-  temperature: { max_temp: 40, min_temp: -5, cold_threshold: 10, max_cold_decay: 0.5, hot_threshold: 30, max_thirst_accel: 0.3, huddle_range: 2, huddle_warmth_per_agent: 3, agent_body_heat: 2, river_cooling: 5, river_cooling_range: 2 },
+  temperature: { max_temp: 40, min_temp: -5, cold_threshold: 10, max_cold_decay: 0.5, hot_threshold: 30, max_thirst_accel: 0.3, huddle_range: 2, huddle_warmth_per_agent: 3, agent_body_heat: 2, land_lerp_rate: 0.25, water_heat_capacity: 4, thermal_diffusion_rate: 0.12, river_land_influence: 8 },
   combat: { attack_range: 3, stress_per_attack: 1.5, stress_damage: 0.15, attack_cost: 5 },
   hunger: { decay_rate: 0.04, penalty_start: 30, max_penalty: 0.03, initial: 100 },
   thirst: { decay_rate: 0.025, drink_restore: 40, penalty_start: 20, max_penalty: 0.04, initial: 100 },
@@ -111,8 +111,10 @@ export function ConfigFormFields({ config, update }: {
         <NumberField label={t('settings.huddleRange')} value={te.huddle_range} onChange={v => update('temperature', 'huddle_range', v)} min={0} max={10} />
         <NumberField label={t('settings.huddleWarmth')} value={te.huddle_warmth_per_agent} onChange={v => update('temperature', 'huddle_warmth_per_agent', v)} min={0} max={20} step={0.5} />
         <NumberField label={t('settings.agentBodyHeat')} value={te.agent_body_heat} onChange={v => update('temperature', 'agent_body_heat', v)} min={0} max={10} step={0.5} />
-        <NumberField label={t('settings.riverCooling')} value={te.river_cooling} onChange={v => update('temperature', 'river_cooling', v)} min={0} max={20} step={0.5} />
-        <NumberField label={t('settings.coolingRange')} value={te.river_cooling_range} onChange={v => update('temperature', 'river_cooling_range', v)} min={0} max={5} />
+        <NumberField label={t('settings.landLerpRate')} value={te.land_lerp_rate} onChange={v => update('temperature', 'land_lerp_rate', v)} min={0.01} max={1} step={0.01} />
+        <NumberField label={t('settings.waterHeatCapacity')} value={te.water_heat_capacity} onChange={v => update('temperature', 'water_heat_capacity', v)} min={1} max={20} step={0.5} />
+        <NumberField label={t('settings.thermalDiffusion')} value={te.thermal_diffusion_rate} onChange={v => update('temperature', 'thermal_diffusion_rate', v)} min={0} max={0.5} step={0.01} />
+        <NumberField label={t('settings.riverLandInfluence')} value={te.river_land_influence} onChange={v => update('temperature', 'river_land_influence', v)} min={0} max={20} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.combat')}>
@@ -177,8 +179,10 @@ export function ConfigReadOnly({ config }: { config: ZhiConfig }) {
         <ReadOnlyField label={t('settings.huddleRange')} value={te.huddle_range} />
         <ReadOnlyField label={t('settings.huddleWarmth')} value={te.huddle_warmth_per_agent} />
         <ReadOnlyField label={t('settings.agentBodyHeat')} value={te.agent_body_heat} />
-        <ReadOnlyField label={t('settings.riverCooling')} value={te.river_cooling} />
-        <ReadOnlyField label={t('settings.coolingRange')} value={te.river_cooling_range} />
+        <ReadOnlyField label={t('settings.landLerpRate')} value={te.land_lerp_rate} />
+        <ReadOnlyField label={t('settings.waterHeatCapacity')} value={te.water_heat_capacity} />
+        <ReadOnlyField label={t('settings.thermalDiffusion')} value={te.thermal_diffusion_rate} />
+        <ReadOnlyField label={t('settings.riverLandInfluence')} value={te.river_land_influence} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.combat')}>
