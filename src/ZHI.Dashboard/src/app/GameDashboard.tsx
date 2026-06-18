@@ -36,7 +36,7 @@ function tempColor(t: number): string {
 }
 
 export function GameDashboard({ worldName, onStop }: Props) {
-  const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, signalField, terrain, terrainTtl, riverFlow, stats, connected } = useWebSocket();
+  const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, chemicalField, terrain, terrainTtl, riverFlow, stats, connected } = useWebSocket();
   const { logs, events, clearEvents } = useLogSocket();
   const { stats: dbStats, loading } = useStats();
   const { history, record } = useEcoHistory();
@@ -57,7 +57,7 @@ export function GameDashboard({ worldName, onStop }: Props) {
   const [showFoodScent, setShowFoodScent] = useState(true);
   const [showDirection, setShowDirection] = useState(true);
   const [showVision, setShowVision] = useState(true);
-  const [showSignal, setShowSignal] = useState(false);
+  const [showChemical, setShowChemical] = useState(false);
   const [showTemp, setShowTemp] = useState(false);
   const [showTerrain, setShowTerrain] = useState(false);
   const [showFlow, setShowFlow] = useState(false);
@@ -66,11 +66,11 @@ export function GameDashboard({ worldName, onStop }: Props) {
 
   const drawDataRef = useRef<DrawData>({
     agents: [], food: [], corpses: [], river: [], scent: [], foodScent: [],
-    signalField: [], temperatureGrid: [], terrain: [], terrainTtl: [], riverFlow: [],
+    chemicalField: [], temperatureGrid: [], terrain: [], terrainTtl: [], riverFlow: [],
     events: [], timeOfDay: 12, trackedAgent: null,
   });
   drawDataRef.current = {
-    agents, food, corpses, river, scent, foodScent, signalField,
+    agents, food, corpses, river, scent, foodScent, chemicalField,
     temperatureGrid, terrain, terrainTtl, riverFlow, events,
     timeOfDay, trackedAgent,
   };
@@ -227,7 +227,7 @@ export function GameDashboard({ worldName, onStop }: Props) {
                   <span className="text-[11px] text-zhi-muted">{t('header.eat')} {dbStats.avg_eats_per_life?.toFixed(1) ?? '0'}</span>
                 </MetricTip>
                 <MetricTip tip={t('header.sigTip')}>
-                  <span className="text-[11px] text-zhi-muted">{t('header.sig')} {dbStats.avg_signals_per_life?.toFixed(1) ?? '0'}</span>
+                  <span className="text-[11px] text-zhi-muted">{t('header.sig')} {dbStats.avg_emits_per_life?.toFixed(1) ?? '0'}</span>
                 </MetricTip>
               </>
             )}
@@ -239,7 +239,7 @@ export function GameDashboard({ worldName, onStop }: Props) {
             showFoodScent={showFoodScent} setShowFoodScent={setShowFoodScent}
             showDirection={showDirection} setShowDirection={setShowDirection}
             showVision={showVision} setShowVision={setShowVision}
-            showSignal={showSignal} setShowSignal={setShowSignal}
+            showChemical={showChemical} setShowChemical={setShowChemical}
             showTemp={showTemp} setShowTemp={setShowTemp}
             showTerrain={showTerrain} setShowTerrain={setShowTerrain}
             showFlow={showFlow} setShowFlow={setShowFlow}
@@ -257,7 +257,7 @@ export function GameDashboard({ worldName, onStop }: Props) {
               showFoodScent={showFoodScent}
               showDirection={showDirection}
               showVision={showVision}
-              showSignal={showSignal}
+              showChemical={showChemical}
               showTemp={showTemp}
               showTerrain={showTerrain}
               showFlow={showFlow}
@@ -324,7 +324,7 @@ type ToggleKeys = {
   showFoodScent: boolean; setShowFoodScent: (v: boolean) => void;
   showDirection: boolean; setShowDirection: (v: boolean) => void;
   showVision: boolean; setShowVision: (v: boolean) => void;
-  showSignal: boolean; setShowSignal: (v: boolean) => void;
+  showChemical: boolean; setShowChemical: (v: boolean) => void;
   showTemp: boolean; setShowTemp: (v: boolean) => void;
   showTerrain: boolean; setShowTerrain: (v: boolean) => void;
   showFlow: boolean; setShowFlow: (v: boolean) => void;
@@ -338,7 +338,7 @@ const DisplayToggles = memo(function DisplayToggles(p: ToggleKeys) {
     [p.showFoodScent, p.setShowFoodScent, t('toggle.foodScent'), 'border-green-600 text-green-400 bg-green-900/20'],
     [p.showDirection, p.setShowDirection, t('toggle.direction'), 'border-yellow-600 text-yellow-400 bg-yellow-900/20'],
     [p.showVision, p.setShowVision, t('toggle.vision'), 'border-purple-600 text-purple-400 bg-purple-900/20'],
-    [p.showSignal, p.setShowSignal, t('toggle.signal'), 'border-yellow-600 text-yellow-400 bg-yellow-900/20'],
+    [p.showChemical, p.setShowChemical, t('toggle.chemical'), 'border-yellow-600 text-yellow-400 bg-yellow-900/20'],
     [p.showTemp, p.setShowTemp, t('toggle.temp'), 'border-orange-600 text-orange-400 bg-orange-900/20'],
     [p.showTerrain, p.setShowTerrain, t('toggle.terrain'), 'border-amber-600 text-amber-400 bg-amber-900/20'],
     [p.showFlow, p.setShowFlow, t('toggle.flow'), 'border-sky-600 text-sky-400 bg-sky-900/20'],

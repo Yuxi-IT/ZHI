@@ -12,7 +12,7 @@ export interface DrawData {
   river: number[];
   scent: number[];
   foodScent: number[];
-  signalField: number[];
+  chemicalField: number[];
   temperatureGrid: number[];
   terrain: number[];
   terrainTtl: number[];
@@ -32,7 +32,7 @@ interface Props {
   showFoodScent?: boolean;
   showDirection?: boolean;
   showVision?: boolean;
-  showSignal?: boolean;
+  showChemical?: boolean;
   showTemp?: boolean;
   showTerrain?: boolean;
   showFlow?: boolean;
@@ -59,7 +59,7 @@ export const WorldMap = memo(function WorldMap({
   trackedAgent: trackedProp, onTrackChange,
   showScent = false, showFoodScent = false,
   showDirection = false, showVision = false,
-  showSignal = false, showTemp = false,
+  showChemical = false, showTemp = false,
   showTerrain = false, showFlow = false,
 }: Props) {
   const { t } = useT();
@@ -86,7 +86,7 @@ export const WorldMap = memo(function WorldMap({
       if (!ctx) return;
 
       const data = drawDataRef.current;
-      const { agents, food, corpses, river, scent, foodScent, signalField,
+      const { agents, food, corpses, river, scent, foodScent, chemicalField,
         temperatureGrid, terrain, terrainTtl, riverFlow, events, timeOfDay } = data;
       const tracked = trackedProp !== undefined ? trackedProp : data.trackedAgent;
 
@@ -306,14 +306,14 @@ export const WorldMap = memo(function WorldMap({
       }
 
       // Signal field
-      if (showSignal && signalField && signalField.length > 0) {
+      if (showChemical && chemicalField && chemicalField.length > 0) {
         const sc = Math.max(0, Math.floor(cam.x / cellSize));
         const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
         const sr = Math.max(0, Math.floor(cam.y / cellSize));
         const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
         for (let gx = sc; gx < ec; gx++) {
           for (let gy = sr; gy < er; gy++) {
-            const val = signalField[gy * gridW + gx]!;
+            const val = chemicalField[gy * gridW + gx]!;
             if (val <= 0.01) continue;
             ctx.fillStyle = `rgba(250, 204, 21, ${Math.min(val, 0.5)})`;
             ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
@@ -495,7 +495,7 @@ export const WorldMap = memo(function WorldMap({
         : t('map.hudNormal', { zoom: zoomPct, alive, total: agents.length });
       ctx.fillText(hud, 8, 8);
     };
-  }, [showScent, showFoodScent, showDirection, showVision, showSignal, showTemp, showTerrain, showFlow, gridW, gridH, t, trackedProp, drawDataRef]);
+  }, [showScent, showFoodScent, showDirection, showVision, showChemical, showTemp, showTerrain, showFlow, gridW, gridH, t, trackedProp, drawDataRef]);
 
   // Stable rAF loop — starts once, never restarts
   useEffect(() => {
@@ -558,7 +558,7 @@ export const WorldMap = memo(function WorldMap({
             `${t('agents.hunger')}: ${agent.hunger.toFixed(1)}  ${t('agents.thirst')}: ${agent.thirst.toFixed(1)}`,
             `${t('map.tooltipBTemp')}: ${agent.body_temperature.toFixed(1)}°C  ${t('agents.age')}: ${agent.tick_count}`,
             `${t('agents.action')}: ${agent.is_eating ? '\u{1F356} ' : ''}${agent.last_action || t('agents.none')}`,
-            `${t('map.tooltipEats')}: ${agent.eat_count}  ${t('map.tooltipAttacks')}: ${agent.attack_count}  ${t('map.tooltipSignals')}: ${agent.signal_count}`,
+            `${t('map.tooltipEats')}: ${agent.eat_count}  ${t('map.tooltipAttacks')}: ${agent.attack_count}  ${t('map.tooltipEmits')}: ${agent.emit_count}`,
           );
         }
         if (river.length > 0) {
@@ -666,7 +666,7 @@ export const WorldMap = memo(function WorldMap({
     && prev.showFoodScent === next.showFoodScent
     && prev.showDirection === next.showDirection
     && prev.showVision === next.showVision
-    && prev.showSignal === next.showSignal
+    && prev.showChemical === next.showChemical
     && prev.showTemp === next.showTemp
     && prev.showTerrain === next.showTerrain
     && prev.showFlow === next.showFlow;

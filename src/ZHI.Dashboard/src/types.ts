@@ -24,7 +24,7 @@ export interface AgentSnapshot {
   status: string
   last_action: string
   last_signal: number
-  signal_memory: number[]
+  chemical_memory: number
   alive_seconds: number
   tick_count: number
   attack_count: number
@@ -32,13 +32,11 @@ export interface AgentSnapshot {
   food_eat_count: number
   bigfood_eat_count: number
   corpse_eat_count: number
-  signal_count: number
+  emit_count: number
   facing_direction: number
   respawn_count: number
   stamina: number
   is_stationary: boolean
-  push_count: number
-  terraform_count: number
 }
 
 export interface FoodTile {
@@ -73,13 +71,13 @@ export interface CosmosState {
   scent: number[]
   food_scent: number[]
   temperature_grid: number[]
-  signal_field: number[]
+  chemical_field: number[]
   terrain: number[]
   terrain_ttl: number[]
   river_flow: number[]
 }
 
-export type WorldEventType = 'eat' | 'attack' | 'death' | 'reproduce' | 'signal' | 'respawn' | 'push' | 'terraform' | 'flood' | 'weather' | 'dam_built'
+export type WorldEventType = 'eat' | 'attack' | 'death' | 'reproduce' | 'signal' | 'respawn' | 'flood' | 'weather' | 'dam_built'
 
 export interface WorldEvent {
   type: WorldEventType
@@ -124,7 +122,7 @@ export interface StatsData {
   avg_temperature_at_death: number
   avg_attacks_per_life: number
   avg_eats_per_life: number
-  avg_signals_per_life: number
+  avg_emits_per_life: number
   night_death_rate: number
   cause_distribution: Record<string, number>
   generations: { generation: number; cause: string; alive_seconds: number }[]

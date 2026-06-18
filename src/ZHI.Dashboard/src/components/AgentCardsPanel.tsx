@@ -192,9 +192,7 @@ function AgentCard({
             <span title={t('agents.bigfood')}>B:{agent.bigfood_eat_count}</span>
             <span title={t('agents.corpse')}>C:{agent.corpse_eat_count}</span>
             <span title={t('agents.attacks')}>A:{agent.attack_count}</span>
-            <span title={t('agents.signals')}>S:{agent.signal_count}</span>
-            <span title={t('agents.push')}>P:{agent.push_count}</span>
-            <span title={t('agents.terraform')}>T:{agent.terraform_count}</span>
+            <span title={t('agents.chemicals')}>E:{agent.emit_count}</span>
           </div>
         </div>
       </Card.Content>

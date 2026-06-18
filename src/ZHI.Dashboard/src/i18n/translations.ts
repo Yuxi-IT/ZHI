@@ -80,7 +80,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'toggle.foodScent': '气味-食',
     'toggle.direction': '方向',
     'toggle.vision': '视野',
-    'toggle.signal': '信号',
+    'toggle.chemical': '化学',
     'toggle.temp': '温度',
     'toggle.terrain': '地形',
     'toggle.flow': '水流',
@@ -122,9 +122,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'agents.bigfood': '大食物',
     'agents.corpse': '尸体',
     'agents.attacks': '攻击',
-    'agents.signals': '信号',
-    'agents.push': '推挤',
-    'agents.terraform': '地形',
+    'agents.chemicals': '化学',
 
     // Event monitor
     'events.title': '事件',
@@ -322,7 +320,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'map.tooltipBTemp': 'BTemp',
     'map.tooltipEats': '进食',
     'map.tooltipAttacks': '攻击',
-    'map.tooltipSignals': '信号',
+    'map.tooltipEmits': '释放',
     'map.untrack': '取消追踪',
 
   },
@@ -406,7 +404,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'toggle.foodScent': 'Scent-Food',
     'toggle.direction': 'Dir',
     'toggle.vision': 'Vision',
-    'toggle.signal': 'Signal',
+    'toggle.chemical': 'Chemical',
     'toggle.temp': 'Temp',
     'toggle.terrain': 'Terrain',
     'toggle.flow': 'Flow',
@@ -448,9 +446,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'agents.bigfood': 'BigFood',
     'agents.corpse': 'Corpse',
     'agents.attacks': 'Attacks',
-    'agents.signals': 'Signals',
-    'agents.push': 'Push',
-    'agents.terraform': 'Terraform',
+    'agents.chemicals': 'Chemicals',
 
     // Event monitor
     'events.title': 'events',
@@ -648,7 +644,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'map.tooltipBTemp': 'BTemp',
     'map.tooltipEats': 'Eats',
     'map.tooltipAttacks': 'Attacks',
-    'map.tooltipSignals': 'Signals',
+    'map.tooltipEmits': 'Emits',
     'map.untrack': 'untrack',
   },
 }
