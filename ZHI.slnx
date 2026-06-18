@@ -5,6 +5,6 @@
     <Project Path="src/ZHI.Watcher/ZHI.Watcher.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/ZHI.Tests/ZHI.Tests.csproj" />
+    <Project Path="src/ZHI.Tests/ZHI.Tests.csproj" />
   </Folder>
 </Solution>

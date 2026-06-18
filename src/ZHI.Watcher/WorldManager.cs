@@ -36,6 +36,12 @@ public class WorldManager
                 if (meta != null)
                 {
                     meta.Name = Path.GetFileName(dir);
+                    // Reset stale running status from previous backend session
+                    if (meta.Status == "running")
+                    {
+                        meta.Status = "stopped";
+                        SaveWorldMeta(meta.Name, meta);
+                    }
                     worlds.Add(meta);
                 }
             }

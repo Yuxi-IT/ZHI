@@ -5,6 +5,7 @@ public sealed class ZhiConfig
     public ExistenceConfig Existence { get; set; } = new();
     public GridConfig Grid { get; set; } = new();
     public CombatConfig Combat { get; set; } = new();
+    [System.Text.Json.Serialization.JsonPropertyName("signal")]
     public ChemicalConfig Chemical { get; set; } = new();
     public GenomeConfig Genome { get; set; } = new();
     public ScentConfig Scent { get; set; } = new();
@@ -61,10 +62,14 @@ public sealed class CombatConfig
 
 public sealed class ChemicalConfig
 {
+    [System.Text.Json.Serialization.JsonPropertyName("cost")]
     public float EmissionCost { get; set; } = 3f;  // stamina cost per emission
     public float DiffusionRate { get; set; } = 0.1f; // per-tick spread to neighbors
     public float DecayRate { get; set; } = 0.95f;    // per-tick multiplicative decay
+    [System.Text.Json.Serialization.JsonPropertyName("wave_radius")]
     public int WaveRadius { get; set; } = 4;         // Chebyshev radius of emission
+    [System.Text.Json.Serialization.JsonPropertyName("num_values")]
+    public int NumValues { get; set; } = 4;
 }
 
 public sealed class GenomeConfig
