@@ -70,8 +70,7 @@ public partial class VectorizedState
 
             int gridBase = baseIdx;
             int fd = FacingDirection[i];
-            bool agentInPit = TerrainType[cx, cy] == ToolDefinitions.TerrainPit;
-            bool agentOnMound = TerrainType[cx, cy] == ToolDefinitions.TerrainMound;
+            float heightNorm = HeightMap[cx, cy] / 255f;
 
             // [0-293] 7x7 grid x 6 channels
             for (int dy = -R; dy <= R; dy++)
@@ -80,10 +79,7 @@ public partial class VectorizedState
                 {
                     int cellIdx = ((dy + R) * D + (dx + R)) * GridCh;
 
-                    if (agentInPit && Math.Max(Math.Abs(dx), Math.Abs(dy)) > 1)
-                        continue;
-
-                    if (!agentOnMound)
+                    // Directional vision mask (relaxed on high ground — height increases rear visibility)
                     {
                         int rdx, rdy;
                         switch (fd)
@@ -94,9 +90,15 @@ public partial class VectorizedState
                             default: rdx = dy; rdy = -dx; break;
                         }
                         int maskCol = rdx + R, maskRow = rdy + R;
-                        if (maskCol < 0 || maskCol >= D || maskRow < 0 || maskRow >= D
-                            || !BaseVisionMask[maskRow, maskCol])
+                        if (maskCol < 0 || maskCol >= D || maskRow < 0 || maskRow >= D)
                             continue;
+                        if (!BaseVisionMask[maskRow, maskCol])
+                        {
+                            // Height relaxes mask: deeper rows require more height to become visible
+                            float rowDepth = maskRow / (float)(D - 1); // 0=front, 1=rear
+                            float visibilityReq = rowDepth * 1.5f; // 0 front → 1.5 rear
+                            if (heightNorm < visibilityReq - 0.1f) continue;
+                        }
                     }
 
                     int gx = cx + dx, gy = cy + dy;
@@ -105,15 +107,14 @@ public partial class VectorizedState
                     bool hasCorpse = HasCorpseAt(gx, gy);
                     bool hasAgent = HasOtherAgentAt(i, gx, gy);
                     bool isSelf = (dx == 0 && dy == 0);
-                    byte terrain = TerrainType[gx, gy];
-                    float terrainNorm = terrain == 1 ? 0.33f : terrain == 2 ? 0.66f : terrain >= 3 || SurfaceWaterGrid[gx, gy] > 0 ? 1f : 0f;
+                    float cellHeightNorm = HeightMap[gx, gy] / 255f;
 
                     _stateAssemblyBuffer[gridBase + cellIdx + 0] = GetPlantEnergyAt(gx, gy) / PlantMaxEnergy;
                     _stateAssemblyBuffer[gridBase + cellIdx + 1] = GroundwaterGrid[gx, gy];
                     _stateAssemblyBuffer[gridBase + cellIdx + 2] = hasCorpse ? 1f : 0f;
                     _stateAssemblyBuffer[gridBase + cellIdx + 3] = (hasAgent && !isSelf) ? 1f : 0f;
                     _stateAssemblyBuffer[gridBase + cellIdx + 4] = isSelf ? 1f : 0f;
-                    _stateAssemblyBuffer[gridBase + cellIdx + 5] = terrainNorm;
+                    _stateAssemblyBuffer[gridBase + cellIdx + 5] = cellHeightNorm;
                 }
             }
 
@@ -136,16 +137,14 @@ public partial class VectorizedState
             _stateAssemblyBuffer[baseIdx + 302] = (cx < W - 1) ? ScentGrid[cx + 1, cy] - scentHere : 0f;
             _stateAssemblyBuffer[baseIdx + 303] = (cx > 0) ? ScentGrid[cx - 1, cy] - scentHere : 0f;
 
-            // [304-306] local stats
+            // [304-306] local stats (same vision mask as grid obs)
             int foodVisible = 0;
             int agentVisible = 0;
             for (int dy = -R; dy <= R; dy++)
             {
                 for (int dx = -R; dx <= R; dx++)
                 {
-                    if (agentInPit && Math.Max(Math.Abs(dx), Math.Abs(dy)) > 1)
-                        continue;
-                    if (!agentOnMound)
+                    // Apply same height-relaxed directional mask
                     {
                         int rdx2, rdy2;
                         switch (fd)
@@ -156,8 +155,13 @@ public partial class VectorizedState
                             default: rdx2 = dy; rdy2 = -dx; break;
                         }
                         int mc = rdx2 + R, mr = rdy2 + R;
-                        if (mc < 0 || mc >= D || mr < 0 || mr >= D || !BaseVisionMask[mr, mc])
-                            continue;
+                        if (mc < 0 || mc >= D || mr < 0 || mr >= D) continue;
+                        if (!BaseVisionMask[mr, mc])
+                        {
+                            float rowDepth = mr / (float)(D - 1);
+                            float visibilityReq = rowDepth * 1.5f;
+                            if (heightNorm < visibilityReq - 0.1f) continue;
+                        }
                     }
                     int gx = cx + dx, gy = cy + dy;
                     if (gx < 0 || gx >= W || gy < 0 || gy >= H) continue;
@@ -202,8 +206,8 @@ public partial class VectorizedState
             _stateAssemblyBuffer[baseIdx + 319] = BodyFat[i];
             _stateAssemblyBuffer[baseIdx + 320] = BodyColdResist[i];
 
-            // [321] height at position (normalized -10..+10 → 0-1)
-            _stateAssemblyBuffer[baseIdx + 321] = (HeightMap[cx, cy] + 10f) / 20f;
+            // [321] height at position (0..255 → 0-1)
+            _stateAssemblyBuffer[baseIdx + 321] = HeightMap[cx, cy] / 255f;
 
             // [322-325] chemical field gradient (single channel, 4 directions)
             float chemHere = ChemicalField[cx, cy];
