@@ -27,7 +27,7 @@ public partial class VectorizedState : IDisposable
     // Agent state (CPU arrays)
     public int[] PosX;
     public int[] PosY;
-    public float[] Existence;
+    public float[] Energy;
     public float[] Stress;
     public bool[] Alive;
     public long[] LastAction;
@@ -45,12 +45,10 @@ public partial class VectorizedState : IDisposable
     public int[] LastReproduceTick;
     public int[] FacingDirection;
     public int[] ChemicalAge;      // ticks since last chemical received
-    public float[] Thirst;
-    public float[] Hunger;
+    public float[] BodyWater;
     public bool[] IsEating;
     public float[] BodyTemperature;
     public int[] RespawnCount;
-    public float[] Stamina;
     public int[] TicksSinceLastMove;
     public bool[] IsStationary;
 
@@ -102,7 +100,7 @@ public partial class VectorizedState : IDisposable
 
         PosX = new int[n];
         PosY = new int[n];
-        Existence = new float[n];
+        Energy = new float[n];
         Stress = new float[n];
         Alive = new bool[n];
         LastAction = new long[n];
@@ -120,12 +118,10 @@ public partial class VectorizedState : IDisposable
         LastReproduceTick = new int[n];
         FacingDirection = new int[n];
         ChemicalAge = new int[n];
-        Thirst = new float[n];
-        Hunger = new float[n];
+        BodyWater = new float[n];
         IsEating = new bool[n];
         BodyTemperature = new float[n];
         RespawnCount = new int[n];
-        Stamina = new float[n];
         TicksSinceLastMove = new int[n];
         IsStationary = new bool[n];
 
@@ -139,7 +135,7 @@ public partial class VectorizedState : IDisposable
 
         for (int i = 0; i < n; i++)
         {
-            Thirst[i] = 100f; Hunger[i] = 100f; BodyTemperature[i] = 20f; Stamina[i] = 100f;
+            BodyWater[i] = 100f; BodyTemperature[i] = 20f;
         }
 
         FoodTiles = new List<FoodTile>();
@@ -173,7 +169,7 @@ public partial class VectorizedState : IDisposable
         {
             PosX[i] = localRng.Next(W);
             PosY[i] = localRng.Next(H);
-            Existence[i] = 100f;
+            Energy[i] = 100f;
             Stress[i] = 0f;
             Alive[i] = true;
             LastAction[i] = 0;
@@ -370,7 +366,7 @@ public partial class VectorizedState : IDisposable
                    || GetCellOccupancy(PosX[i], PosY[i]) >= 2)
                   && attempts < 50);
 
-        Existence[i] = 100f;
+        Energy[i] = 100f;
         Stress[i] = 0f;
         Alive[i] = true;
         LastAction[i] = 0;
@@ -388,11 +384,9 @@ public partial class VectorizedState : IDisposable
         LastReproduceTick[i] = 0;
         FacingDirection[i] = rng.Next(4);
         ChemicalAge[i] = 0;
-        Thirst[i] = 100f;
-        Hunger[i] = 100f;
+        BodyWater[i] = 100f;
         IsEating[i] = false;
         BodyTemperature[i] = 20f;
-        Stamina[i] = 100f;
         TicksSinceLastMove[i] = 0;
         IsStationary[i] = false;
         RespawnCount[i]++;
@@ -405,7 +399,7 @@ public partial class VectorizedState : IDisposable
         int newN = N + 1;
         PosX = Resize(PosX, newN); PosX[newN - 1] = x;
         PosY = Resize(PosY, newN); PosY[newN - 1] = y;
-        Existence = Resize(Existence, newN); Existence[newN - 1] = existence;
+        Energy = Resize(Energy, newN); Energy[newN - 1] = existence;
         Stress = Resize(Stress, newN);
         Alive = Resize(Alive, newN); Alive[newN - 1] = true;
         LastAction = Resize(LastAction, newN);
@@ -423,11 +417,9 @@ public partial class VectorizedState : IDisposable
         LastReproduceTick = Resize(LastReproduceTick, newN);
         FacingDirection = Resize(FacingDirection, newN); FacingDirection[newN - 1] = 1;
         ChemicalAge = Resize(ChemicalAge, newN);
-        Thirst = Resize(Thirst, newN); Thirst[newN - 1] = 100f;
-        Hunger = Resize(Hunger, newN); Hunger[newN - 1] = 100f;
+        BodyWater = Resize(BodyWater, newN); BodyWater[newN - 1] = 100f;
         IsEating = Resize(IsEating, newN);
         BodyTemperature = Resize(BodyTemperature, newN); BodyTemperature[newN - 1] = 20f;
-        Stamina = Resize(Stamina, newN); Stamina[newN - 1] = 100f;
         TicksSinceLastMove = Resize(TicksSinceLastMove, newN);
         IsStationary = Resize(IsStationary, newN);
         RespawnCount = Resize(RespawnCount, newN);

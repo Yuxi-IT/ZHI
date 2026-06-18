@@ -120,11 +120,11 @@ public partial class VectorizedState
             // ── Non-grid state [294-339] (46 values) ──
 
             // [294-298] vital signs
-            _stateAssemblyBuffer[baseIdx + 294] = Existence[i] / 100f;
+            _stateAssemblyBuffer[baseIdx + 294] = Energy[i] / 100f;
             _stateAssemblyBuffer[baseIdx + 295] = Stress[i] / 5f;
             _stateAssemblyBuffer[baseIdx + 296] = LastAction[i] / 7f;
             _stateAssemblyBuffer[baseIdx + 297] = Math.Min(TickCount[i] / 200f, 1f);
-            _stateAssemblyBuffer[baseIdx + 298] = Stamina[i] / 100f;
+            _stateAssemblyBuffer[baseIdx + 298] = 0f; // reserved (was Stamina)
 
             // [299] chemical memory (continuous 0-1)
             _stateAssemblyBuffer[baseIdx + 299] = ChemicalMemory[i];
@@ -179,11 +179,11 @@ public partial class VectorizedState
             // [309] chemical age
             _stateAssemblyBuffer[baseIdx + 309] = Math.Min(ChemicalAge[i] / 20f, 1f);
 
-            // [310] hunger
-            _stateAssemblyBuffer[baseIdx + 310] = Hunger[i] / 100f;
+            // [310] body water
+            _stateAssemblyBuffer[baseIdx + 310] = BodyWater[i] / 100f;
 
-            // [311] thirst
-            _stateAssemblyBuffer[baseIdx + 311] = Thirst[i] / 100f;
+            // [311] reserved (was Thirst)
+            _stateAssemblyBuffer[baseIdx + 311] = 0f;
 
             // [312] water sound
             _stateAssemblyBuffer[baseIdx + 312] = Math.Min(WaterSoundGrid[cx, cy] / 10f, 1f);
