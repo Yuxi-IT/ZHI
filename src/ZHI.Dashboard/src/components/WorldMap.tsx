@@ -354,23 +354,13 @@ export const WorldMap = memo(function WorldMap({
         ctx.closePath(); ctx.fill();
       }
 
-      // Food
+      // Plants (formerly Food)
       const foodSz = Math.max(cellSize * 0.7, 2);
       for (const f of food) {
         const energyRatio = f.max_energy > 0 ? f.energy / f.max_energy : 1;
         const alpha = Math.max(0.2, energyRatio);
-        if (f.is_big) {
-          const fw = (f.width || 2) * cellSize, fh = (f.height || 2) * cellSize;
-          ctx.fillStyle = `rgba(250, 204, 21, ${alpha})`;
-          ctx.shadowColor = 'rgba(250, 204, 21, 0.4)'; ctx.shadowBlur = 4;
-          ctx.fillRect(f.x * cellSize, f.y * cellSize, fw, fh);
-          ctx.strokeStyle = `rgba(250, 204, 21, ${alpha * 0.6})`; ctx.lineWidth = 1;
-          ctx.strokeRect(f.x * cellSize + 1, f.y * cellSize + 1, fw - 2, fh - 2);
-          ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
-        } else {
-          ctx.fillStyle = `rgba(34, 197, 94, ${alpha})`;
-          ctx.fillRect(f.x * cellSize + (cellSize - foodSz) / 2, f.y * cellSize + (cellSize - foodSz) / 2, foodSz, foodSz);
-        }
+        ctx.fillStyle = `rgba(34, 197, 94, ${alpha})`;
+        ctx.fillRect(f.x * cellSize + (cellSize - foodSz) / 2, f.y * cellSize + (cellSize - foodSz) / 2, foodSz, foodSz);
       }
 
       // Vision
@@ -566,13 +556,10 @@ export const WorldMap = memo(function WorldMap({
           if (rv === 1) { lines.push(t('map.shallow'), t('map.shallowDesc')); }
           else if (rv === 2) { lines.push(t('map.deep'), t('map.deepDesc')); }
         }
-        const foodHere = food.find(f => {
-          const fw = f.width || 1, fh = f.height || 1;
-          return gx >= f.x && gx < f.x + fw && gy >= f.y && gy < f.y + fh;
-        });
+        const foodHere = food.find(f => f.x === gx && f.y === gy);
         if (foodHere) {
           lines.push(
-            foodHere.is_big ? t('map.bigFood') : t('map.food'),
+            t('map.food'),
             `${t('map.energy')}: ${foodHere.energy.toFixed(1)} / ${foodHere.max_energy.toFixed(0)}`,
           );
         }

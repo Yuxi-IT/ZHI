@@ -298,7 +298,7 @@ public partial class CosmosEngine
         }
     }
 
-    private void ApplyFoodDecayAndRespawn()
+    private void ApplyFoodDecay()
     {
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
@@ -306,38 +306,28 @@ public partial class CosmosEngine
         lock (_v.LockObj)
         {
             float foodDecay = _config.Grid.FoodDecayPerTick;
-            float bigFoodDecay = _config.Grid.BigFoodDecayPerTick;
             for (int f = _v.FoodTiles.Count - 1; f >= 0; f--)
             {
                 var food = _v.FoodTiles[f];
-                float decay = food.IsBig ? bigFoodDecay : foodDecay;
-                food.Energy -= decay;
+                food.Energy -= foodDecay;
                 if (food.Energy <= 0)
                     _v.FoodTiles.RemoveAt(f);
                 else
                 {
                     _v.FoodTiles[f] = food;
-                    float scentAmount = food.IsBig ? _config.FoodScent.BigFoodEmission : _config.FoodScent.SmallFoodEmission;
-                    int fw = food.Width > 0 ? food.Width : 1;
-                    int fh = food.Height > 0 ? food.Height : 1;
+                    float scentAmount = _config.FoodScent.SmallFoodEmission;
                     int spreadRadius = _config.FoodScent.SpreadRadius;
-                    for (int cellX = 0; cellX < fw; cellX++)
-                        for (int cellY = 0; cellY < fh; cellY++)
+                    for (int dx = -spreadRadius; dx <= spreadRadius; dx++)
+                        for (int dy = -spreadRadius; dy <= spreadRadius; dy++)
                         {
-                            int cx = food.X + cellX;
-                            int cy = food.Y + cellY;
-                            for (int dx = -spreadRadius; dx <= spreadRadius; dx++)
-                                for (int dy = -spreadRadius; dy <= spreadRadius; dy++)
-                                {
-                                    int sx = cx + dx;
-                                    int sy = cy + dy;
-                                    if (sx >= 0 && sx < W && sy >= 0 && sy < H)
-                                    {
-                                        float dist = MathF.Sqrt(dx * dx + dy * dy);
-                                        float falloff = MathF.Max(0, 1f - dist / (spreadRadius + 1));
-                                        _v.FoodScentGrid[sx, sy] += scentAmount * falloff;
-                                    }
-                                }
+                            int sx = food.X + dx;
+                            int sy = food.Y + dy;
+                            if (sx >= 0 && sx < W && sy >= 0 && sy < H)
+                            {
+                                float dist = MathF.Sqrt(dx * dx + dy * dy);
+                                float falloff = MathF.Max(0, 1f - dist / (spreadRadius + 1));
+                                _v.FoodScentGrid[sx, sy] += scentAmount * falloff;
+                            }
                         }
                 }
             }
@@ -353,32 +343,6 @@ public partial class CosmosEngine
                     _v.CorpseTiles[c] = corpse;
                     if (corpse.X < W && corpse.Y < H)
                         _v.FoodScentGrid[corpse.X, corpse.Y] += _config.Corpse.ScentAmount;
-                }
-            }
-        }
-
-        if (_config.Grid.FoodRespawnInterval > 0
-            && _globalTick % _config.Grid.FoodRespawnInterval == 0)
-        {
-            lock (_v.LockObj)
-            {
-                if (_v.FoodTiles.Count < _config.Grid.MaxFood)
-                {
-                    for (int attempt = 0; attempt < 20; attempt++)
-                    {
-                        int rx = _rng.Next(W);
-                        int ry = _rng.Next(H);
-                        if (!IsValidFoodPlacement(rx, ry, 1, 1)) continue;
-
-                        _v.FoodTiles.Add(new FoodTile
-                        {
-                            X = rx, Y = ry,
-                            Width = 1, Height = 1,
-                            Energy = _config.Grid.FoodEnergy,
-                            IsBig = false
-                        });
-                        break;
-                    }
                 }
             }
         }

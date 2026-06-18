@@ -16,11 +16,9 @@ public partial class CosmosEngine
         _globalTick = 0;
         _genAttacks = 0;
         _genFoodEaten = 0;
-        _genBigFoodEaten = 0;
         _genCorpsesEaten = 0;
         _genTotalTicks = 0;
         _genFoodEnergy = 0;
-        _genBigFoodEnergy = 0;
         _genCorpseEnergy = 0;
 
         int n = _config.Cosmos.AgentCount;

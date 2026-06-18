@@ -279,28 +279,14 @@ public partial class CosmosEngine
         }
     }
 
-    private bool IsValidFoodPlacement(int x, int y, int w, int h)
+    private bool IsValidFoodPlacement(int x, int y)
     {
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
-        for (int fx = 0; fx < w; fx++)
-        {
-            for (int fy = 0; fy < h; fy++)
-            {
-                int tx = x + fx, ty = y + fy;
-                if (tx < 0 || tx >= W || ty < 0 || ty >= H) return false;
-                // No water tiles
-                if (_v.RiverGrid[tx, ty] > 0) return false;
-                // No overlap with existing food
-                foreach (var ft in _v.FoodTiles)
-                {
-                    int fw = ft.Width > 0 ? ft.Width : 1;
-                    int fh = ft.Height > 0 ? ft.Height : 1;
-                    if (tx >= ft.X && tx < ft.X + fw && ty >= ft.Y && ty < ft.Y + fh)
-                        return false;
-                }
-            }
-        }
+        if (x < 0 || x >= W || y < 0 || y >= H) return false;
+        if (_v.RiverGrid[x, y] > 0) return false;
+        foreach (var ft in _v.FoodTiles)
+            if (ft.X == x && ft.Y == y) return false;
         return true;
     }
 
@@ -309,7 +295,6 @@ public partial class CosmosEngine
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
 
-        // Spawn normal food
         for (int i = 0; i < _config.Grid.InitialFood; i++)
         {
             bool placed = false;
@@ -317,44 +302,14 @@ public partial class CosmosEngine
             {
                 int x = _rng.Next(W);
                 int y = _rng.Next(H);
-                if (!IsValidFoodPlacement(x, y, 1, 1)) continue;
+                if (!IsValidFoodPlacement(x, y)) continue;
                 lock (_v.LockObj)
-                    _v.FoodTiles.Add(new FoodTile
-                    {
-                        X = x, Y = y,
-                        Width = 1, Height = 1,
-                        Energy = _config.Grid.FoodEnergy,
-                        IsBig = false
-                    });
+                    _v.FoodTiles.Add(new FoodTile { X = x, Y = y, Energy = _config.Grid.FoodEnergy });
                 placed = true;
                 break;
             }
             if (!placed)
                 Log($"[Cosmos] WARNING: Could not place food #{i} after 100 attempts");
-        }
-
-        // Spawn BigFood (2x2 multi-cell)
-        for (int i = 0; i < _config.Grid.InitialBigFood; i++)
-        {
-            bool placed = false;
-            for (int attempt = 0; attempt < 50; attempt++)
-            {
-                int x = _rng.Next(W - 1);
-                int y = _rng.Next(H - 1);
-                if (!IsValidFoodPlacement(x, y, 2, 2)) continue;
-                lock (_v.LockObj)
-                    _v.FoodTiles.Add(new FoodTile
-                    {
-                        X = x, Y = y,
-                        Width = 2, Height = 2,
-                        Energy = _config.Grid.BigFoodEnergy,
-                        IsBig = true
-                    });
-                placed = true;
-                break;
-            }
-            if (!placed)
-                Log($"[Cosmos] WARNING: Could not place BigFood #{i} after 50 attempts");
         }
     }
 }

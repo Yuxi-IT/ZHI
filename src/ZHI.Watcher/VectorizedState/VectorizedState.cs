@@ -8,10 +8,7 @@ public struct FoodTile
 {
     public int X;
     public int Y;
-    public int Width;
-    public int Height;
     public float Energy;
-    public bool IsBig;
 }
 
 public struct CorpseTile
@@ -40,7 +37,6 @@ public partial class VectorizedState : IDisposable
     public int[] AttackCount;
     public int[] EatCount;
     public int[] FoodEatCount;
-    public int[] BigFoodEatCount;
     public int[] CorpseEatCount;
     public int[] EmitCount;        // how many times agent emitted chemical
     public string[] StatusMirror;
@@ -84,7 +80,7 @@ public partial class VectorizedState : IDisposable
 
     // Spatial query grids
     private int[] _agentGrid;
-    private byte[] _foodGrid;
+    private bool[] _foodGrid;
     private bool[] _corpseGrid;
 
     // GPU tensor for batch inference
@@ -111,7 +107,6 @@ public partial class VectorizedState : IDisposable
         AttackCount = new int[n];
         EatCount = new int[n];
         FoodEatCount = new int[n];
-        BigFoodEatCount = new int[n];
         CorpseEatCount = new int[n];
         EmitCount = new int[n];
         StatusMirror = new string[n];
@@ -158,7 +153,7 @@ public partial class VectorizedState : IDisposable
 
         int gridSize = W * H;
         _agentGrid = new int[gridSize];
-        _foodGrid = new byte[gridSize];
+        _foodGrid = new bool[gridSize];
         _corpseGrid = new bool[gridSize];
 
         StateMatrix = torch.zeros(n, ToolDefinitions.StateSize, device: device);
@@ -184,16 +179,12 @@ public partial class VectorizedState : IDisposable
         }
     }
 
-    public bool HasFoodAt(int x, int y, out bool isBig)
+    public bool HasFoodAt(int x, int y)
     {
-        isBig = false;
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
         if (x < 0 || x >= W || y < 0 || y >= H) return false;
-        byte val = _foodGrid[x * H + y];
-        if (val == 0) return false;
-        isBig = val == 2;
-        return true;
+        return _foodGrid[x * H + y];
     }
 
     public bool IsShallowWater(int x, int y)
@@ -339,7 +330,6 @@ public partial class VectorizedState : IDisposable
         AttackCount[i] = 0;
         EatCount[i] = 0;
         FoodEatCount[i] = 0;
-        BigFoodEatCount[i] = 0;
         CorpseEatCount[i] = 0;
         EmitCount[i] = 0;
         StatusMirror[i] = "ALIVE";
@@ -375,7 +365,6 @@ public partial class VectorizedState : IDisposable
         AttackCount = Resize(AttackCount, newN);
         EatCount = Resize(EatCount, newN);
         FoodEatCount = Resize(FoodEatCount, newN);
-        BigFoodEatCount = Resize(BigFoodEatCount, newN);
         CorpseEatCount = Resize(CorpseEatCount, newN);
         EmitCount = Resize(EmitCount, newN);
         StatusMirror = Resize(StatusMirror, newN); StatusMirror[newN - 1] = "ALIVE";

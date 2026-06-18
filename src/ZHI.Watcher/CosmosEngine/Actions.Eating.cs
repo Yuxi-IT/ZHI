@@ -19,23 +19,19 @@ public partial class CosmosEngine
             for (int f = _v.FoodTiles.Count - 1; f >= 0; f--)
             {
                 var ft = _v.FoodTiles[f];
-                int fw = ft.Width > 0 ? ft.Width : 1;
-                int fh = ft.Height > 0 ? ft.Height : 1;
-                if (px < ft.X || px >= ft.X + fw || py < ft.Y || py >= ft.Y + fh)
-                    continue;
+                if (ft.X != px || ft.Y != py) continue;
 
                 int eaters = CountEatersOnFood(ft, i);
                 float efficiency = 1f / MathF.Sqrt(eaters);
-                float perTick = (ft.IsBig ? _config.Grid.BigFoodPerTickEnergy : _config.Grid.FoodPerTickEnergy) * efficiency;
+                float perTick = _config.Grid.FoodPerTickEnergy * efficiency;
                 extracted = MathF.Min(perTick, ft.Energy);
                 ft.Energy -= extracted;
-                foodType = ft.IsBig ? "BigFood" : "Food";
+                foodType = "Food";
 
                 if (ft.Energy <= 0.001f)
                 {
                     depletedFood.Add(f);
-                    if (ft.IsBig) _genBigFoodEaten++;
-                    else _genFoodEaten++;
+                    _genFoodEaten++;
                 }
                 else
                     _v.FoodTiles[f] = ft;
@@ -77,20 +73,15 @@ public partial class CosmosEngine
         if (hungerDelta > 0) rewards[i] += hungerDelta * 0.05f;
 
         _v.EatCount[i]++;
-        switch (foodType)
+        if (foodType == "Corpse")
         {
-            case "BigFood":
-                _v.BigFoodEatCount[i]++;
-                _genBigFoodEnergy += extracted;
-                break;
-            case "Corpse":
-                _v.CorpseEatCount[i]++;
-                _genCorpseEnergy += extracted;
-                break;
-            default:
-                _v.FoodEatCount[i]++;
-                _genFoodEnergy += extracted;
-                break;
+            _v.CorpseEatCount[i]++;
+            _genCorpseEnergy += extracted;
+        }
+        else
+        {
+            _v.FoodEatCount[i]++;
+            _genFoodEnergy += extracted;
         }
 
         _tickEvents.Add(new WorldEvent { Type = "eat", AgentId = i, FoodType = foodType, Value = extracted, Tick = _globalTick });
@@ -100,13 +91,10 @@ public partial class CosmosEngine
     private int CountEatersOnFood(FoodTile ft, int excludeIdx)
     {
         int count = 1;
-        int fw = ft.Width > 0 ? ft.Width : 1;
-        int fh = ft.Height > 0 ? ft.Height : 1;
         for (int j = 0; j < _v.N; j++)
         {
             if (j == excludeIdx || !_v.Alive[j] || !_v.IsEating[j]) continue;
-            int ax = _v.PosX[j], ay = _v.PosY[j];
-            if (ax >= ft.X && ax < ft.X + fw && ay >= ft.Y && ay < ft.Y + fh)
+            if (_v.PosX[j] == ft.X && _v.PosY[j] == ft.Y)
                 count++;
         }
         return count;

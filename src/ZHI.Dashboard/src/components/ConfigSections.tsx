@@ -3,7 +3,7 @@ import { ChevronDown } from '@gravity-ui/icons';
 import { useT } from '../i18n/I18nContext';
 
 export interface ZhiConfig {
-  grid: { width: number; height: number; max_agents: number; initial_food: number; initial_big_food: number; food_energy: number; big_food_energy: number; food_decay_per_tick: number; big_food_decay_per_tick: number; max_food: number; food_respawn_interval: number; food_per_tick_energy: number; big_food_per_tick_energy: number; corpse_per_tick_energy: number };
+  grid: { width: number; height: number; max_agents: number; initial_food: number; food_energy: number; food_decay_per_tick: number; food_per_tick_energy: number; corpse_per_tick_energy: number };
   cosmos: { agent_count: number; elite_count: number; mutation_rate: number; mutation_std: number; mutation_rate_min: number; mutation_decay_generations: number; respawn_delay_ticks: number };
   temperature: { max_temp: number; min_temp: number; cold_threshold: number; max_cold_decay: number; hot_threshold: number; max_thirst_accel: number; huddle_range: number; huddle_warmth_per_agent: number; agent_body_heat: number; land_lerp_rate: number; water_heat_capacity: number; thermal_diffusion_rate: number; river_land_influence: number; hypothermia_threshold: number; hypothermia_max_damage: number; water_cooling_mult: number; deep_water_extra_cold: number; min_body_temp: number };
   combat: { attack_range: number; stress_per_attack: number; stress_damage: number; attack_cost: number };
@@ -15,14 +15,14 @@ export interface ZhiConfig {
   age_death: { max_age: number; stage1_age: number; stage1_decay: number; stage2_age: number; stage2_decay: number; stage3_age: number; stage3_decay: number };
   signal: { cost: number; num_values: number; wave_radius: number };
   scent: { deposit_amount: number; decay_rate: number; diffusion_rate: number };
-  food_scent: { decay_rate: number; diffusion_rate: number; small_food_emission: number; big_food_emission: number; spread_radius: number };
+  food_scent: { decay_rate: number; diffusion_rate: number; small_food_emission: number; spread_radius: number };
   network: { learning_rate: number; gamma: number };
   corpse: { energy: number; decay_per_tick: number; scent_amount: number };
   stamina: { max_stamina: number; move_cost: number; attack_cost: number; push_cost: number; terraform_cost: number; signal_cost: number; shove_cost: number; pull_cost: number; shallow_water_move_extra: number; deep_water_move_extra: number; deep_water_climb_extra: number; base_recovery: number; stationary_recovery_bonus: number; low_stamina_threshold: number; stationary_ticks_required: number; stationary_damage_mult: number; stationary_self_heat: number; stationary_neighbor_heat: number; stationary_hp_recovery_bonus: number };
 }
 
 export const DEFAULT_CONFIG: ZhiConfig = {
-  grid: { width: 64, height: 64, max_agents: 512, initial_food: 70, initial_big_food: 10, food_energy: 15, big_food_energy: 80, food_decay_per_tick: 0.075, big_food_decay_per_tick: 0.2, max_food: 100, food_respawn_interval: 10, food_per_tick_energy: 1.0, big_food_per_tick_energy: 2.0, corpse_per_tick_energy: 1.0 },
+  grid: { width: 64, height: 64, max_agents: 512, initial_food: 50, food_energy: 10, food_decay_per_tick: 0.05, food_per_tick_energy: 1.0, corpse_per_tick_energy: 1.0 },
   cosmos: { agent_count: 64, elite_count: 2, mutation_rate: 0.1, mutation_std: 0.02, mutation_rate_min: 0.02, mutation_decay_generations: 100, respawn_delay_ticks: 25 },
   temperature: { max_temp: 35, min_temp: 5, cold_threshold: 15, max_cold_decay: 0.15, hot_threshold: 30, max_thirst_accel: 1.5, huddle_range: 2, huddle_warmth_per_agent: 3, agent_body_heat: 2, land_lerp_rate: 0.25, water_heat_capacity: 4, thermal_diffusion_rate: 0.12, river_land_influence: 8, hypothermia_threshold: 33, hypothermia_max_damage: 0.08, water_cooling_mult: 2, deep_water_extra_cold: 3, min_body_temp: 26 },
   combat: { attack_range: 1, stress_per_attack: 0.5, stress_damage: 0.1, attack_cost: 1.0 },
@@ -34,7 +34,7 @@ export const DEFAULT_CONFIG: ZhiConfig = {
   age_death: { max_age: 8000, stage1_age: 5000, stage1_decay: 0.02, stage2_age: 6000, stage2_decay: 0.05, stage3_age: 7000, stage3_decay: 0.1 },
   signal: { cost: 0.25, num_values: 4, wave_radius: 4 },
   scent: { deposit_amount: 1.0, decay_rate: 0.95, diffusion_rate: 0.1 },
-  food_scent: { decay_rate: 0.85, diffusion_rate: 0.08, small_food_emission: 0.3, big_food_emission: 1.0, spread_radius: 2 },
+  food_scent: { decay_rate: 0.85, diffusion_rate: 0.08, small_food_emission: 0.3, spread_radius: 2 },
   network: { learning_rate: 0.001, gamma: 0.99 },
   corpse: { energy: 20, decay_per_tick: 0.067, scent_amount: 0.5 },
   stamina: { max_stamina: 100, move_cost: 0.5, attack_cost: 8, push_cost: 12, terraform_cost: 20, signal_cost: 3, shove_cost: 15, pull_cost: 10, shallow_water_move_extra: 1, deep_water_move_extra: 2.5, deep_water_climb_extra: 1, base_recovery: 1, stationary_recovery_bonus: 2, low_stamina_threshold: 10, stationary_ticks_required: 5, stationary_damage_mult: 1.2, stationary_self_heat: 3, stationary_neighbor_heat: 2, stationary_hp_recovery_bonus: 0.1 },
@@ -99,21 +99,15 @@ export function ConfigFormFields({ config, update }: {
         <NumberField label={t('settings.maxAgents')} value={g.max_agents} onChange={v => update('grid', 'max_agents', v)} min={1} max={2048} />
         <NumberField label={t('settings.agentCount')} value={co.agent_count} onChange={v => update('cosmos', 'agent_count', v)} min={1} max={256} />
         <NumberField label={t('settings.initialFood')} value={g.initial_food} onChange={v => update('grid', 'initial_food', v)} min={0} max={500} />
-        <NumberField label={t('settings.initialBigFood')} value={g.initial_big_food} onChange={v => update('grid', 'initial_big_food', v)} min={0} max={100} />
-        <NumberField label={t('settings.maxFood')} value={g.max_food} onChange={v => update('grid', 'max_food', v)} min={1} max={1000} />
-        <NumberField label={t('settings.foodRespawnInterval')} value={g.food_respawn_interval} onChange={v => update('grid', 'food_respawn_interval', v)} min={0} max={1000} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.foodEnergySection')}>
         <NumberField label={t('settings.foodEnergy')} value={g.food_energy} onChange={v => update('grid', 'food_energy', v)} min={1} max={200} />
-        <NumberField label={t('settings.bigFoodEnergy')} value={g.big_food_energy} onChange={v => update('grid', 'big_food_energy', v)} min={1} max={500} />
         <NumberField label={t('settings.foodDecay')} value={g.food_decay_per_tick} onChange={v => update('grid', 'food_decay_per_tick', v)} min={0.001} max={1} step={0.005} />
-        <NumberField label={t('settings.bigFoodDecay')} value={g.big_food_decay_per_tick} onChange={v => update('grid', 'big_food_decay_per_tick', v)} min={0.001} max={1} step={0.005} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.eating')}>
         <NumberField label={t('settings.foodPerTick')} value={g.food_per_tick_energy} onChange={v => update('grid', 'food_per_tick_energy', v)} min={0.1} max={20} step={0.1} />
-        <NumberField label={t('settings.bigFoodPerTick')} value={g.big_food_per_tick_energy} onChange={v => update('grid', 'big_food_per_tick_energy', v)} min={0.1} max={50} step={0.1} />
         <NumberField label={t('settings.corpsePerTick')} value={g.corpse_per_tick_energy} onChange={v => update('grid', 'corpse_per_tick_energy', v)} min={0.1} max={20} step={0.1} />
       </ConfigSection>
 
@@ -222,21 +216,15 @@ export function ConfigReadOnly({ config }: { config: ZhiConfig }) {
         <ReadOnlyField label={t('settings.maxAgents')} value={g.max_agents} />
         <ReadOnlyField label={t('settings.agentCount')} value={co.agent_count} />
         <ReadOnlyField label={t('settings.initialFood')} value={g.initial_food} />
-        <ReadOnlyField label={t('settings.initialBigFood')} value={g.initial_big_food} />
-        <ReadOnlyField label={t('settings.maxFood')} value={g.max_food} />
-        <ReadOnlyField label={t('settings.foodRespawnInterval')} value={g.food_respawn_interval} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.foodEnergySection')}>
         <ReadOnlyField label={t('settings.foodEnergy')} value={g.food_energy} />
-        <ReadOnlyField label={t('settings.bigFoodEnergy')} value={g.big_food_energy} />
         <ReadOnlyField label={t('settings.foodDecay')} value={g.food_decay_per_tick} />
-        <ReadOnlyField label={t('settings.bigFoodDecay')} value={g.big_food_decay_per_tick} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.eating')}>
         <ReadOnlyField label={t('settings.foodPerTick')} value={g.food_per_tick_energy} />
-        <ReadOnlyField label={t('settings.bigFoodPerTick')} value={g.big_food_per_tick_energy} />
         <ReadOnlyField label={t('settings.corpsePerTick')} value={g.corpse_per_tick_energy} />
       </ConfigSection>
 
@@ -313,7 +301,6 @@ export function ConfigReadOnly({ config }: { config: ZhiConfig }) {
         <ReadOnlyField label={t('settings.foodScentDecayRate')} value={fs.decay_rate} />
         <ReadOnlyField label={t('settings.foodScentDiffusionRate')} value={fs.diffusion_rate} />
         <ReadOnlyField label={t('settings.smallFoodEmission')} value={fs.small_food_emission} />
-        <ReadOnlyField label={t('settings.bigFoodEmission')} value={fs.big_food_emission} />
         <ReadOnlyField label={t('settings.foodScentSpreadRadius')} value={fs.spread_radius} />
       </ConfigSection>
 

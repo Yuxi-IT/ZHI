@@ -29,7 +29,6 @@ public class GenerationRecord
     public int TotalTicks { get; set; }
     public int Attacks { get; set; }
     public int FoodEaten { get; set; }
-    public int BigFoodEaten { get; set; }
     public int CorpsesEaten { get; set; }
     public float BestFitness { get; set; }
     public float BestAliveSeconds { get; set; }

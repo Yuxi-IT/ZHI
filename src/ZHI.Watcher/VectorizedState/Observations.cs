@@ -36,16 +36,9 @@ public partial class VectorizedState
         for (int f = 0; f < FoodTiles.Count; f++)
         {
             var ft = FoodTiles[f];
-            int fw = ft.Width > 0 ? ft.Width : 1;
-            int fh = ft.Height > 0 ? ft.Height : 1;
-            byte val = (byte)(ft.IsBig ? 2 : 1);
-            for (int dx = 0; dx < fw; dx++)
-                for (int dy = 0; dy < fh; dy++)
-                {
-                    int x = ft.X + dx, y = ft.Y + dy;
-                    if (x >= 0 && x < W && y >= 0 && y < H)
-                        _foodGrid[x * H + y] = val;
-                }
+            int idx = ft.X * H + ft.Y;
+            if (ft.X >= 0 && ft.X < W && ft.Y >= 0 && ft.Y < H)
+                _foodGrid[idx] = true;
         }
 
         for (int c = 0; c < CorpseTiles.Count; c++)
@@ -63,7 +56,7 @@ public partial class VectorizedState
         int D = R * 2 + 1; // 7
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
-        const int GridCh = 6; // food, bigfood, corpse, agent, self, terrain
+        const int GridCh = 6; // plant, water, corpse, agent, self, terrain
 
         Array.Clear(_stateAssemblyBuffer);
 
@@ -109,15 +102,15 @@ public partial class VectorizedState
                     int gx = cx + dx, gy = cy + dy;
                     if (gx < 0 || gx >= W || gy < 0 || gy >= H) continue;
 
-                    bool hasFood = HasFoodAt(gx, gy, out bool isBigFood);
+                    bool hasFood = HasFoodAt(gx, gy);
                     bool hasCorpse = HasCorpseAt(gx, gy);
                     bool hasAgent = HasOtherAgentAt(i, gx, gy);
                     bool isSelf = (dx == 0 && dy == 0);
                     byte terrain = TerrainType[gx, gy];
                     float terrainNorm = terrain == 1 ? 0.33f : terrain == 2 ? 0.66f : terrain >= 3 || RiverGrid[gx, gy] > 0 ? 1f : 0f;
 
-                    _stateAssemblyBuffer[gridBase + cellIdx + 0] = (hasFood && !isBigFood) ? 1f : 0f;
-                    _stateAssemblyBuffer[gridBase + cellIdx + 1] = isBigFood ? 1f : 0f;
+                    _stateAssemblyBuffer[gridBase + cellIdx + 0] = hasFood ? 1f : 0f;
+                    _stateAssemblyBuffer[gridBase + cellIdx + 1] = 0f;  // water/humidity (Phase 7)
                     _stateAssemblyBuffer[gridBase + cellIdx + 2] = hasCorpse ? 1f : 0f;
                     _stateAssemblyBuffer[gridBase + cellIdx + 3] = (hasAgent && !isSelf) ? 1f : 0f;
                     _stateAssemblyBuffer[gridBase + cellIdx + 4] = isSelf ? 1f : 0f;
@@ -170,7 +163,7 @@ public partial class VectorizedState
                     int gx = cx + dx, gy = cy + dy;
                     if (gx < 0 || gx >= W || gy < 0 || gy >= H) continue;
                     int key = gx * H + gy;
-                    if (_foodGrid[key] > 0 || _corpseGrid[key]) foodVisible++;
+                    if (_foodGrid[key] || _corpseGrid[key]) foodVisible++;
                     if (dx == 0 && dy == 0) continue;
                     int agentIdx = _agentGrid[key];
                     if (agentIdx >= 0 && agentIdx != i) agentVisible++;

@@ -103,7 +103,6 @@ public class Blackbox : IDisposable
                 total_ticks INTEGER NOT NULL,
                 attacks INTEGER NOT NULL,
                 food_eaten INTEGER NOT NULL,
-                bigfood_eaten INTEGER NOT NULL,
                 corpses_eaten INTEGER NOT NULL,
                 best_fitness REAL NOT NULL,
                 best_alive_seconds REAL NOT NULL,
@@ -180,15 +179,14 @@ public class Blackbox : IDisposable
     {
         using var cmd = _db.CreateCommand();
         cmd.CommandText = """
-            INSERT OR REPLACE INTO generations (generation, agent_count, total_ticks, attacks, food_eaten, bigfood_eaten, corpses_eaten, best_fitness, best_alive_seconds, avg_alive_seconds, started_at, ended_at)
-            VALUES (@gen, @agents, @ticks, @attacks, @food, @bigfood, @corpses, @bestFit, @bestAlive, @avgAlive, @started, @ended)
+            INSERT OR REPLACE INTO generations (generation, agent_count, total_ticks, attacks, food_eaten, corpses_eaten, best_fitness, best_alive_seconds, avg_alive_seconds, started_at, ended_at)
+            VALUES (@gen, @agents, @ticks, @attacks, @food, @corpses, @bestFit, @bestAlive, @avgAlive, @started, @ended)
             """;
         cmd.Parameters.AddWithValue("@gen", record.Generation);
         cmd.Parameters.AddWithValue("@agents", record.AgentCount);
         cmd.Parameters.AddWithValue("@ticks", record.TotalTicks);
         cmd.Parameters.AddWithValue("@attacks", record.Attacks);
         cmd.Parameters.AddWithValue("@food", record.FoodEaten);
-        cmd.Parameters.AddWithValue("@bigfood", record.BigFoodEaten);
         cmd.Parameters.AddWithValue("@corpses", record.CorpsesEaten);
         cmd.Parameters.AddWithValue("@bestFit", record.BestFitness);
         cmd.Parameters.AddWithValue("@bestAlive", record.BestAliveSeconds);
@@ -211,13 +209,12 @@ public class Blackbox : IDisposable
             TotalTicks = reader.GetInt32(2),
             Attacks = reader.GetInt32(3),
             FoodEaten = reader.GetInt32(4),
-            BigFoodEaten = reader.GetInt32(5),
-            CorpsesEaten = reader.GetInt32(6),
-            BestFitness = reader.GetFloat(7),
-            BestAliveSeconds = reader.GetFloat(8),
-            AvgAliveSeconds = reader.GetFloat(9),
-            StartedAt = reader.GetString(10),
-            EndedAt = reader.GetString(11)
+            CorpsesEaten = reader.GetInt32(5),
+            BestFitness = reader.GetFloat(6),
+            BestAliveSeconds = reader.GetFloat(7),
+            AvgAliveSeconds = reader.GetFloat(8),
+            StartedAt = reader.GetString(9),
+            EndedAt = reader.GetString(10)
         };
     }
 

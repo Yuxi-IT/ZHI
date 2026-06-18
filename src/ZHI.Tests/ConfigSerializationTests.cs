@@ -24,11 +24,8 @@ public class ConfigSerializationTests
         Assert.Equal(original.Grid.MaxAgents, deserialized.Grid.MaxAgents);
         Assert.Equal(original.Grid.InitialFood, deserialized.Grid.InitialFood);
         Assert.Equal(original.Grid.FoodEnergy, deserialized.Grid.FoodEnergy);
-        Assert.Equal(original.Grid.BigFoodEnergy, deserialized.Grid.BigFoodEnergy);
         Assert.Equal(original.Grid.FoodDecayPerTick, deserialized.Grid.FoodDecayPerTick);
         Assert.Equal(original.Grid.FoodPerTickEnergy, deserialized.Grid.FoodPerTickEnergy);
-        Assert.Equal(original.Grid.FoodRespawnInterval, deserialized.Grid.FoodRespawnInterval);
-        Assert.Equal(original.Grid.MaxFood, deserialized.Grid.MaxFood);
 
         Assert.Equal(original.Cosmos.AgentCount, deserialized.Cosmos.AgentCount);
         Assert.Equal(original.Cosmos.MutationStd, deserialized.Cosmos.MutationStd);
@@ -103,8 +100,7 @@ public class ConfigSerializationTests
 
         Assert.Equal(128, config.Grid.Width);
         Assert.Equal(128, config.Grid.Height);
-        Assert.Equal(15f, config.Grid.FoodEnergy); // default untouched
-        Assert.Equal(80f, config.Grid.BigFoodEnergy);
+        Assert.Equal(10f, config.Grid.FoodEnergy); // default untouched
         Assert.Equal(64, config.Cosmos.AgentCount);
     }
 }

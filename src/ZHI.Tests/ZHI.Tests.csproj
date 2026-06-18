@@ -18,9 +18,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\ZHI.Shared\ZHI.Shared.csproj" />
-    <ProjectReference Include="..\..\src\ZHI.Core\ZHI.Core.csproj" />
-    <ProjectReference Include="..\..\src\ZHI.Watcher\ZHI.Watcher.csproj" />
+    <ProjectReference Include="..\ZHI.Shared\ZHI.Shared.csproj" />
+    <ProjectReference Include="..\ZHI.Core\ZHI.Core.csproj" />
+    <ProjectReference Include="..\ZHI.Watcher\ZHI.Watcher.csproj" />
   </ItemGroup>
 
 </Project>

@@ -24,7 +24,7 @@ ZHI 已从"智能体沙盒"转向**人工生命**方向。核心原则：
 - `ZHI.Core/` — ML 核心（GRUBrain: CNN+GRU Actor-Critic, Device）
 - `ZHI.Watcher/` — 世界引擎（CosmosEngine 分部类, WebServer, VectorizedState, PPOBuffer）
 - `ZHI.Dashboard/` — React + Vite 前端
-- `tests/ZHI.Tests/` — 单元测试
+- `src/ZHI.Tests/` — 单元测试
 
 ### 关键常量 (ToolDefinitions.cs)
 - StateSize = 340 (294 grid 7×7×6ch + 46 non-grid)

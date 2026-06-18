@@ -128,9 +128,7 @@ public partial class CosmosEngine : IDisposable
         {
             foreach (var ft in _v.FoodTiles)
             {
-                int fw = ft.Width > 0 ? ft.Width : 1;
-                int fh = ft.Height > 0 ? ft.Height : 1;
-                if (px >= ft.X && px < ft.X + fw && py >= ft.Y && py < ft.Y + fh)
+                if (ft.X == px && ft.Y == py)
                     return true;
             }
             foreach (var ct in _v.CorpseTiles)

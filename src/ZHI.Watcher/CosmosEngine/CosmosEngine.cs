@@ -71,20 +71,16 @@ public partial class CosmosEngine : IDisposable
     // Generation statistics
     private int _genAttacks;
     private int _genFoodEaten;
-    private int _genBigFoodEaten;
     private int _genCorpsesEaten;
     private int _genTotalTicks;
     private float _genFoodEnergy;
-    private float _genBigFoodEnergy;
     private float _genCorpseEnergy;
 
     public int GenAttacks => _genAttacks;
     public int GenFoodEaten => _genFoodEaten;
-    public int GenBigFoodEaten => _genBigFoodEaten;
     public int GenCorpsesEaten => _genCorpsesEaten;
     public int GenTotalTicks => _genTotalTicks;
     public float GenFoodEnergy => _genFoodEnergy;
-    public float GenBigFoodEnergy => _genBigFoodEnergy;
     public float GenCorpseEnergy => _genCorpseEnergy;
     public ZhiConfig CurrentConfig => _config;
 
@@ -209,7 +205,7 @@ public partial class CosmosEngine : IDisposable
 
         ApplyScentPhysics();
 
-        ApplyFoodDecayAndRespawn();
+        ApplyFoodDecay();
 
         // 6. GRU inference (uses StateMatrix built at end of previous tick)
         var (actions, chemicalValues, logProbs, values, entropy, newHidden) =
@@ -481,7 +477,6 @@ public partial class CosmosEngine : IDisposable
                 TotalTicks = _genTotalTicks,
                 Attacks = _genAttacks,
                 FoodEaten = _genFoodEaten,
-                BigFoodEaten = _genBigFoodEaten,
                 CorpsesEaten = _genCorpsesEaten,
                 BestFitness = 0,
                 BestAliveSeconds = bestAlive / 5f,

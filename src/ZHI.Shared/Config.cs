@@ -37,22 +37,14 @@ public sealed class GridConfig
     public int Height { get; set; } = 64;
     public int MaxAgents { get; set; } = 512;
 
-    // Initial food spawn
-    public int InitialFood { get; set; } = 70;
-    public int InitialBigFood { get; set; } = 10;
-    public float FoodEnergy { get; set; } = 15f;
-    public float BigFoodEnergy { get; set; } = 80f;
-    public float FoodDecayPerTick { get; set; } = 0.075f;     // natural spoilage (~200 ticks at 15 energy)
-    public float BigFoodDecayPerTick { get; set; } = 0.2f;     // natural spoilage (~400 ticks at 80 energy)
+    // Initial plant spawn
+    public int InitialFood { get; set; } = 50;
+    public float FoodEnergy { get; set; } = 10f;
+    public float FoodDecayPerTick { get; set; } = 0.05f;      // natural plant decay
 
     // Eating: per-tick energy extraction (continuous model, multiple agents compete)
-    public float FoodPerTickEnergy { get; set; } = 1.0f;     // ~15 ticks to deplete small food
-    public float BigFoodPerTickEnergy { get; set; } = 2.0f;   // ~40 ticks solo, faster with competition
+    public float FoodPerTickEnergy { get; set; } = 1.0f;
     public float CorpsePerTickEnergy { get; set; } = 1.0f;    // ~20 ticks to deplete corpse
-
-    // Food respawning
-    public int FoodRespawnInterval { get; set; } = 10;
-    public int MaxFood { get; set; } = 100;
 }
 
 public sealed class CombatConfig
@@ -89,7 +81,6 @@ public sealed class FoodScentConfig
     public float DecayRate { get; set; } = 0.85f;
     public float DiffusionRate { get; set; } = 0.08f;
     public float SmallFoodEmission { get; set; } = 0.3f;
-    public float BigFoodEmission { get; set; } = 1.0f;
     public int SpreadRadius { get; set; } = 2;
 }
 

@@ -30,7 +30,6 @@ export interface AgentSnapshot {
   attack_count: number
   eat_count: number
   food_eat_count: number
-  bigfood_eat_count: number
   corpse_eat_count: number
   emit_count: number
   facing_direction: number
@@ -42,11 +41,8 @@ export interface AgentSnapshot {
 export interface FoodTile {
   x: number
   y: number
-  width: number
-  height: number
   energy: number
   max_energy: number
-  is_big: boolean
 }
 
 export interface CorpseTile {
@@ -98,14 +94,12 @@ export interface LogMessage {
 
 export interface EnergySource {
   food_pct: number
-  bigfood_pct: number
   corpse_pct: number
 }
 
 export interface CosmosStats {
   attack_rate: number
   food_eaten: number
-  bigfood_eaten: number
   corpses_eaten: number
   energy_source: EnergySource
 }

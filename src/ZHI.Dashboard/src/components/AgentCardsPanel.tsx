@@ -189,7 +189,6 @@ function AgentCard({
           </div>
           <div className="flex gap-2 mt-0.5 text-zhi-muted">
             <span title={t('agents.food')}>F:{agent.food_eat_count}</span>
-            <span title={t('agents.bigfood')}>B:{agent.bigfood_eat_count}</span>
             <span title={t('agents.corpse')}>C:{agent.corpse_eat_count}</span>
             <span title={t('agents.attacks')}>A:{agent.attack_count}</span>
             <span title={t('agents.chemicals')}>E:{agent.emit_count}</span>

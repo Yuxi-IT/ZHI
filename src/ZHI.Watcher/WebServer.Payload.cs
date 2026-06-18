@@ -36,7 +36,6 @@ public partial class WebServer
                 attack_count = v.AttackCount[i],
                 eat_count = v.EatCount[i],
                 food_eat_count = v.FoodEatCount[i],
-                bigfood_eat_count = v.BigFoodEatCount[i],
                 corpse_eat_count = v.CorpseEatCount[i],
                 emit_count = v.EmitCount[i],
                 facing_direction = v.FacingDirection[i],
@@ -55,7 +54,7 @@ public partial class WebServer
         }
         var food = new List<object>(foodSnap.Length);
         foreach (var f in foodSnap)
-            food.Add(new { x = f.X, y = f.Y, width = f.Width, height = f.Height, energy = f.Energy, max_energy = f.IsBig ? _engine.CurrentConfig.Grid.BigFoodEnergy : _engine.CurrentConfig.Grid.FoodEnergy, is_big = f.IsBig });
+            food.Add(new { x = f.X, y = f.Y, energy = f.Energy, max_energy = _engine.CurrentConfig.Grid.FoodEnergy });
 
         var corpses = new List<object>(corpseSnap.Length);
         foreach (var c in corpseSnap)
@@ -103,21 +102,18 @@ public partial class WebServer
             for (int fy = 0; fy < gh; fy++)
                 riverFlow[fy * gw + fx] = v.RiverFlow[fx, fy];
 
-        float totalEnergySrc = _engine.GenFoodEnergy + _engine.GenBigFoodEnergy + _engine.GenCorpseEnergy;
+        float totalEnergySrc = _engine.GenFoodEnergy + _engine.GenCorpseEnergy;
         float foodPct = totalEnergySrc > 0 ? _engine.GenFoodEnergy / totalEnergySrc * 100f : 0;
-        float bigFoodPct = totalEnergySrc > 0 ? _engine.GenBigFoodEnergy / totalEnergySrc * 100f : 0;
         float corpsePct = totalEnergySrc > 0 ? _engine.GenCorpseEnergy / totalEnergySrc * 100f : 0;
 
         var stats = new
         {
             attack_rate = _engine.GenTotalTicks > 0 ? (float)_engine.GenAttacks / _engine.GenTotalTicks : 0f,
             food_eaten = _engine.GenFoodEaten,
-            bigfood_eaten = _engine.GenBigFoodEaten,
             corpses_eaten = _engine.GenCorpsesEaten,
             energy_source = new
             {
                 food_pct = foodPct,
-                bigfood_pct = bigFoodPct,
                 corpse_pct = corpsePct
             }
         };
