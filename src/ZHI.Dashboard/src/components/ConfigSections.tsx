@@ -16,8 +16,8 @@ export interface ZhiConfig {
 }
 
 export const DEFAULT_CONFIG: ZhiConfig = {
-  Grid: { Width: 64, Height: 64, InitialFood: 120, InitialBigFood: 20, FoodEnergy: 30, BigFoodEnergy: 100, FoodDecayPerTick: 0.002, BigFoodDecayPerTick: 0.001, MaxFood: 300, FoodRespawnInterval: 60, FoodPerTickEnergy: 3, BigFoodPerTickEnergy: 8, CorpsePerTickEnergy: 2 },
-  Cosmos: { AgentCount: 30, RespawnDelayTicks: 30, MutationStd: 0.1 },
+  Grid: { Width: 64, Height: 64, InitialFood: 70, InitialBigFood: 10, FoodEnergy: 30, BigFoodEnergy: 100, FoodDecayPerTick: 0.002, BigFoodDecayPerTick: 0.001, MaxFood: 100, FoodRespawnInterval: 60, FoodPerTickEnergy: 3, BigFoodPerTickEnergy: 8, CorpsePerTickEnergy: 2 },
+  Cosmos: { AgentCount: 64, RespawnDelayTicks: 30, MutationStd: 0.1 },
   Temperature: { MaxTemp: 40, MinTemp: -5, ColdThreshold: 10, MaxColdDecay: 0.5, HotThreshold: 30, MaxThirstAccel: 0.3, HuddleRange: 2, HuddleWarmthPerAgent: 3, AgentBodyHeat: 2, RiverCooling: 5, RiverCoolingRange: 2 },
   Combat: { AttackRange: 3, StressPerAttack: 1.5, StressDamage: 0.15, AttackCost: 5 },
   Hunger: { DecayRate: 0.04, PenaltyStart: 30, MaxPenalty: 0.03, Initial: 100 },

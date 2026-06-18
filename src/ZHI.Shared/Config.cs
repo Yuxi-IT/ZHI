@@ -37,7 +37,7 @@ public sealed class GridConfig
     public int MaxAgents { get; set; } = 512;
 
     // Initial food spawn
-    public int InitialFood { get; set; } = 50;
+    public int InitialFood { get; set; } = 70;
     public int InitialBigFood { get; set; } = 10;
     public float FoodEnergy { get; set; } = 15f;
     public float BigFoodEnergy { get; set; } = 80f;
