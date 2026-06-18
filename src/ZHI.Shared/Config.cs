@@ -1,5 +1,24 @@
 namespace ZHI.Shared;
 
+public sealed class DisasterConfig
+{
+    public float ProbabilityPerTick { get; set; } = 0.0002f;  // ~1 disaster per ~5000 ticks
+    public int MinDuration { get; set; } = 50;
+    public int MaxDuration { get; set; } = 500;
+    public int Cooldown { get; set; } = 2000;
+    // Flood
+    public float FloodHumidityThreshold { get; set; } = 0.8f;
+    public int FloodRainRadius { get; set; } = 8;
+    public float FloodRainAmount { get; set; } = 3f;
+    // Drought
+    public float DroughtHumidityThreshold { get; set; } = 0.2f;
+    public float DroughtEvaporationMult { get; set; } = 3f;
+    // HeatWave
+    public float HeatWaveTempBonus { get; set; } = 8f;
+    // ColdSnap
+    public float ColdSnapTempPenalty { get; set; } = 10f;
+}
+
 public sealed class NoiseConfig
 {
     public float PlantMissChance { get; set; } = 0.2f;        // 20% chance plant cell appears empty
@@ -17,6 +36,7 @@ public sealed class ZhiConfig
     public ScentConfig Scent { get; set; } = new();
     public FoodScentConfig FoodScent { get; set; } = new();
     public NoiseConfig Noise { get; set; } = new();
+    public DisasterConfig Disaster { get; set; } = new();
     public NetworkConfig Network { get; set; } = new();
     public CosmosConfig Cosmos { get; set; } = new();
     public CorpseConfig Corpse { get; set; } = new();

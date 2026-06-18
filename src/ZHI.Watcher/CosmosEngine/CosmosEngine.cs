@@ -201,6 +201,8 @@ public partial class CosmosEngine : IDisposable
 
         ApplySeasonCycle();
 
+        ApplyDisasters();
+
         ApplyWorldTemperature(n);
 
         ApplyWind();

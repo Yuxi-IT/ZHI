@@ -16,6 +16,10 @@ public partial class CosmosEngine
         bool isDaytime = _gameTimeOfDay >= 6f && _gameTimeOfDay < 20f;
 
         ApplyRainfall(W, H);
+
+        if (IsFlooding && _globalTick % 5 == 0)
+            ApplyRainfall(W, H); // extra rain during flood
+
         ApplyEvaporation(W, H, isDaytime);
         ApplySurfaceFlow(W, H);
         ApplyGroundwaterExchange(W, H);
@@ -74,7 +78,7 @@ public partial class CosmosEngine
                 float sunFactor = 1f + _v.Sunlight[x, y] * sunEvapMult;
                 float biomeFactor = GetBiomeEvaporationMult(x, y);
 
-                float evap = evapRate * tempFactor * water * windFactor * sunFactor * biomeFactor;
+                float evap = evapRate * tempFactor * water * windFactor * sunFactor * biomeFactor * DisasterEvaporationMult;
                 _v.SurfaceWaterGrid[x, y] = MathF.Max(0, water - evap);
                 _humidity = MathF.Min(1f, _humidity + evap * 0.01f);
             }
