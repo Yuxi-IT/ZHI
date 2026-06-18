@@ -22,14 +22,16 @@ public static class ToolDefinitions
     public const int VisionRadius = 3; // 7×7 window = radius 3
     public const int SignalWaveRadius = 4; // 9×9 chemical diffusion pattern
 
-    // Terrain types
-    public const byte TerrainFlat = 0;
-    public const byte TerrainPit = 1;
-    public const byte TerrainMound = 2;
-    public const byte TerrainDynamicWater = 3; // flooded pit — shallow water from terrain physics
-
-    public const int TerrainTTL = 2000;       // pit/mound lifespan in ticks (v4.2: extended to ~33 min)
-    public const int PermaWaterTTL = -1;       // sentinel for permanent water (no weathering)
+    // Aspect directions (坡向, 8-direction compass)
+    public const byte AspectN = 0;
+    public const byte AspectNE = 1;
+    public const byte AspectE = 2;
+    public const byte AspectSE = 3;
+    public const byte AspectS = 4;
+    public const byte AspectSW = 5;
+    public const byte AspectW = 6;
+    public const byte AspectNW = 7;
+    public const byte AspectFlat = 255;  // slope < epsilon, no meaningful aspect
 
     // River flow directions (8-direction compass)
     // 0=none, 1=N, 2=NE, 3=E, 4=SE, 5=S, 6=SW, 7=W, 8=NW

@@ -49,7 +49,6 @@ public sealed class CombatConfig
     public float StressDamage { get; set; } = 0.1f;
     public float StressDecay { get; set; } = 0.1f;
     public int AttackRange { get; set; } = 1;
-    public float AttackCost { get; set; } = 1.0f;
 }
 
 public sealed class ChemicalConfig
@@ -167,7 +166,7 @@ public sealed class TemperatureConfig
     public float WaterCoolingMult { get; set; } = 2f;       // body temp lerp multiplier in water
     public float DeepWaterExtraCold { get; set; } = 3f;     // extra °C penalty in deep water cells
     public float WaterCoolingOffset { get; set; } = 14f;   // water cells target below ambient air
-    public float HeightLapseRate { get; set; } = 0.5f;     // °C per height unit (height range -10..10 → ±5°C)
+    public float HeightLapseRate { get; set; } = 0.04f;     // °C per height unit (height 0..255, centered at 128 → ±5°C)
     public float MinBodyTemp { get; set; } = 26f;           // body temp hard floor
 }
 
@@ -201,6 +200,7 @@ public sealed class WaterCycleConfig
     public int RainIntervalMin { get; set; } = 200;
     public int RainIntervalMax { get; set; } = 600;
     public int RainRadius { get; set; } = 10;
+    public float SlopeRunoffMult { get; set; } = 2.0f;  // surface flow *= 1 + slope * k on steep terrain
 }
 
 public sealed class NutrientConfig
@@ -233,6 +233,8 @@ public sealed class MetabolismConfig
     public float StationaryDamageMult { get; set; } = 1.2f;
     public float StationarySelfHeat { get; set; } = 0.5f;
     public float StationaryNeighborHeat { get; set; } = 0.3f;
+    public float SlopeMoveExp { get; set; } = 0.5f;    // moveCost *= exp(slope * k), continuous penalty
+    public float VisionHeightBonus { get; set; } = 0.15f; // effective vision += height/255 * k
 }
 
 
