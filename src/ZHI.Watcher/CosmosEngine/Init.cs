@@ -46,6 +46,12 @@ public partial class CosmosEngine
         ComputeWaterSound();
         SpawnInitialFood();
 
+        // Initialize nutrient grid
+        float initNutrient = _config.Nutrient.InitialNutrient;
+        for (int x = 0; x < gw; x++)
+            for (int y = 0; y < gh; y++)
+                _v.NutrientGrid[x, y] = initNutrient;
+
         // Initialize agent bodies from random genomes
         for (int i = 0; i < n; i++)
         {

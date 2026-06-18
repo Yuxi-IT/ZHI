@@ -19,6 +19,7 @@ public sealed class ZhiConfig
     public RiverConfig River { get; set; } = new();
     public TemperatureConfig Temperature { get; set; } = new();
     public StaminaConfig Stamina { get; set; } = new();
+    public NutrientConfig Nutrient { get; set; } = new();
     public int Port { get; set; } = 19816;
     public int DecisionIntervalMs { get; set; } = 200;
     public int DeathCount { get; set; } = 0;
@@ -183,6 +184,15 @@ public sealed class TemperatureConfig
     public float WaterCoolingMult { get; set; } = 2f;       // body temp lerp multiplier in water
     public float DeepWaterExtraCold { get; set; } = 3f;     // extra °C penalty in deep water cells
     public float MinBodyTemp { get; set; } = 26f;           // body temp hard floor
+}
+
+public sealed class NutrientConfig
+{
+    public float CorpseToNutrientRatio { get; set; } = 0.5f;
+    public float PlantToNutrientRatio { get; set; } = 0.3f;
+    public float DiffusionRate { get; set; } = 0.02f;
+    public float MaxNutrient { get; set; } = 10f;
+    public float InitialNutrient { get; set; } = 2f;
 }
 
 public sealed class StaminaConfig

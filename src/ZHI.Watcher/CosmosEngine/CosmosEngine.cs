@@ -205,6 +205,8 @@ public partial class CosmosEngine : IDisposable
 
         ApplyScentPhysics();
 
+        ApplyNutrientDiffusion();
+
         ApplyFoodDecay();
 
         // 6. GRU inference (uses StateMatrix built at end of previous tick)

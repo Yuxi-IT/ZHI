@@ -77,6 +77,7 @@ public partial class VectorizedState : IDisposable
     public byte[,] RiverFlow;
     public int[,] DistanceToRiver;
     public float[,] HeightMap;       // [W, H] — continuous elevation (-10 to +10)
+    public float[,] NutrientGrid;    // [W, H] — soil nutrients (0 to MaxNutrient)
 
     // Spatial query grids
     private int[] _agentGrid;
@@ -150,6 +151,7 @@ public partial class VectorizedState : IDisposable
         RiverFlow = new byte[W, H];
         DistanceToRiver = new int[W, H];
         HeightMap = new float[W, H];
+        NutrientGrid = new float[W, H];
 
         int gridSize = W * H;
         _agentGrid = new int[gridSize];

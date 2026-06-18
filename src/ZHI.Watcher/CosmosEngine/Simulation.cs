@@ -309,9 +309,14 @@ public partial class CosmosEngine
             for (int f = _v.FoodTiles.Count - 1; f >= 0; f--)
             {
                 var food = _v.FoodTiles[f];
-                food.Energy -= foodDecay;
+                float decay = MathF.Min(foodDecay, food.Energy);
+                food.Energy -= decay;
                 if (food.Energy <= 0)
+                {
+                    _v.NutrientGrid[food.X, food.Y] = MathF.Min(_config.Nutrient.MaxNutrient,
+                        _v.NutrientGrid[food.X, food.Y] + decay * _config.Nutrient.PlantToNutrientRatio);
                     _v.FoodTiles.RemoveAt(f);
+                }
                 else
                 {
                     _v.FoodTiles[f] = food;
@@ -335,7 +340,8 @@ public partial class CosmosEngine
             for (int c = _v.CorpseTiles.Count - 1; c >= 0; c--)
             {
                 var corpse = _v.CorpseTiles[c];
-                corpse.Energy -= _config.Corpse.DecayPerTick;
+                float decay = MathF.Min(_config.Corpse.DecayPerTick, corpse.Energy);
+                corpse.Energy -= decay;
                 if (corpse.Energy <= 0)
                     _v.CorpseTiles.RemoveAt(c);
                 else
@@ -344,8 +350,34 @@ public partial class CosmosEngine
                     if (corpse.X < W && corpse.Y < H)
                         _v.FoodScentGrid[corpse.X, corpse.Y] += _config.Corpse.ScentAmount;
                 }
+                _v.NutrientGrid[corpse.X, corpse.Y] = MathF.Min(_config.Nutrient.MaxNutrient,
+                    _v.NutrientGrid[corpse.X, corpse.Y] + decay * _config.Nutrient.CorpseToNutrientRatio);
             }
         }
+    }
+
+    private void ApplyNutrientDiffusion()
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        float rate = _config.Nutrient.DiffusionRate;
+        float max = _config.Nutrient.MaxNutrient;
+
+        var newGrid = new float[W, H];
+        for (int x = 0; x < W; x++)
+            for (int y = 0; y < H; y++)
+            {
+                float current = _v.NutrientGrid[x, y];
+                float outflow = current * rate;
+                float inflow = 0f;
+                int nc = 0;
+                if (x > 0) { inflow += _v.NutrientGrid[x - 1, y] * rate; nc++; }
+                if (x < W - 1) { inflow += _v.NutrientGrid[x + 1, y] * rate; nc++; }
+                if (y > 0) { inflow += _v.NutrientGrid[x, y - 1] * rate; nc++; }
+                if (y < H - 1) { inflow += _v.NutrientGrid[x, y + 1] * rate; nc++; }
+                newGrid[x, y] = MathF.Min(current - outflow + inflow / MathF.Max(1, nc), max);
+            }
+        _v.NutrientGrid = newGrid;
     }
 
     /// <summary>
