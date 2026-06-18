@@ -272,7 +272,10 @@ public partial class VectorizedState
             _stateAssemblyBuffer[baseIdx + 324] = (cx < W - 1) ? ChemicalField[cx + 1, cy] - chemHere : 0f;
             _stateAssemblyBuffer[baseIdx + 325] = (cx > 0) ? ChemicalField[cx - 1, cy] - chemHere : 0f;
 
-            // [326-339] reserved (zero-filled by Array.Clear)
+            // [326] heat resistance (0-1)
+            _stateAssemblyBuffer[baseIdx + 326] = BodyHeatResist[i];
+
+            // [327-339] reserved (zero-filled by Array.Clear)
         }
 
         using var cpuData = tensor(_stateAssemblyBuffer, [N, S]);

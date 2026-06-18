@@ -39,7 +39,14 @@ public partial class WebServer
                 emit_count = v.EmitCount[i],
                 facing_direction = v.FacingDirection[i],
                 respawn_count = v.RespawnCount[i],
-                is_stationary = v.IsStationary[i]
+                is_stationary = v.IsStationary[i],
+                body_size = v.BodySize[i],
+                body_speed = v.BodySpeed[i],
+                body_strength = v.BodyStrength[i],
+                body_vision = v.BodyVision[i],
+                body_fat = v.BodyFat[i],
+                body_cold_resist = v.BodyColdResist[i],
+                body_heat_resist = v.BodyHeatResist[i]
             });
         }
 

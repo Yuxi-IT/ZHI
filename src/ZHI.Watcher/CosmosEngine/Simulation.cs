@@ -202,12 +202,14 @@ public partial class CosmosEngine
             float bodyTemp = _v.BodyTemperature[i];
 
             // Hypothermia: body temp < threshold → energy damage
+            // BodyColdResist reduces this effect (cold-adapted agents lose less energy)
             float hypoThreshold = _config.Temperature.HypothermiaThreshold;
             if (bodyTemp < hypoThreshold)
             {
                 float hypoRatio = (hypoThreshold - bodyTemp)
                     / (hypoThreshold - _config.Temperature.MinBodyTemp);
-                float hypoDecay = hypoRatio * _config.Temperature.HypothermiaMaxDamage;
+                float coldResist = MathF.Max(0.1f, _v.BodyColdResist[i]);
+                float hypoDecay = hypoRatio * _config.Temperature.HypothermiaMaxDamage / coldResist;
                 _v.Energy[i] -= hypoDecay;
                 if (hypoDecay > EventThreshold)
                     _tickEvents.Add(new WorldEvent { Type = "energyloss", AgentId = i, Value = hypoDecay, Tick = _globalTick, Cause = "hypothermia" });
@@ -218,18 +220,21 @@ public partial class CosmosEngine
             {
                 float coldRatio = 1f - (bodyTemp - _config.Temperature.MinTemp)
                     / (_config.Temperature.ColdThreshold - _config.Temperature.MinTemp);
-                float coldDecay = coldRatio * _config.Metabolism.ColdEnergyDecayMax;
+                float coldResist = MathF.Max(0.1f, _v.BodyColdResist[i]);
+                float coldDecay = coldRatio * _config.Metabolism.ColdEnergyDecayMax / coldResist;
                 _v.Energy[i] -= coldDecay;
                 if (coldDecay > EventThreshold)
                     _tickEvents.Add(new WorldEvent { Type = "energyloss", AgentId = i, Value = coldDecay, Tick = _globalTick, Cause = "cold" });
             }
 
             // Hot: body temp > HotThreshold → accelerated water loss
+            // BodyHeatResist reduces this effect (desert-adapted agents lose less water)
             if (bodyTemp > _config.Temperature.HotThreshold)
             {
                 float hotRatio = (bodyTemp - _config.Temperature.HotThreshold)
                     / (_config.Temperature.MaxTemp - _config.Temperature.HotThreshold);
-                float waterMult = 1f + hotRatio * (_config.Temperature.MaxWaterDecayMult - 1f);
+                float heatResist = MathF.Max(0.1f, _v.BodyHeatResist[i]);
+                float waterMult = 1f + hotRatio * (_config.Temperature.MaxWaterDecayMult - 1f) / heatResist;
                 _v.BodyWater[i] = MathF.Max(0f, _v.BodyWater[i]
                     - _config.Metabolism.WaterDecayRate * waterMult);
             }

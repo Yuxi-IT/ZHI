@@ -126,6 +126,7 @@ public partial class CosmosEngine
             _v.BodyVision[i] = genome.VisionRange;
             _v.BodyFat[i] = genome.FatStorage;
             _v.BodyColdResist[i] = genome.ColdResistance;
+            _v.BodyHeatResist[i] = genome.HeatResistance;
         }
 
         if (loadWeights != null && loadWeights.Count > 0)

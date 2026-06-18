@@ -177,6 +177,8 @@ function AgentCard({
             <StatPair label={t('agents.stress')} value={agent.stress.toFixed(2)} warn={agent.stress > 1} />
             <StatPair label={t('agents.water')} value={agent.water.toFixed(1)} warn={warnWater} warnColor="cyan" />
             <StatPair label={t('agents.btemp')} value={`${agent.body_temperature.toFixed(1)}°C`} warn={warnCold || warnHot} warnColor={warnHot ? 'red' : 'blue'} />
+            <StatPair label={t('agents.heatResist')} value={(agent.body_heat_resist ?? 0.5).toFixed(2)} />
+            <StatPair label={t('agents.coldResist')} value={(agent.body_cold_resist ?? 0.5).toFixed(2)} />
             <StatPair label={t('agents.age')} value={`${agent.tick_count}t`} />
             <StatPair label={t('agents.action')} value={actionLabel(agent, terrain, gridW, t)} />
           </div>

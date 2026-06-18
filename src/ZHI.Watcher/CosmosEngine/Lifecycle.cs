@@ -75,6 +75,7 @@ public partial class CosmosEngine
             _v.BodyVision[i] = newGenome.VisionRange;
             _v.BodyFat[i] = newGenome.FatStorage;
             _v.BodyColdResist[i] = newGenome.ColdResistance;
+            _v.BodyHeatResist[i] = newGenome.HeatResistance;
             _deathTick[i] = -1;
 
             // Zero GRU hidden state for this agent
@@ -161,6 +162,7 @@ public partial class CosmosEngine
         _v.BodyVision[childIdx] = childGenome.VisionRange;
         _v.BodyFat[childIdx] = childGenome.FatStorage;
         _v.BodyColdResist[childIdx] = childGenome.ColdResistance;
+        _v.BodyHeatResist[childIdx] = childGenome.HeatResistance;
 
         // Copy and mutate parent's weights
         byte[] parentWeights = _agentWeights[parentIdx];

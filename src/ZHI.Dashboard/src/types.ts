@@ -34,6 +34,13 @@ export interface AgentSnapshot {
   facing_direction: number
   respawn_count: number
   is_stationary: boolean
+  body_size: number
+  body_speed: number
+  body_strength: number
+  body_vision: number
+  body_fat: number
+  body_cold_resist: number
+  body_heat_resist: number
 }
 
 export interface FoodTile {

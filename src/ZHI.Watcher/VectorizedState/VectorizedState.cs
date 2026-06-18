@@ -72,6 +72,7 @@ public partial class VectorizedState : IDisposable
     public float[] BodyVision;
     public float[] BodyFat;
     public float[] BodyColdResist;
+    public float[] BodyHeatResist;
 
     // Grid state
     public List<PlantTile> Plants;
@@ -152,6 +153,7 @@ public partial class VectorizedState : IDisposable
         BodyVision = new float[n];
         BodyFat = new float[n];
         BodyColdResist = new float[n];
+        BodyHeatResist = new float[n];
 
         for (int i = 0; i < n; i++)
         {
@@ -670,6 +672,7 @@ public partial class VectorizedState : IDisposable
         BodyVision = Resize(BodyVision, newN);
         BodyFat = Resize(BodyFat, newN);
         BodyColdResist = Resize(BodyColdResist, newN);
+        BodyHeatResist = Resize(BodyHeatResist, newN);
 
         StateMatrix.Dispose();
         StateMatrix = torch.zeros(newN, ToolDefinitions.StateSize, device: Device);

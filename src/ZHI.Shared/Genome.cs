@@ -24,6 +24,9 @@ public sealed class Genome
     /// <summary>Cold resistance (0.0–1.0). Higher = less HP loss in cold environments.</summary>
     public float ColdResistance { get; set; } = 0.5f;
 
+    /// <summary>Heat resistance (0.0–1.0). Higher = less water loss in hot environments.</summary>
+    public float HeatResistance { get; set; } = 0.5f;
+
     /// <summary>Create a random genome with values centered at 1.0.</summary>
     public static Genome Random(Random rng, float mutationStd = 0.2f)
     {
@@ -35,7 +38,8 @@ public sealed class Genome
             Strength = Math.Clamp(Sample(), 0.3f, 2.5f),
             VisionRange = Math.Clamp(Sample(), 0.3f, 2.5f),
             FatStorage = Math.Clamp(Sample(), 0.0f, 1.0f),
-            ColdResistance = Math.Clamp(Sample(), 0.0f, 1.0f)
+            ColdResistance = Math.Clamp(Sample(), 0.0f, 1.0f),
+            HeatResistance = Math.Clamp(Sample(), 0.0f, 1.0f)
         };
     }
 
@@ -52,7 +56,8 @@ public sealed class Genome
             Strength = Mut(Strength, 0.3f, 2.5f),
             VisionRange = Mut(VisionRange, 0.3f, 2.5f),
             FatStorage = Mut(FatStorage, 0.0f, 1.0f),
-            ColdResistance = Mut(ColdResistance, 0.0f, 1.0f)
+            ColdResistance = Mut(ColdResistance, 0.0f, 1.0f),
+            HeatResistance = Mut(HeatResistance, 0.0f, 1.0f)
         };
     }
 
@@ -68,6 +73,7 @@ public sealed class Genome
     public Genome Clone() => new()
     {
         Size = Size, Speed = Speed, Strength = Strength,
-        VisionRange = VisionRange, FatStorage = FatStorage, ColdResistance = ColdResistance
+        VisionRange = VisionRange, FatStorage = FatStorage,
+        ColdResistance = ColdResistance, HeatResistance = HeatResistance
     };
 }
