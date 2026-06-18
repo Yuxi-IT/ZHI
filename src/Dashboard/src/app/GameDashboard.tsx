@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { Button, Separator } from '@heroui/react';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useLogSocket } from '../hooks/useLogSocket';
@@ -115,19 +115,6 @@ export function GameDashboard({ worldName, onStop }: Props) {
     }
   }, [onStop]);
 
-  const ToggleBtn = ({ on, label, activeClass, onToggle }: { on: boolean; label: string; activeClass: string; onToggle: () => void }) => (
-    <Button
-      variant={on ? 'secondary' : 'ghost'}
-      size="sm"
-      onPress={onToggle}
-      className={`text-[10px] min-w-0 h-auto px-1.5 py-0.5 rounded border transition-colors ${
-        on ? activeClass : 'border-zhi-border text-zhi-muted hover:text-zhi-text'
-      }`}
-    >
-      {label}
-    </Button>
-  );
-
   return (
     <div className="h-screen flex flex-col bg-zhi-bg text-zhi-text font-mono text-xs overflow-hidden">
       <ControlBar
@@ -149,7 +136,7 @@ export function GameDashboard({ worldName, onStop }: Props) {
         </aside>
 
         <div className="flex-1 flex flex-col min-h-0 min-w-0">
-          {/* Display toggles bar */}
+          {/* Info bar — dynamic data */}
           <div className="flex items-center gap-1.5 px-3 py-1 border-b border-zhi-border shrink-0 flex-wrap">
             <span className="text-zhi-muted text-[11px]">{t('header.day')} {worldDay}</span>
             <Separator orientation="vertical" className="h-3" />
@@ -157,19 +144,6 @@ export function GameDashboard({ worldName, onStop }: Props) {
             <span className="text-[11px] font-semibold" style={{ color: tempColor(temperature) }}>{temperature.toFixed(1)}°C</span>
             <Separator orientation="vertical" className="h-3" />
             <span className="text-zhi-muted text-[11px]">{t('toggle.display')}</span>
-
-            <ToggleBtn on={showScent} label={t('toggle.scent')} activeClass="border-purple-600 text-purple-400 bg-purple-900/20" onToggle={() => setShowScent(v => !v)} />
-            <ToggleBtn on={showFoodScent} label={t('toggle.foodScent')} activeClass="border-green-600 text-green-400 bg-green-900/20" onToggle={() => setShowFoodScent(v => !v)} />
-            <ToggleBtn on={showDirection} label={t('toggle.direction')} activeClass="border-yellow-600 text-yellow-400 bg-yellow-900/20" onToggle={() => setShowDirection(v => !v)} />
-            <ToggleBtn on={showVision} label={t('toggle.vision')} activeClass="border-purple-600 text-purple-400 bg-purple-900/20" onToggle={() => setShowVision(v => !v)} />
-            <ToggleBtn on={showSignal} label={t('toggle.signal')} activeClass="border-yellow-600 text-yellow-400 bg-yellow-900/20" onToggle={() => setShowSignal(v => !v)} />
-            <ToggleBtn on={showTemp} label={t('toggle.temp')} activeClass="border-orange-600 text-orange-400 bg-orange-900/20" onToggle={() => setShowTemp(v => !v)} />
-            <ToggleBtn on={showTerrain} label={t('toggle.terrain')} activeClass="border-amber-600 text-amber-400 bg-amber-900/20" onToggle={() => setShowTerrain(v => !v)} />
-            <ToggleBtn on={showFlow} label={t('toggle.flow')} activeClass="border-sky-600 text-sky-400 bg-sky-900/20" onToggle={() => setShowFlow(v => !v)} />
-
-            <Separator orientation="vertical" className="h-3" />
-            <ToggleBtn on={trackNextGen} label={t('toggle.trackRebirth')} activeClass="border-cyan-600 text-cyan-400 bg-cyan-900/20" onToggle={() => setTrackNextGen(v => !v)} />
-
             {stats && (
               <>
                 <Separator orientation="vertical" className="h-3" />
@@ -187,6 +161,19 @@ export function GameDashboard({ worldName, onStop }: Props) {
               </>
             )}
           </div>
+
+          {/* Toggle bar — memoized, doesn't re-render on data ticks */}
+          <DisplayToggles
+            showScent={showScent} setShowScent={setShowScent}
+            showFoodScent={showFoodScent} setShowFoodScent={setShowFoodScent}
+            showDirection={showDirection} setShowDirection={setShowDirection}
+            showVision={showVision} setShowVision={setShowVision}
+            showSignal={showSignal} setShowSignal={setShowSignal}
+            showTemp={showTemp} setShowTemp={setShowTemp}
+            showTerrain={showTerrain} setShowTerrain={setShowTerrain}
+            showFlow={showFlow} setShowFlow={setShowFlow}
+            trackNextGen={trackNextGen} setTrackNextGen={setTrackNextGen}
+          />
 
           <div className="flex-1 min-h-0 border-r border-zhi-border">
             <WorldMap
@@ -256,3 +243,48 @@ export function GameDashboard({ worldName, onStop }: Props) {
     </div>
   );
 }
+
+type ToggleKeys = {
+  showScent: boolean; setShowScent: (v: boolean) => void;
+  showFoodScent: boolean; setShowFoodScent: (v: boolean) => void;
+  showDirection: boolean; setShowDirection: (v: boolean) => void;
+  showVision: boolean; setShowVision: (v: boolean) => void;
+  showSignal: boolean; setShowSignal: (v: boolean) => void;
+  showTemp: boolean; setShowTemp: (v: boolean) => void;
+  showTerrain: boolean; setShowTerrain: (v: boolean) => void;
+  showFlow: boolean; setShowFlow: (v: boolean) => void;
+  trackNextGen: boolean; setTrackNextGen: (v: boolean) => void;
+};
+
+const DisplayToggles = memo(function DisplayToggles(p: ToggleKeys) {
+  const { t } = useT();
+  const btns: [boolean, (v: boolean) => void, string, string][] = [
+    [p.showScent, p.setShowScent, t('toggle.scent'), 'border-purple-600 text-purple-400 bg-purple-900/20'],
+    [p.showFoodScent, p.setShowFoodScent, t('toggle.foodScent'), 'border-green-600 text-green-400 bg-green-900/20'],
+    [p.showDirection, p.setShowDirection, t('toggle.direction'), 'border-yellow-600 text-yellow-400 bg-yellow-900/20'],
+    [p.showVision, p.setShowVision, t('toggle.vision'), 'border-purple-600 text-purple-400 bg-purple-900/20'],
+    [p.showSignal, p.setShowSignal, t('toggle.signal'), 'border-yellow-600 text-yellow-400 bg-yellow-900/20'],
+    [p.showTemp, p.setShowTemp, t('toggle.temp'), 'border-orange-600 text-orange-400 bg-orange-900/20'],
+    [p.showTerrain, p.setShowTerrain, t('toggle.terrain'), 'border-amber-600 text-amber-400 bg-amber-900/20'],
+    [p.showFlow, p.setShowFlow, t('toggle.flow'), 'border-sky-600 text-sky-400 bg-sky-900/20'],
+    [p.trackNextGen, p.setTrackNextGen, t('toggle.trackRebirth'), 'border-cyan-600 text-cyan-400 bg-cyan-900/20'],
+  ];
+
+  return (
+    <div className="flex items-center gap-1.5 px-3 py-1 border-b border-zhi-border shrink-0 flex-wrap">
+      {btns.map(([on, set, label, cls]) => (
+        <Button
+          key={label}
+          variant={on ? 'secondary' : 'ghost'}
+          size="sm"
+          onPress={() => set(!on)}
+          className={`text-[10px] min-w-0 h-auto px-1.5 py-0.5 rounded border transition-colors ${
+            on ? cls : 'border-zhi-border text-zhi-muted hover:text-zhi-text'
+          }`}
+        >
+          {label}
+        </Button>
+      ))}
+    </div>
+  );
+});
