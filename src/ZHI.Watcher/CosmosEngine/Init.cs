@@ -75,6 +75,10 @@ public partial class CosmosEngine
                     _v.GroundwaterGrid[x, y] = 0.1f;
             }
 
+        // Schedule first rain
+        _nextRainTick = _rng.Next(_config.WaterCycle.RainIntervalMin, _config.WaterCycle.RainIntervalMax);
+        _humidity = 0.5f;
+
         // Initialize agent bodies from random genomes
         for (int i = 0; i < n; i++)
         {
