@@ -92,6 +92,61 @@ public partial class CosmosEngine
         };
     }
 
+    /// <summary>
+    /// Generate continuous height map using layered value noise.
+    /// Heights range from -10 (basin) to +10 (peak). River will later follow the gradient.
+    /// </summary>
+    private void GenerateHeightMap()
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        int seed = _rng.Next();
+
+        float Noise(int x, int y, int octave)
+        {
+            int period = 8 << octave;
+            // Hash-based value noise at grid cell corners with bilinear interpolation
+            int cx = x / period, cy = y / period;
+            float fx = (float)(x % period) / period;
+            float fy = (float)(y % period) / period;
+
+            static float Hash(int sx, int sy, int s)
+            {
+                int h = sx * 374761393 + sy * 668265263 + s * 1274126177;
+                h = (h ^ (h >> 13)) * 1274126177;
+                return (float)(h & 0x7fffffff) / 0x7fffffff;
+            }
+
+            float v00 = Hash(cx, cy, seed + octave);
+            float v10 = Hash(cx + 1, cy, seed + octave);
+            float v01 = Hash(cx, cy + 1, seed + octave);
+            float v11 = Hash(cx + 1, cy + 1, seed + octave);
+
+            float ix0 = v00 + (v10 - v00) * fx;
+            float ix1 = v01 + (v11 - v01) * fx;
+            return ix0 + (ix1 - ix0) * fy;
+        }
+
+        for (int x = 0; x < W; x++)
+        {
+            for (int y = 0; y < H; y++)
+            {
+                float h = 0f;
+                float amp = 1f;
+                float totalAmp = 0f;
+                for (int oct = 0; oct < 4; oct++)
+                {
+                    h += Noise(x, y, oct) * amp;
+                    totalAmp += amp;
+                    amp *= 0.5f;
+                }
+                h /= totalAmp;        // normalize to 0–1
+                h = (h - 0.5f) * 20f; // map to -10..+10
+                _v.HeightMap[x, y] = h;
+            }
+        }
+    }
+
     private void GenerateRiver()
     {
         int W = ToolDefinitions.GridWidth;

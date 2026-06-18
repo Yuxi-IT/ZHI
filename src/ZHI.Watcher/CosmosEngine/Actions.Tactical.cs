@@ -34,7 +34,7 @@ public partial class CosmosEngine
         if (bestTarget >= 0)
         {
             float hpRatio = Math.Clamp(_v.Existence[attacker] / 100f, 0.2f, 1.5f);
-            float damage = 20f * hpRatio;
+            float damage = 20f * hpRatio * _v.BodyStrength[attacker];
             byte attackerTerrain = _v.TerrainType[ax, ay];
             if (attackerTerrain == ToolDefinitions.TerrainPit) damage *= 0.8f;
             else if (attackerTerrain == ToolDefinitions.TerrainMound) damage *= 1.1f;
@@ -57,28 +57,34 @@ public partial class CosmosEngine
         }
     }
 
-    private void ProcessSignal(int signaler, int signalValue)
+    /// <summary>
+    /// Emit a continuous chemical signal (0–1) into the environment.
+    /// Spreads via Chebyshev wave with linear falloff. Nearby agents pick up the chemical memory.
+    /// </summary>
+    private void ProcessEmitChemical(int emitter, float emissionValue)
     {
-        // Stamina check: cannot signal if exhausted
-        float stamina = _v.Stamina[signaler];
-        float cost = _config.Stamina.SignalCost;
+        float stamina = _v.Stamina[emitter];
+        float cost = _config.Stamina.ChemicalEmitCost;
         if (stamina < cost) return;
 
-        _v.Stamina[signaler] = MathF.Max(0f, stamina - cost);
-        _v.SignalCount[signaler]++;
+        // Scale emission by agent's fat storage (more fat = stronger signal)
+        float scaledEmission = Math.Clamp(emissionValue * (0.5f + _v.BodyFat[emitter] * 0.5f), 0f, 1f);
+
+        _v.Stamina[emitter] = MathF.Max(0f, stamina - cost);
+        _v.EmitCount[emitter]++;
 
         _tickEvents.Add(new WorldEvent
         {
-            Type = "signal", AgentId = signaler,
-            SignalValue = signalValue, Tick = _globalTick
+            Type = "signal", AgentId = emitter,
+            SignalValue = (int)(scaledEmission * 100), Tick = _globalTick
         });
 
-        int sx = _v.PosX[signaler], sy = _v.PosY[signaler];
-        int R = _config.Signal.WaveRadius;
+        int sx = _v.PosX[emitter], sy = _v.PosY[emitter];
+        int R = _config.Chemical.WaveRadius;
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
 
-        // Wave-like spatial diffusion: Chebyshev radius R with linear falloff
+        // Spatial diffusion: Chebyshev radius R with linear falloff
         for (int dx = -R; dx <= R; dx++)
         {
             int cx = sx + dx;
@@ -89,319 +95,23 @@ public partial class CosmosEngine
                 if (cy < 0 || cy >= H) continue;
                 int dist = Math.Max(Math.Abs(dx), Math.Abs(dy));
                 float intensity = (float)(R - dist + 1) / (R + 1);
-                _v.SignalField[cx, cy, signalValue] = MathF.Min(1.0f,
-                    _v.SignalField[cx, cy, signalValue] + intensity);
+                _v.ChemicalField[cx, cy] = MathF.Min(1.0f,
+                    _v.ChemicalField[cx, cy] + scaledEmission * intensity);
             }
         }
 
         // Agent-to-agent broadcast within wave radius
         for (int j = 0; j < _v.N; j++)
         {
-            if (j == signaler || !_v.Alive[j]) continue;
+            if (j == emitter || !_v.Alive[j]) continue;
             int dx = Math.Abs(_v.PosX[j] - sx);
             int dy = Math.Abs(_v.PosY[j] - sy);
             if (dx <= R && dy <= R)
             {
-                _v.LastSignalReceived[j] = signalValue;
-                _v.SignalMemory[j, signalValue] = 1.0f;
-                _v.SignalAge[j] = 0;
+                _v.LastSignalReceived[j] = (int)(scaledEmission * 100);
+                _v.ChemicalMemory[j] = MathF.Max(_v.ChemicalMemory[j], scaledEmission);
+                _v.ChemicalAge[j] = 0;
             }
         }
-    }
-
-    private void ProcessPush(int i, float[] rewards)
-    {
-        int W = ToolDefinitions.GridWidth;
-        int H = ToolDefinitions.GridHeight;
-        int px = _v.PosX[i], py = _v.PosY[i];
-        int fd = _v.FacingDirection[i];
-
-        if (_v.Stamina[i] < _config.Stamina.LowStaminaThreshold)
-            return;
-
-        int fx = px, fy = py;
-        switch (fd)
-        {
-            case 0: fy = py - 1; break;
-            case 1: fy = py + 1; break;
-            case 2: fx = px - 1; break;
-            default: fx = px + 1; break;
-        }
-        if (fx < 0 || fx >= W || fy < 0 || fy >= H) { _v.Stamina[i] -= _config.Stamina.PushCost * 0.5f; return; }
-
-        bool hasEntity = false;
-        int entityType = 0;
-        int foodIdx = -1, corpseIdx = -1;
-
-        lock (_v.LockObj)
-        {
-            for (int f = 0; f < _v.FoodTiles.Count; f++)
-            {
-                var ft = _v.FoodTiles[f];
-                int fw = ft.Width > 0 ? ft.Width : 1;
-                int fh = ft.Height > 0 ? ft.Height : 1;
-                if (fx >= ft.X && fx < ft.X + fw && fy >= ft.Y && fy < ft.Y + fh)
-                {
-                    hasEntity = true; entityType = 1; foodIdx = f; break;
-                }
-            }
-            if (!hasEntity)
-            {
-                for (int c = 0; c < _v.CorpseTiles.Count; c++)
-                {
-                    var ct = _v.CorpseTiles[c];
-                    if (ct.X == fx && ct.Y == fy)
-                    {
-                        hasEntity = true; entityType = 2; corpseIdx = c; break;
-                    }
-                }
-            }
-
-            if (!hasEntity) { _v.Stamina[i] -= _config.Stamina.PushCost * 0.5f; return; }
-
-            int dx = fx, dy = fy;
-            switch (fd)
-            {
-                case 0: dy = fy - 1; break;
-                case 1: dy = fy + 1; break;
-                case 2: dx = fx - 1; break;
-                default: dx = fx + 1; break;
-            }
-
-            if (dx < 0 || dx >= W || dy < 0 || dy >= H) { _v.Stamina[i] -= _config.Stamina.PushCost * 0.5f; return; }
-            if (_v.IsDeepWater(dx, dy)) { _v.Stamina[i] -= _config.Stamina.PushCost * 0.5f; return; }
-            if (_v.IsMoundAt(dx, dy)) { _v.Stamina[i] -= _config.Stamina.PushCost * 0.5f; return; }
-            if (_v.HasAnyAgentAt(dx, dy)) { _v.Stamina[i] -= _config.Stamina.PushCost * 0.5f; return; }
-
-            bool destOccupied = false;
-            foreach (var ft in _v.FoodTiles)
-            {
-                int fw2 = ft.Width > 0 ? ft.Width : 1;
-                int fh2 = ft.Height > 0 ? ft.Height : 1;
-                if (dx >= ft.X && dx < ft.X + fw2 && dy >= ft.Y && dy < ft.Y + fh2)
-                { destOccupied = true; break; }
-            }
-            if (!destOccupied)
-            {
-                foreach (var ct in _v.CorpseTiles)
-                    if (ct.X == dx && ct.Y == dy) { destOccupied = true; break; }
-            }
-            if (destOccupied) { _v.Stamina[i] -= _config.Stamina.PushCost * 0.5f; return; }
-
-            if (entityType == 1 && foodIdx >= 0)
-            {
-                var ft = _v.FoodTiles[foodIdx];
-                if (ft.IsBig) { _v.Stamina[i] -= _config.Stamina.PushCost * 0.5f; return; }
-                ft.X = dx; ft.Y = dy;
-                _v.FoodTiles[foodIdx] = ft;
-            }
-            else if (entityType == 2 && corpseIdx >= 0)
-            {
-                var ct = _v.CorpseTiles[corpseIdx];
-                ct.X = dx; ct.Y = dy;
-                _v.CorpseTiles[corpseIdx] = ct;
-            }
-
-            _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - _config.Stamina.PushCost);
-            _v.PushCount[i]++;
-            _tickEvents.Add(new WorldEvent
-            {
-                Type = "push", AgentId = i,
-                FoodType = entityType == 1 ? "food" : "corpse",
-                Tick = _globalTick
-            });
-        }
-    }
-
-    private void ProcessTerraform(int i, float[] rewards)
-    {
-        int px = _v.PosX[i], py = _v.PosY[i];
-
-        if (_v.Stamina[i] < _config.Stamina.LowStaminaThreshold)
-            return;
-
-        if (_v.RiverGrid[px, py] > 0)
-        {
-            _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - _config.Stamina.TerraformCost * 0.5f);
-            return;
-        }
-
-        byte current = _v.GetTerrainAt(px, py);
-        byte next;
-
-        if (current == ToolDefinitions.TerrainDynamicWater)
-            next = ToolDefinitions.TerrainMound;
-        else if (current == ToolDefinitions.TerrainFlat)
-            next = ToolDefinitions.TerrainPit;
-        else if (current == ToolDefinitions.TerrainPit)
-            next = ToolDefinitions.TerrainMound;
-        else
-            next = ToolDefinitions.TerrainFlat;
-
-        if (next == ToolDefinitions.TerrainMound && _v.HasAnyAgentAt(px, py))
-        {
-            _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - _config.Stamina.TerraformCost * 0.5f);
-            return;
-        }
-
-        bool wasWater = current == ToolDefinitions.TerrainDynamicWater;
-        _v.TerrainType[px, py] = next;
-        if (next == ToolDefinitions.TerrainPit || next == ToolDefinitions.TerrainMound)
-            _v.TerrainTTL[px, py] = ToolDefinitions.TerrainTTL;
-        else
-            _v.TerrainTTL[px, py] = 0;
-
-        _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - _config.Stamina.TerraformCost);
-        _v.TerraformCount[i]++;
-
-        string terrainName = next == ToolDefinitions.TerrainPit ? "pit" :
-                             next == ToolDefinitions.TerrainMound ? "mound" : "flat";
-        _tickEvents.Add(new WorldEvent
-        {
-            Type = wasWater ? "dam_built" : "terraform",
-            AgentId = i,
-            FoodType = terrainName,
-            Tick = _globalTick
-        });
-    }
-
-    private void ProcessShove(int i, float[] rewards)
-    {
-        int W = ToolDefinitions.GridWidth, H = ToolDefinitions.GridHeight;
-        int px = _v.PosX[i], py = _v.PosY[i];
-        int fd = _v.FacingDirection[i];
-
-        if (_v.Stamina[i] < _config.Stamina.LowStaminaThreshold)
-            return;
-
-        int fx = px, fy = py;
-        switch (fd)
-        {
-            case 0: fy = py - 1; break;
-            case 1: fy = py + 1; break;
-            case 2: fx = px - 1; break;
-            default: fx = px + 1; break;
-        }
-
-        if (fx < 0 || fx >= W || fy < 0 || fy >= H)
-        {
-            _v.Stamina[i] -= _config.Stamina.ShoveCost * 0.5f;
-            return;
-        }
-
-        // Find target agent in front cell
-        int target = -1;
-        for (int j = 0; j < _v.N; j++)
-        {
-            if (j == i || !_v.Alive[j]) continue;
-            if (_v.PosX[j] == fx && _v.PosY[j] == fy)
-            {
-                target = j;
-                break;
-            }
-        }
-
-        if (target < 0)
-        {
-            _v.Stamina[i] -= _config.Stamina.ShoveCost * 0.5f;
-            return;
-        }
-
-        // Push target further in same direction
-        int bx = fx, by = fy;
-        switch (fd)
-        {
-            case 0: by = fy - 1; break;
-            case 1: by = fy + 1; break;
-            case 2: bx = fx - 1; break;
-            default: bx = fx + 1; break;
-        }
-
-        if (bx < 0 || bx >= W || by < 0 || by >= H
-            || _v.IsMoundAt(bx, by)
-            || _v.HasAnyAgentAt(bx, by))
-        {
-            _v.Stamina[i] -= _config.Stamina.ShoveCost * 0.5f;
-            return;
-        }
-
-        _v.PosX[target] = bx;
-        _v.PosY[target] = by;
-        _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - _config.Stamina.ShoveCost);
-        _v.ShoveCount[i]++;
-
-        rewards[i] += 0.2f;
-        if (_v.IsDeepWater(bx, by)) rewards[i] += 1.0f; // reward for pushing into deep water
-
-        _tickEvents.Add(new WorldEvent
-        {
-            Type = "shove", AgentId = i, TargetId = target, Tick = _globalTick
-        });
-    }
-
-    private void ProcessPull(int i, float[] rewards)
-    {
-        int W = ToolDefinitions.GridWidth, H = ToolDefinitions.GridHeight;
-        int px = _v.PosX[i], py = _v.PosY[i];
-        int fd = _v.FacingDirection[i];
-
-        if (_v.Stamina[i] < _config.Stamina.LowStaminaThreshold)
-            return;
-
-        int fx = px, fy = py;
-        switch (fd)
-        {
-            case 0: fy = py - 1; break;
-            case 1: fy = py + 1; break;
-            case 2: fx = px - 1; break;
-            default: fx = px + 1; break;
-        }
-
-        if (fx < 0 || fx >= W || fy < 0 || fy >= H)
-        {
-            _v.Stamina[i] -= _config.Stamina.PullCost * 0.5f;
-            return;
-        }
-
-        // Find target agent in front cell
-        int target = -1;
-        for (int j = 0; j < _v.N; j++)
-        {
-            if (j == i || !_v.Alive[j]) continue;
-            if (_v.PosX[j] == fx && _v.PosY[j] == fy)
-            {
-                target = j;
-                break;
-            }
-        }
-
-        if (target < 0)
-        {
-            _v.Stamina[i] -= _config.Stamina.PullCost * 0.5f;
-            return;
-        }
-
-        // Pull target to behind puller (puller's current position becomes the target's new position)
-        // Puller steps into the front cell (target's old position)
-        // Target moves to puller's old position
-        int pullerOldX = px, pullerOldY = py;
-        int targetOldX = fx, targetOldY = fy;
-
-        _v.PosX[i] = targetOldX;
-        _v.PosY[i] = targetOldY;
-        _v.PosX[target] = pullerOldX;
-        _v.PosY[target] = pullerOldY;
-
-        _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - _config.Stamina.PullCost);
-        _v.PullCount[i]++;
-
-        // Reward for rescuing from deep water
-        if (_v.IsDeepWater(targetOldX, targetOldY) && !_v.IsDeepWater(pullerOldX, pullerOldY))
-            rewards[i] += 2.0f;
-
-        _tickEvents.Add(new WorldEvent
-        {
-            Type = "pull", AgentId = i, TargetId = target, Tick = _globalTick
-        });
     }
 }

@@ -42,11 +42,13 @@ public partial class CosmosEngine
         Array.Clear(_v.ScentGrid);
         Array.Clear(_v.RiverGrid);
         Array.Clear(_v.WaterSoundGrid);
+        GenerateHeightMap();
         GenerateRiver();
         _v.ComputeDistanceToRiver(_config.Temperature.RiverLandInfluence);
         ComputeWaterSound();
         SpawnInitialFood();
 
+        // Initialize agent bodies from random genomes
         for (int i = 0; i < n; i++)
         {
             while (_v.IsDeepWater(_v.PosX[i], _v.PosY[i]))
@@ -56,6 +58,15 @@ public partial class CosmosEngine
             }
             _v.Thirst[i] = _config.Thirst.Initial;
             _v.Hunger[i] = _config.Hunger.Initial;
+
+            var genome = Genome.Random(_rng, _config.Genome.MutationStd);
+            _v.Genomes[i] = genome;
+            _v.BodySize[i] = genome.Size;
+            _v.BodySpeed[i] = genome.Speed;
+            _v.BodyStrength[i] = genome.Strength;
+            _v.BodyVision[i] = genome.VisionRange;
+            _v.BodyFat[i] = genome.FatStorage;
+            _v.BodyColdResist[i] = genome.ColdResistance;
         }
 
         if (loadWeights != null && loadWeights.Count > 0)
@@ -97,7 +108,7 @@ public partial class CosmosEngine
         if (_rewardBuf.Length < n) _rewardBuf = new float[n];
         if (_donesBuf.Length < n) _donesBuf = new float[n];
         if (_actionsBuf.Length < n) _actionsBuf = new long[n];
-        if (_signalBuf.Length < n) _signalBuf = new long[n];
+        if (_signalBuf.Length < n) _signalBuf = new float[n];
         if (_logProbsBuf.Length < n) _logProbsBuf = new float[n];
         if (_valuesBuf.Length < n) _valuesBuf = new float[n];
         if (_aliveMaskBuf.Length < n) _aliveMaskBuf = new float[n];

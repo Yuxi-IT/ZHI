@@ -53,7 +53,7 @@ public partial class CosmosEngine : IDisposable
     private float[] _rewardBuf = Array.Empty<float>();
     private float[] _donesBuf = Array.Empty<float>();
     private long[] _actionsBuf = Array.Empty<long>();
-    private long[] _signalBuf = Array.Empty<long>();
+    private float[] _signalBuf = Array.Empty<float>();
     private float[] _logProbsBuf = Array.Empty<float>();
     private float[] _valuesBuf = Array.Empty<float>();
     private float[] _aliveMaskBuf = Array.Empty<float>();
@@ -212,7 +212,7 @@ public partial class CosmosEngine : IDisposable
         ApplyFoodDecayAndRespawn();
 
         // 6. GRU inference (uses StateMatrix built at end of previous tick)
-        var (actions, signalValues, logProbs, values, entropy, newHidden) =
+        var (actions, chemicalValues, logProbs, values, entropy, newHidden) =
             _gruBrain.StepForward(_v.StateMatrix, _gruHidden);
         _gruHidden?.Dispose();
         _gruHidden = newHidden;
@@ -227,7 +227,7 @@ public partial class CosmosEngine : IDisposable
 
         // Extract to CPU
         using (var cpuActs = actions.cpu()) cpuActs.data<long>().CopyTo(_actionsBuf);
-        using (var cpuSigs = signalValues.cpu()) cpuSigs.data<long>().CopyTo(_signalBuf);
+        using (var cpuChems = chemicalValues.cpu()) cpuChems.data<float>().CopyTo(_signalBuf);
         using (var cpuLp = logProbs.cpu()) cpuLp.data<float>().CopyTo(_logProbsBuf);
         using (var cpuVals = values.cpu()) cpuVals.data<float>().CopyTo(_valuesBuf);
 
@@ -242,7 +242,7 @@ public partial class CosmosEngine : IDisposable
 
             // Stationary判定: Attack also resets counter
             long act = _actionsBuf[i];
-            bool isMovingOrFighting = act >= 0 && act <= 3 || act == 5 || act >= 8;
+            bool isMovingOrFighting = act >= 0 && act <= 3 || (int)ZhiAction.Attack == act || (int)ZhiAction.EmitChemical == act;
             if (isMovingOrFighting)
                 _v.TicksSinceLastMove[i] = 0;
             else
@@ -266,11 +266,8 @@ public partial class CosmosEngine : IDisposable
             }
         }
 
-        // 8c. Signal field decay (after all deposits this tick)
-        for (int x = 0; x < ToolDefinitions.GridWidth; x++)
-            for (int y = 0; y < ToolDefinitions.GridHeight; y++)
-                for (int ch = 0; ch < 4; ch++)
-                    _v.SignalField[x, y, ch] *= 0.9f;
+        // 8c. Chemical field diffusion + decay
+        ApplyChemicalDiffusion();
 
         // 9. Death check + corpse spawning
         Array.Clear(_donesBuf, 0, n);
@@ -356,12 +353,12 @@ public partial class CosmosEngine : IDisposable
             var tensors = _ppoBuffer.ToTensors(advArr, retArr);
             if (tensors != null)
             {
-                var (states, acts, sigs, oldLP, adv, ret) = tensors.Value;
-                float loss = _gruBrain.PpoUpdate(states, acts, sigs, oldLP, adv, ret,
+                var (states, acts, chems, oldLP, adv, ret) = tensors.Value;
+                float loss = _gruBrain.PpoUpdate(states, acts, chems, oldLP, adv, ret,
                     epochs: 4, clipEpsilon: PpoClipEpsilon, entCoef: PpoEntropyCoef);
                 float rndLoss = _rnd!.Train(states);
                 Log($"[PPO] loss={loss:F4} rnd={rndLoss:F4}");
-                states.Dispose(); acts.Dispose(); sigs.Dispose();
+                states.Dispose(); acts.Dispose(); chems.Dispose();
                 oldLP.Dispose(); adv.Dispose(); ret.Dispose();
             }
             _ppoBuffer.Clear();
@@ -436,7 +433,7 @@ public partial class CosmosEngine : IDisposable
             if (_v.Alive[i]) _totalEnergyInWorld += Math.Max(0, _v.Existence[i]);
 
         // Cleanup
-        actions.Dispose(); signalValues.Dispose();
+        actions.Dispose(); chemicalValues.Dispose();
         logProbs.Dispose(); values.Dispose(); entropy.Dispose();
 
         OnStateChanged?.Invoke();

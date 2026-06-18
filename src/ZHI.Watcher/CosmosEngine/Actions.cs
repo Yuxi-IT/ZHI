@@ -4,11 +4,10 @@ namespace ZHI.Watcher;
 
 public partial class CosmosEngine : IDisposable
 {
-    private void ProcessActions(long[] actions, long[] signalValues, float[] rewards)
+    private void ProcessActions(long[] actions, float[] chemicalValues, float[] rewards)
     {
         int n = _v.N;
 
-        // Track depleted food/corpse indices for cleanup
         _depletedFoodSet.Clear();
         _depletedCorpsesSet.Clear();
 
@@ -18,7 +17,6 @@ public partial class CosmosEngine : IDisposable
 
             var action = (ZhiAction)actions[i];
 
-            // Auto-extract energy if in eating toggle state (before action processing)
             if (_v.IsEating[i])
             {
                 bool stillEating = AutoExtractEating(i, rewards, _depletedFoodSet, _depletedCorpsesSet);
@@ -50,9 +48,9 @@ public partial class CosmosEngine : IDisposable
                     ProcessAttack(i);
                     break;
 
-                case ZhiAction.Signal:
+                case ZhiAction.EmitChemical:
                     _v.IsEating[i] = false;
-                    ProcessSignal(i, (int)signalValues[i]);
+                    ProcessEmitChemical(i, chemicalValues[i]);
                     break;
 
                 case ZhiAction.Drink:
@@ -69,26 +67,6 @@ public partial class CosmosEngine : IDisposable
                     {
                         rewards[i] -= 0.1f;
                     }
-                    break;
-
-                case ZhiAction.Push:
-                    _v.IsEating[i] = false;
-                    ProcessPush(i, rewards);
-                    break;
-
-                case ZhiAction.Terraform:
-                    _v.IsEating[i] = false;
-                    ProcessTerraform(i, rewards);
-                    break;
-
-                case ZhiAction.Shove:
-                    _v.IsEating[i] = false;
-                    ProcessShove(i, rewards);
-                    break;
-
-                case ZhiAction.Pull:
-                    _v.IsEating[i] = false;
-                    ProcessPull(i, rewards);
                     break;
             }
         }
@@ -121,17 +99,15 @@ public partial class CosmosEngine : IDisposable
         {
             _v.PosX[i] = tx;
             _v.PosY[i] = ty;
-            float moveCost = _config.Stamina.MoveCost;
+            float moveCost = _config.Stamina.MoveCost * _v.BodySpeed[i];
             if (_v.GetTerrainAt(tx, ty) == ToolDefinitions.TerrainPit)
                 moveCost += 2f;
 
-            // Water depth tiers: shallow +1.0, deep +2.5, deep→land climb +1.0
             if (_v.IsShallowWater(tx, ty))
                 moveCost += _config.Stamina.ShallowWaterMoveExtra;
             else if (_v.IsDeepWater(tx, ty))
                 moveCost += _config.Stamina.DeepWaterMoveExtra;
 
-            // Climbing from deep water onto land costs extra
             int fromX = tx - dx, fromY = ty - dy;
             if (_v.IsDeepWater(fromX, fromY) && !_v.IsDeepWater(tx, ty) && !_v.IsShallowWater(tx, ty))
                 moveCost += _config.Stamina.DeepWaterClimbExtra;

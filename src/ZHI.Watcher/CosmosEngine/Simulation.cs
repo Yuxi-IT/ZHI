@@ -293,9 +293,8 @@ public partial class CosmosEngine
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
-            for (int ch = 0; ch < ToolDefinitions.SignalValues; ch++)
-                _v.SignalMemory[i, ch] *= 0.9f;
-            _v.SignalAge[i]++;
+            _v.ChemicalMemory[i] *= _config.Chemical.DecayRate;
+            _v.ChemicalAge[i]++;
         }
     }
 
@@ -383,5 +382,33 @@ public partial class CosmosEngine
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Diffuse chemical field across 4-neighbor grid with decay.
+    /// New diffusion: c[x,y] = decay * (c[x,y] + rate * sum(neighbors - c[x,y]) / 4)
+    /// </summary>
+    private void ApplyChemicalDiffusion()
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        float rate = _config.Chemical.DiffusionRate;
+        float decay = _config.Chemical.DecayRate;
+
+        var newField = new float[W, H];
+        for (int x = 0; x < W; x++)
+            for (int y = 0; y < H; y++)
+            {
+                float cur = _v.ChemicalField[x, y];
+                float neighborSum = 0f;
+                int count = 0;
+                if (x > 0) { neighborSum += _v.ChemicalField[x - 1, y]; count++; }
+                if (x < W - 1) { neighborSum += _v.ChemicalField[x + 1, y]; count++; }
+                if (y > 0) { neighborSum += _v.ChemicalField[x, y - 1]; count++; }
+                if (y < H - 1) { neighborSum += _v.ChemicalField[x, y + 1]; count++; }
+                float avgNeighbor = count > 0 ? neighborSum / count : cur;
+                newField[x, y] = (cur + rate * (avgNeighbor - cur)) * decay;
+            }
+        _v.ChemicalField = newField;
     }
 }

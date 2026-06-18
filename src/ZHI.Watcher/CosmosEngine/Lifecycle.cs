@@ -58,7 +58,7 @@ public partial class CosmosEngine
                 PosY = _v.PosY[i],
                 AttackCount = _v.AttackCount[i],
                 EatCount = _v.EatCount[i],
-                SignalCount = _v.SignalCount[i],
+                EmitCount = _v.EmitCount[i],
                 RespawnCount = _v.RespawnCount[i],
                 PreDeathStatesJson = JsonSerializer.Serialize(new { PosX = _v.PosX[i], PosY = _v.PosY[i], Stress = _v.Stress[i] }),
                 DeathTime = DateTime.UtcNow,
@@ -66,8 +66,16 @@ public partial class CosmosEngine
             };
             _blackbox.RecordDeath(record);
 
-            // Respawn
+            // Respawn with new random genome
             _v.RespawnAgent(i, _rng);
+            var newGenome = Genome.Random(_rng, _config.Genome.MutationStd);
+            _v.Genomes[i] = newGenome;
+            _v.BodySize[i] = newGenome.Size;
+            _v.BodySpeed[i] = newGenome.Speed;
+            _v.BodyStrength[i] = newGenome.Strength;
+            _v.BodyVision[i] = newGenome.VisionRange;
+            _v.BodyFat[i] = newGenome.FatStorage;
+            _v.BodyColdResist[i] = newGenome.ColdResistance;
             _deathTick[i] = -1;
 
             // Zero GRU hidden state for this agent
@@ -146,8 +154,19 @@ public partial class CosmosEngine
         // Parent pays cost
         _v.Existence[parentIdx] -= _config.Reproduce.ParentCost;
 
-        // Create child with mutated brain
+        // Create child with mutated brain and genome
         int childIdx = _v.AddAgent(cx, cy, _config.Reproduce.ChildStart);
+
+        // Inherit and mutate parent's genome
+        var parentGenome = _v.Genomes[parentIdx] ?? Genome.Random(_rng, _config.Genome.MutationStd);
+        var childGenome = parentGenome.Mutate(_rng, _config.Genome.MutationStd);
+        _v.Genomes[childIdx] = childGenome;
+        _v.BodySize[childIdx] = childGenome.Size;
+        _v.BodySpeed[childIdx] = childGenome.Speed;
+        _v.BodyStrength[childIdx] = childGenome.Strength;
+        _v.BodyVision[childIdx] = childGenome.VisionRange;
+        _v.BodyFat[childIdx] = childGenome.FatStorage;
+        _v.BodyColdResist[childIdx] = childGenome.ColdResistance;
 
         // Copy and mutate parent's weights
         byte[] parentWeights = _agentWeights[parentIdx];

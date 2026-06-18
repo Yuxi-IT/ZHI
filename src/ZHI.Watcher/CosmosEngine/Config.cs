@@ -33,7 +33,7 @@ public partial class CosmosEngine
         typeof(ZhiConfig).GetProperty("FoodScent")!.SetValue(_config, updated.FoodScent);
         typeof(ZhiConfig).GetProperty("Corpse")!.SetValue(_config, updated.Corpse);
         typeof(ZhiConfig).GetProperty("River")!.SetValue(_config, updated.River);
-        typeof(ZhiConfig).GetProperty("Signal")!.SetValue(_config, updated.Signal);
+        typeof(ZhiConfig).GetProperty("Chemical")!.SetValue(_config, updated.Chemical);
         typeof(ZhiConfig).GetProperty("AgeDeath")!.SetValue(_config, updated.AgeDeath);
         typeof(ZhiConfig).GetProperty("Network")!.SetValue(_config, updated.Network);
         typeof(ZhiConfig).GetProperty("DecisionIntervalMs")!.SetValue(_config, updated.DecisionIntervalMs);

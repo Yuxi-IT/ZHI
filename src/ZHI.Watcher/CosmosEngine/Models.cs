@@ -10,7 +10,7 @@ public class GenerationResult
     public int AttackCount { get; set; }
     public int TickCount { get; set; }
     public int EatCount { get; set; }
-    public int SignalCount { get; set; }
+    public int EmitCount { get; set; }
 }
 
 public class WorldEvent
