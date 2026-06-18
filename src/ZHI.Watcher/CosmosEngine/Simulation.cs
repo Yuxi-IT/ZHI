@@ -140,19 +140,20 @@ public partial class CosmosEngine
             float ageDecay = 0f;
             float pollutionDecay = 0f;
 
-            // Corpse pollution
+            // Corpse pollution — scan 5×5 Chebyshev area via spatial index
             int ax = _v.PosX[i], ay = _v.PosY[i];
-            lock (_v.LockObj)
-            {
-                foreach (var ct in _v.CorpseTiles)
+            int W = ToolDefinitions.GridWidth, H = ToolDefinitions.GridHeight;
+            for (int dx = -2; dx <= 2; dx++)
+                for (int dy = -2; dy <= 2; dy++)
                 {
-                    int dist = Math.Max(Math.Abs(ct.X - ax), Math.Abs(ct.Y - ay));
-                    if (dist <= 2)
+                    int cx = ax + dx, cy = ay + dy;
+                    if (cx < 0 || cx >= W || cy < 0 || cy >= H) continue;
+                    if (_v.HasCorpseAt(cx, cy))
                     {
+                        int dist = Math.Max(Math.Abs(dx), Math.Abs(dy));
                         pollutionDecay += (3f - dist) * 0.01f;
                     }
                 }
-            }
 
             // Age-based extra decay
             int age = _v.TickCount[i];

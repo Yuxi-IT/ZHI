@@ -127,19 +127,8 @@ public partial class CosmosEngine : IDisposable
 
     private bool HasFoodOrCorpseAt(int px, int py)
     {
-        lock (_v.LockObj)
-        {
-            foreach (var p in _v.Plants)
-            {
-                if (p.X == px && p.Y == py && (PlantStage)p.Stage != PlantStage.Seed)
-                    return true;
-            }
-            foreach (var ct in _v.CorpseTiles)
-            {
-                if (ct.X == px && ct.Y == py)
-                    return true;
-            }
-        }
-        return false;
+        if (px < 0 || px >= ToolDefinitions.GridWidth || py < 0 || py >= ToolDefinitions.GridHeight)
+            return false;
+        return _v.IsPlantEdible(px, py) || _v.HasCorpseAt(px, py);
     }
 }
