@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import type { DrawData } from './WorldMap';
 import { TerrainMesh } from './TerrainMesh';
@@ -7,7 +8,7 @@ import { RiverSurface } from './RiverSurface';
 import { AgentMarkers } from './AgentMarkers';
 import { PlantMarkers } from './PlantMarkers';
 import { CorpseMarkers } from './CorpseMarkers';
-import { MapControls3D } from './MapControls3D';
+import { TerrainOverlays3D } from './TerrainOverlays3D';
 import { useT } from '../i18n/I18nContext';
 
 interface Props {
@@ -16,149 +17,156 @@ interface Props {
   gridH: number;
   trackedAgent: number | null;
   showBiome: boolean;
+  showScent?: boolean;
+  showFoodScent?: boolean;
+  showDirection?: boolean;
+  showVision?: boolean;
+  showChemical?: boolean;
+  showTemp?: boolean;
+  showTerrain?: boolean;
+  showFlow?: boolean;
+  showGroundwater?: boolean;
+  showSurfaceWater?: boolean;
+  showNutrient?: boolean;
+  showPermeability?: boolean;
+  showPressure?: boolean;
+  showWind?: boolean;
 }
 
-/** Compute height scale adaptively: max relief ≈ 40% of grid width for dramatic 3D look */
-function computeHeightScale(heightMap: number[], gridW: number): number {
-  let minH = 255, maxH = 0;
-  for (let i = 0; i < heightMap.length; i++) {
-    const h = heightMap[i]!;
-    if (h < minH) minH = h;
-    if (h > maxH) maxH = h;
-  }
-  const range = maxH - minH;
-  if (range < 20) return gridW * 0.3;
-  // Map height range to ~40% of grid width
-  return (gridW * 0.4) / (range / 255);
-}
-
-export function WorldMap3D({ drawDataRef, gridW, gridH, trackedAgent, showBiome }: Props) {
+export function WorldMap3D({
+  drawDataRef, gridW, gridH, trackedAgent, showBiome,
+  showScent = false, showFoodScent = false, showDirection = false,
+  showVision = false, showChemical = false, showTemp = false,
+  showTerrain = false, showFlow = false, showGroundwater = false,
+  showSurfaceWater = false, showNutrient = false, showPermeability = false,
+  showPressure = false, showWind = false,
+}: Props) {
   const { t } = useT();
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 500);
+    return () => clearInterval(id);
+  }, []);
+
+  void tick;
   const data = drawDataRef.current;
-  const timeOfDay = data?.timeOfDay ?? 12;
-
-  const heightScale = useMemo(
-    () => (data ? computeHeightScale(data.heightMap, gridW) : 20),
-    [data, gridW],
-  );
-
-  // Sun position based on time of day (0-24)
-  const sunPosition = useMemo(() => {
-    const azimuth = ((timeOfDay - 6) / 12) * Math.PI;
-    const elevation = Math.sin((timeOfDay / 24) * Math.PI * 2) * 0.5 + 0.3;
-    const dist = 60;
-    return [
-      Math.cos(azimuth) * Math.cos(elevation) * dist,
-      Math.sin(elevation) * dist,
-      Math.sin(azimuth) * Math.cos(elevation) * dist,
-    ] as [number, number, number];
-  }, [timeOfDay]);
-
-  const brightness = useMemo(() => {
-    const t2 = (timeOfDay - 6) / 12 * Math.PI;
-    return Math.max(0.05, Math.sin(t2));
-  }, [timeOfDay]);
-
-  const sunColor = useMemo(() => {
-    const t2 = brightness;
-    return new THREE.Color(1, 0.6 + t2 * 0.4, 0.2 + t2 * 0.8);
-  }, [brightness]);
-
-  // Camera: start from a low side angle so height differences are visible
-  const camTarget = useMemo<[number, number, number]>(
-    () => [0, heightScale * 0.15, 0],
-    [heightScale],
-  );
-  const camPos = useMemo<[number, number, number]>(
-    () => [gridW * 0.6, heightScale * 0.5, gridH * 0.8],
-    [gridW, gridH, heightScale],
-  );
 
   if (!data || gridW <= 0 || gridH <= 0) {
-    return <div className="flex-1 bg-zhi-bg flex items-center justify-center text-zhi-muted text-xs">{t('map.loading')}</div>;
+    return (
+      <div className="flex-1 bg-zhi-bg flex items-center justify-center text-zhi-muted text-xs">
+        {t('map.loading')}
+      </div>
+    );
   }
+
+  const heightScale = 3;
+  const cx = gridW * 0.5;
+  const cz = gridH * 0.5;
+  const camDist = Math.max(gridW, gridH) * 1.0;
 
   return (
     <div className="flex-1 min-h-0 relative">
-      <Canvas
-        camera={{ position: camPos, fov: 50, near: 0.5, far: 300 }}
-        gl={{ antialias: true, alpha: false }}
-        style={{ background: `rgb(${Math.round(5 + brightness * 15)}, ${Math.round(5 + brightness * 15)}, ${Math.round(10 + brightness * 25)})` }}
-        onCreated={({ gl, camera }) => {
-          gl.setClearColor(new THREE.Color(
-            0.02 + brightness * 0.06,
-            0.02 + brightness * 0.06,
-            0.04 + brightness * 0.1,
-          ));
-          camera.lookAt(...camTarget);
-        }}
-      >
-        <ambientLight intensity={0.12 + brightness * 0.3} color={sunColor} />
-        <directionalLight
-          position={sunPosition}
-          intensity={0.3 + brightness * 0.8}
-          color={sunColor}
-          castShadow={false}
-        />
-        {/* Fill light from opposite side to reduce harsh shadows */}
-        <directionalLight
-          position={[-sunPosition[0], sunPosition[1] * 0.3, -sunPosition[2]]}
-          intensity={0.08 + brightness * 0.15}
-          color={sunColor}
-        />
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+        <Canvas
+          camera={{
+            position: [cx + camDist * 0.5, camDist * 0.6, cz + camDist * 0.5],
+            fov: 45,
+            near: 0.05,
+            far: 2000,
+          }}
+          gl={{ antialias: true }}
+          onCreated={({ gl, camera }) => {
+            gl.setClearColor(new THREE.Color('#111118'));
+            camera.lookAt(cx, 0, cz);
+          }}
+        >
+          <ambientLight intensity={1.2} />
+          <directionalLight position={[cx, 60, cz + 20]} intensity={1.5} />
+          <directionalLight position={[cx - 30, 40, cz - 30]} intensity={0.6} />
 
-        {/* Sea-level reference plane — dark blue base under the terrain */}
-        <mesh position={[0, -0.1, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[gridW + 4, gridH + 4]} />
-          <meshBasicMaterial color="#0a1628" />
-        </mesh>
+          <TerrainMesh
+            heightMap={data.heightMap}
+            slope={data.slope}
+            biome={data.biome}
+            gridW={gridW}
+            gridH={gridH}
+            heightScale={heightScale}
+            showBiome={showBiome}
+          />
 
-        <TerrainMesh
-          heightMap={data.heightMap}
-          slope={data.slope}
-          biome={data.biome}
-          gridW={gridW}
-          gridH={gridH}
-          heightScale={heightScale}
-          showBiome={showBiome}
-        />
+          <RiverSurface
+            river={data.river}
+            riverFlow={data.riverFlow}
+            gridW={gridW}
+            gridH={gridH}
+            heightMap={data.heightMap}
+            heightScale={heightScale}
+          />
 
-        <RiverSurface
-          river={data.river}
-          riverFlow={data.riverFlow}
-          gridW={gridW}
-          gridH={gridH}
-          heightMap={data.heightMap}
-          heightScale={heightScale}
-        />
+          <TerrainOverlays3D
+            data={data}
+            gridW={gridW}
+            gridH={gridH}
+            heightScale={heightScale}
+            showScent={showScent}
+            showFoodScent={showFoodScent}
+            showChemical={showChemical}
+            showTemp={showTemp}
+            showTerrain={showTerrain}
+            showFlow={showFlow}
+            showGroundwater={showGroundwater}
+            showSurfaceWater={showSurfaceWater}
+            showNutrient={showNutrient}
+            showPermeability={showPermeability}
+            showPressure={showPressure}
+            showWind={showWind}
+            showBiome={showBiome}
+            showDirection={showDirection}
+            showVision={showVision}
+          />
 
-        <AgentMarkers
-          agents={data.agents}
-          gridW={gridW}
-          gridH={gridH}
-          heightMap={data.heightMap}
-          heightScale={heightScale}
-          trackedAgent={trackedAgent}
-        />
+          <AgentMarkers
+            agents={data.agents}
+            gridW={gridW}
+            gridH={gridH}
+            heightMap={data.heightMap}
+            heightScale={heightScale}
+            trackedAgent={trackedAgent}
+          />
 
-        <PlantMarkers
-          food={data.food}
-          gridW={gridW}
-          gridH={gridH}
-          heightMap={data.heightMap}
-          heightScale={heightScale}
-        />
+          <PlantMarkers
+            food={data.food}
+            gridW={gridW}
+            gridH={gridH}
+            heightMap={data.heightMap}
+            heightScale={heightScale}
+          />
 
-        <CorpseMarkers
-          corpses={data.corpses}
-          gridW={gridW}
-          gridH={gridH}
-          heightMap={data.heightMap}
-          heightScale={heightScale}
-        />
+          <CorpseMarkers
+            corpses={data.corpses}
+            gridW={gridW}
+            gridH={gridH}
+            heightMap={data.heightMap}
+            heightScale={heightScale}
+          />
 
-        <MapControls3D heightScale={heightScale} camTarget={camTarget} />
-      </Canvas>
+          <OrbitControls
+            makeDefault
+            target={[cx, 0, cz]}
+            minDistance={1}
+            maxDistance={500}
+            maxPolarAngle={Math.PI / 2 - 0.02}
+            enableDamping
+            dampingFactor={0.12}
+            mouseButtons={{
+              LEFT: THREE.MOUSE.PAN,
+              MIDDLE: THREE.MOUSE.ROTATE,
+              RIGHT: THREE.MOUSE.DOLLY,
+            }}
+          />
+        </Canvas>
+      </div>
     </div>
   );
 }

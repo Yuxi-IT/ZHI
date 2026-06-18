@@ -275,7 +275,7 @@ export function WorldDashboard({ worldName, onStop }: Props) {
             trackNextGen={trackNextGen} setTrackNextGen={setTrackNextGen}
           />
 
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 flex flex-col">
             {use3D ? (
               <WorldMap3D
                 drawDataRef={drawDataRef}
@@ -283,6 +283,20 @@ export function WorldDashboard({ worldName, onStop }: Props) {
                 gridH={gridH}
                 trackedAgent={trackedAgent}
                 showBiome={showBiome}
+                showScent={showScent}
+                showFoodScent={showFoodScent}
+                showDirection={showDirection}
+                showVision={showVision}
+                showChemical={showChemical}
+                showTemp={showTemp}
+                showTerrain={showTerrain}
+                showFlow={showFlow}
+                showGroundwater={showGroundwater}
+                showSurfaceWater={showSurfaceWater}
+                showNutrient={showNutrient}
+                showPermeability={showPermeability}
+                showPressure={showPressure}
+                showWind={showWind}
               />
             ) : (
               <WorldMap
