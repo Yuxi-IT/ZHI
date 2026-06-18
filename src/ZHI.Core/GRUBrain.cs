@@ -7,15 +7,13 @@ using static TorchSharp.torch.nn;
 namespace ZHI.Core;
 
 /// <summary>
-/// GRU-based Actor-Critic with dual-head policy.
-/// Action head: <see cref="ToolDefinitions.ActionCount"/> actions, Signal head: <see cref="ToolDefinitions.SignalValues"/> values.
-/// Architecture: CNN(7x7x6→288) + NonGrid(40) → GRU(328→128) → FC(128→64) → Actor(12) + Signal(4) / Critic(1)
+/// GRU-based Actor-Critic with dual-head policy (v5: Artificial Life refactor).
+/// Action head: 8 actions (move×4, eat, attack, emit_chemical, drink).
+/// Chemical head: continuous 0–1 emission strength.
+/// Architecture: CNN(7x7x6→288) + NonGrid(46) → GRU(334→128) → FC(128→64) → Actor(8) + Chemical(1) / Critic(1)
 /// </summary>
 public class GRUBrain : Module
 {
-    // CNN for 7×7×6 vision grid (food, bigfood, corpse, agent, self, terrain)
-    // Conv1: 7×7×6 → 5×5×16 (kernel=3, pad=0)
-    // Conv2: 5×5×16 → 3×3×32 (kernel=3, pad=0)
     private const int GridChannels = 6;
     private const int GridSize = 7;
     private const int GridFlat = GridSize * GridSize * GridChannels; // 294
@@ -27,7 +25,7 @@ public class GRUBrain : Module
     private readonly GRU _gru;
     private readonly Linear _fc;
     private readonly Linear _actorHead;
-    private readonly Linear _signalHead;
+    private readonly Linear _chemicalHead;
     private readonly Linear _criticHead;
 
     private optim.Optimizer? _optimizer;
@@ -42,14 +40,14 @@ public class GRUBrain : Module
     public GRUBrain() : base("GRUBrain")
     {
         _hiddenSize = 128;
-        _gruInputSize = CnnFeatDim + (ToolDefinitions.StateSize - GridFlat); // 288 + 40 = 328
+        _gruInputSize = CnnFeatDim + (ToolDefinitions.StateSize - GridFlat); // 288 + 46 = 334
 
         _conv1 = Conv2d(GridChannels, 16, 3, padding: (long)0);
         _conv2 = Conv2d(16, 32, 3, padding: (long)0);
         _gru = GRU(_gruInputSize, _hiddenSize, 1, batchFirst: false);
         _fc = Linear(_hiddenSize, 64);
         _actorHead = Linear(64, ToolDefinitions.ActionCount);
-        _signalHead = Linear(64, ToolDefinitions.SignalValues);
+        _chemicalHead = Linear(64, 1);
         _criticHead = Linear(64, 1);
         _gamma = 0.99f;
         _learningRate = 0.0003f;
@@ -61,14 +59,14 @@ public class GRUBrain : Module
     public GRUBrain(float learningRate, float gamma) : base("GRUBrain")
     {
         _hiddenSize = 128;
-        _gruInputSize = CnnFeatDim + (ToolDefinitions.StateSize - GridFlat); // 288 + non-grid dims
+        _gruInputSize = CnnFeatDim + (ToolDefinitions.StateSize - GridFlat);
 
         _conv1 = Conv2d(GridChannels, 16, 3, padding: (long)0);
         _conv2 = Conv2d(16, 32, 3, padding: (long)0);
         _gru = GRU(_gruInputSize, _hiddenSize, 1, batchFirst: false);
         _fc = Linear(_hiddenSize, 64);
         _actorHead = Linear(64, ToolDefinitions.ActionCount);
-        _signalHead = Linear(64, ToolDefinitions.SignalValues);
+        _chemicalHead = Linear(64, 1);
         _criticHead = Linear(64, 1);
         _gamma = gamma;
         _learningRate = learningRate;
@@ -77,34 +75,21 @@ public class GRUBrain : Module
         this.to(Device.TorchDevice);
     }
 
-    /// <summary>
-    /// Process vision grid through CNN, concatenate with non-grid features.
-    /// Input: [N, StateSize] raw state → Output: [N, GruInputSize] processed features.
-    /// </summary>
     private Tensor ProcessState(Tensor state)
     {
         int N = (int)state.shape[0];
-        // Split: [N, 245] grid + [N, rest] non-grid
         using var grid = state.narrow(1, 0, GridFlat);
         using var nonGrid = state.narrow(1, GridFlat, ToolDefinitions.StateSize - GridFlat);
 
-        // Reshape grid to [N, 6, 7, 7]
         using var grid4d = grid.reshape([N, GridChannels, GridSize, GridSize]);
 
-        // CNN: Conv→ReLU→Conv→ReLU (no MaxPool, kernel=3 padding=0)
-        // 7×7 → 5×5×16 → 3×3×32
-        using var c1 = functional.relu(_conv1.forward(grid4d));           // [N, 16, 5, 5]
-        using var c2 = functional.relu(_conv2.forward(c1));               // [N, 32, 3, 3]
-        using var flat = c2.reshape([N, CnnFeatDim]);                      // [N, 288]
+        using var c1 = functional.relu(_conv1.forward(grid4d));
+        using var c2 = functional.relu(_conv2.forward(c1));
+        using var flat = c2.reshape([N, CnnFeatDim]);
 
-        // Concat CNN features with non-grid
-        return cat([flat, nonGrid], dim: 1); // [N, 326]
+        return cat([flat, nonGrid], dim: 1);
     }
 
-    /// <summary>
-    /// Build action mask from state tensor. Hiding agents can only Signal(6) or Hide(7).
-    /// Returns [N, ActionCount] tensor with 1=valid, 0=invalid.
-    /// </summary>
     private Tensor BuildActionMask(Tensor states)
     {
         int N = (int)states.shape[0];
@@ -112,17 +97,16 @@ public class GRUBrain : Module
     }
 
     /// <summary>
-    /// Single-step forward with dual heads and action masking.
-    /// Returns (actions[N], signalValues[N], logProbs[N], values[N], newHidden)
-    /// logProbs includes both action + signal log prob (summed when action=Signal).
+    /// Single-step forward. Chemical head emits continuous [0,1] value sampled from sigmoid-gaussian.
+    /// Returns (actions[N], chemicalValues[N], logProbs[N], values[N], entropy[N], newHidden).
     /// </summary>
-    public (Tensor actions, Tensor signalValues, Tensor logProbs, Tensor values, Tensor entropy, Tensor newHidden)
+    public (Tensor actions, Tensor chemicalValues, Tensor logProbs, Tensor values, Tensor entropy, Tensor newHidden)
         StepForward(Tensor state, Tensor? hidden = null)
     {
         using var scope = torch.NewDisposeScope();
 
-        using var processed = ProcessState(state); // [N, GruInputSize]
-        using var input3d = processed.unsqueeze(0); // [1, N, GruInputSize]
+        using var processed = ProcessState(state);
+        using var input3d = processed.unsqueeze(0);
 
         Tensor output3d, newHidden;
         if (hidden is not null)
@@ -138,7 +122,7 @@ public class GRUBrain : Module
             newHidden = h;
         }
 
-        using var features = functional.relu(_fc.forward(output3d.squeeze(0))); // [N, 64]
+        using var features = functional.relu(_fc.forward(output3d.squeeze(0)));
 
         // Action head with masking
         var actionLogits = _actorHead.forward(features);
@@ -146,32 +130,36 @@ public class GRUBrain : Module
         var maskedLogits = actionLogits + (1 - actionMask) * (-1e9f);
         var actionProbs = functional.softmax(maskedLogits, dim: -1);
         using var actions2d = multinomial(actionProbs, 1);
-        var actions = actions2d.squeeze(1); // [N]
+        var actions = actions2d.squeeze(1);
 
         var actionLogProbsFull = log(actionProbs + 1e-8f);
-        var actionLogProbs = actionLogProbsFull.gather(1, actions.unsqueeze(1)).squeeze(1); // [N]
+        var actionLogProbs = actionLogProbsFull.gather(1, actions.unsqueeze(1)).squeeze(1);
         var actionEntropy = -(actionProbs * actionLogProbsFull).sum(1);
 
-        // Signal head
-        var signalLogits = _signalHead.forward(features);
-        var signalProbs = functional.softmax(signalLogits, dim: -1);
-        using var signalValues2d = multinomial(signalProbs, 1);
-        var signalValues = signalValues2d.squeeze(1); // [N]
+        // Chemical head: continuous [0,1] via sigmoid-gaussian
+        // Output logit → sigmoid → mean in (0,1). Fixed std=0.15 for exploration.
+        using var chemLogit = _chemicalHead.forward(features);
+        using var chemMean = torch.sigmoid(chemLogit).squeeze(-1); // [N]
+        const float chemStd = 0.15f;
+        using var chemNoise = torch.randn(chemMean.shape, device: chemMean.device) * chemStd;
+        using var chemRaw = chemMean + chemNoise;
+        var chemicalValues = chemRaw.clamp(0f, 1f); // [N]
 
-        var signalLogProbsFull = log(signalProbs + 1e-8f);
-        var signalLogProbs = signalLogProbsFull.gather(1, signalValues.unsqueeze(1)).squeeze(1);
-        var signalEntropy = -(signalProbs * signalLogProbsFull).sum(1);
+        // Gaussian log prob
+        using var chemDiff = chemicalValues - chemMean;
+        using var chemLogStd = torch.tensor(MathF.Log(chemStd), device: chemMean.device);
+        var chemLogProbs = -0.5f * (chemDiff * chemDiff / (chemStd * chemStd) + 2f * chemLogStd + MathF.Log(2f * MathF.PI));
+        var chemEntropy = 0.5f * (1f + MathF.Log(2f * MathF.PI)) + chemLogStd;
 
-        // Combined log prob: action_lp + signal_lp (when action=Signal)
-        using var isSignal = actions.eq((long)ZhiAction.Signal).@float();
-        var logProbs = actionLogProbs + isSignal * signalLogProbs;
-        var entropy = actionEntropy + isSignal * signalEntropy;
+        // Combined log prob: action_lp + chemical_lp (when action=EmitChemical)
+        using var isEmitChem = actions.eq((long)ZhiAction.EmitChemical).@float();
+        var logProbs = actionLogProbs + isEmitChem * chemLogProbs;
+        var entropy = actionEntropy + isEmitChem * chemEntropy;
 
-        // Critic
         var values = _criticHead.forward(features).squeeze(-1);
 
         return (actions.MoveToOuterDisposeScope(),
-                signalValues.MoveToOuterDisposeScope(),
+                chemicalValues.MoveToOuterDisposeScope(),
                 logProbs.MoveToOuterDisposeScope(),
                 values.MoveToOuterDisposeScope(),
                 entropy.MoveToOuterDisposeScope(),
@@ -179,20 +167,19 @@ public class GRUBrain : Module
     }
 
     /// <summary>
-    /// Sequence forward for PPO with action masking. stateSeq: [T, N, S], actions: [T, N], signalValues: [T, N].
+    /// Sequence forward for PPO. stateSeq: [T, N, S], actions: [T, N], chemicalValues: [T, N].
     /// </summary>
     public (Tensor logProbs, Tensor values, Tensor entropy)
-        SeqForward(Tensor stateSeq, Tensor actions, Tensor signalValues, Tensor? initHidden = null)
+        SeqForward(Tensor stateSeq, Tensor actions, Tensor chemicalValues, Tensor? initHidden = null)
     {
         using var scope = torch.NewDisposeScope();
 
         int T = (int)stateSeq.shape[0];
         int N = (int)stateSeq.shape[1];
 
-        // Process all timesteps through CNN (batched)
         using var flatStates = stateSeq.reshape([T * N, ToolDefinitions.StateSize]);
-        using var processed = ProcessState(flatStates); // [T*N, GruInputSize]
-        using var processedSeq = processed.reshape([T, N, _gruInputSize]); // [T, N, GruInputSize]
+        using var processed = ProcessState(flatStates);
+        using var processedSeq = processed.reshape([T, N, _gruInputSize]);
 
         Tensor output3d;
         if (initHidden is not null)
@@ -209,7 +196,7 @@ public class GRUBrain : Module
         using var flat = output3d.reshape([-1, _hiddenSize]);
         using var features = functional.relu(_fc.forward(flat));
 
-        // Action head with masking
+        // Action head
         var actionLogits = _actorHead.forward(features);
         using var actionMask = BuildActionMask(flatStates);
         var maskedLogits = actionLogits + (1 - actionMask) * (-1e9f);
@@ -219,18 +206,20 @@ public class GRUBrain : Module
         var actionLogProbs = actionLogProbsFull.gather(1, flatActions.unsqueeze(1)).squeeze(1);
         var actionEntropy = -(actionProbs * actionLogProbsFull).sum(1);
 
-        // Signal head
-        var signalLogits = _signalHead.forward(features);
-        var signalProbs = functional.softmax(signalLogits, dim: -1);
-        var signalLogProbsFull = log(signalProbs + 1e-8f);
-        var flatSignals = signalValues.reshape([-1]);
-        var signalLogProbs = signalLogProbsFull.gather(1, flatSignals.unsqueeze(1)).squeeze(1);
-        var signalEntropy = -(signalProbs * signalLogProbsFull).sum(1);
+        // Chemical head: gaussian log prob for continuous [0,1] values
+        using var chemLogit = _chemicalHead.forward(features);
+        using var chemMean = torch.sigmoid(chemLogit).squeeze(-1);
+        const float chemStd = 0.15f;
+        var flatChemValues = chemicalValues.reshape([-1]);
+        using var chemDiff = flatChemValues - chemMean;
+        using var chemLogStd = torch.tensor(MathF.Log(chemStd), device: chemMean.device);
+        var chemLogProbs = -0.5f * (chemDiff * chemDiff / (chemStd * chemStd) + 2f * chemLogStd + MathF.Log(2f * MathF.PI));
+        var chemEntropy = 0.5f * (1f + MathF.Log(2f * MathF.PI)) + chemLogStd;
 
         // Combine
-        using var isSignal = flatActions.eq((long)ZhiAction.Signal).@float();
-        var logProbs = actionLogProbs + isSignal * signalLogProbs;
-        var entropy = actionEntropy + isSignal * signalEntropy;
+        using var isEmitChem = flatActions.eq((long)ZhiAction.EmitChemical).@float();
+        var logProbs = actionLogProbs + isEmitChem * chemLogProbs;
+        var entropy = actionEntropy + isEmitChem * chemEntropy;
 
         var values = _criticHead.forward(features).squeeze(-1);
 
@@ -239,11 +228,10 @@ public class GRUBrain : Module
                 entropy.reshape([T, N]).MoveToOuterDisposeScope());
     }
 
-    /// <summary>PPO update with dual-head policy.</summary>
     public float PpoUpdate(
         Tensor stateSeq,
         Tensor actions,
-        Tensor signalValues,
+        Tensor chemicalValues,
         Tensor oldLogProbs,
         Tensor advantages,
         Tensor returns,
@@ -251,7 +239,6 @@ public class GRUBrain : Module
         float clipEpsilon = 0.2f,
         float entCoef = 0.01f)
     {
-        // Create fresh optimizer each PPO update to avoid stale parameter handles
         _optimizer?.Dispose();
         _optimizer = optim.Adam(parameters(), _learningRate);
 
@@ -264,7 +251,7 @@ public class GRUBrain : Module
 
         for (int epoch = 0; epoch < epochs; epoch++)
         {
-            var (newLogProbs, values, entropy) = SeqForward(stateSeq, actions, signalValues);
+            var (newLogProbs, values, entropy) = SeqForward(stateSeq, actions, chemicalValues);
 
             using var ratio = exp(newLogProbs - oldLogProbs);
             using var surr1 = ratio * advNorm;

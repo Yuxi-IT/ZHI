@@ -8,8 +8,8 @@ public struct FoodTile
 {
     public int X;
     public int Y;
-    public int Width;         // 1 for normal food, 2 for BigFood (2x2)
-    public int Height;        // 1 for normal food, 2 for BigFood (2x2)
+    public int Width;
+    public int Height;
     public float Energy;
     public bool IsBig;
 }
@@ -21,81 +21,83 @@ public struct CorpseTile
     public float Energy;
 }
 
-/// <summary>
-/// Spatial grid world state for 128×128 ecosystem.
-/// Agents have positions, existence, stress. Food tiles have TTL.
-/// Scent grid tracks movement trails.
-/// </summary>
 public partial class VectorizedState : IDisposable
 {
     public int N { get; private set; }
     public Device Device { get; }
     public readonly object LockObj = new();
 
-    // Agent state (CPU arrays — spatial logic is CPU-side)
+    // Agent state (CPU arrays)
     public int[] PosX;
     public int[] PosY;
     public float[] Existence;
     public float[] Stress;
     public bool[] Alive;
     public long[] LastAction;
-    public int[] LastSignalReceived; // -1 = none (legacy, kept for WebSocket)
-    public float[,] SignalMemory; // [agentIdx, signalChannel] — decaying memory per channel
+    public int[] LastSignalReceived; // legacy compat, kept for WebSocket
+    public float[] ChemicalMemory;  // [agentIdx] — decaying memory of ambient chemicals
     public int[] TickCount;
     public int[] AttackCount;
     public int[] EatCount;
     public int[] FoodEatCount;
     public int[] BigFoodEatCount;
     public int[] CorpseEatCount;
-    public int[] SignalCount;
+    public int[] EmitCount;        // how many times agent emitted chemical
     public string[] StatusMirror;
     public string[] LastActionNameMirror;
     public DateTime[] BirthTimes;
     public int[] LastReproduceTick;
-    public int[] FacingDirection;  // 0=up, 1=down, 2=left, 3=right
-    public int[] SignalAge;        // ticks since last signal received
-    public float[] Thirst;         // 0=dehydrated, 100=fully hydrated
-    public float[] Hunger;         // 0=starving, 100=fully fed
-    public bool[] IsEating;        // whether agent is in eating toggle state
-    public float[] BodyTemperature; // agent's own body temperature (tracks local env with inertia)
-    public int[] RespawnCount;     // how many times this agent slot has respawned
-    public float[] Stamina;        // 0-100, consumed by high-effort actions
-    public int[] TicksSinceLastMove; // counter for stationary detection
-    public bool[] IsStationary;    // true when TicksSinceLastMove >= threshold
-    public int[] PushCount;        // how many times agent pushed an entity
-    public int[] TerraformCount;   // how many times agent changed terrain
-    public int[] ShoveCount;       // how many times agent shoved another agent
-    public int[] PullCount;        // how many times agent pulled another agent
+    public int[] FacingDirection;
+    public int[] ChemicalAge;      // ticks since last chemical received
+    public float[] Thirst;
+    public float[] Hunger;
+    public bool[] IsEating;
+    public float[] BodyTemperature;
+    public int[] RespawnCount;
+    public float[] Stamina;
+    public int[] TicksSinceLastMove;
+    public bool[] IsStationary;
+
+    // Body parameters (derived from Genome, heritable)
+    public Genome[] Genomes;
+    public float[] BodySize;
+    public float[] BodySpeed;
+    public float[] BodyStrength;
+    public float[] BodyVision;
+    public float[] BodyFat;
+    public float[] BodyColdResist;
 
     // Grid state
     public List<FoodTile> FoodTiles;
     public List<CorpseTile> CorpseTiles;
-    public float[,] ScentGrid;     // [GridWidth, GridHeight] — agent movement trails
-    public float[,] FoodScentGrid; // [GridWidth, GridHeight] — food/corpse scent
-    public int[,] RiverGrid;       // [GridWidth, GridHeight] — 0=land, 1=shallow, 2=deep
-    public float[,] WaterSoundGrid; // [GridWidth, GridHeight] — sound intensity from water
-    public float[,] TemperatureGrid; // [GridWidth, GridHeight] — local temperature with body heat
-    public float[,,] SignalField;   // [GridWidth, GridHeight, 4] — spatial signal persistence
-    public byte[,] TerrainType;     // [GridWidth, GridHeight] — 0=Flat, 1=Pit, 2=Mound, 3=DynamicWater
-    public int[,] TerrainTTL;       // [GridWidth, GridHeight] — remaining lifespan, -1=permanent
-    public byte[,] RiverFlow;       // [GridWidth, GridHeight] — 0=none, 1-8=8-direction flow
-    public int[,] DistanceToRiver;  // [GridWidth, GridHeight] — Chebyshev dist to nearest water cell, -1=far
+    public float[,] ScentGrid;
+    public float[,] FoodScentGrid;
+    public int[,] RiverGrid;
+    public float[,] WaterSoundGrid;
+    public float[,] TemperatureGrid;
+    public float[,] ChemicalField;   // [W, H] — continuous chemical diffusion field
+    public byte[,] TerrainType;
+    public int[,] TerrainTTL;
+    public byte[,] RiverFlow;
+    public int[,] DistanceToRiver;
+    public float[,] HeightMap;       // [W, H] — continuous elevation (-10 to +10)
 
-    // Spatial query grids (rebuilt each tick, pre-allocated once)
-    private int[] _agentGrid;      // [W*H] → agent index or -1
-    private byte[] _foodGrid;      // [W*H] → 0=empty, 1=food, 2=bigfood
-    private bool[] _corpseGrid;    // [W*H] → has corpse
+    // Spatial query grids
+    private int[] _agentGrid;
+    private byte[] _foodGrid;
+    private bool[] _corpseGrid;
 
     // GPU tensor for batch inference
     public Tensor StateMatrix;
-
-    // Pre-allocated buffer for state assembly
     private float[] _stateAssemblyBuffer;
 
     public VectorizedState(int n, torch.Device device, Random? rng = null)
     {
         N = n;
         Device = device;
+
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
 
         PosX = new int[n];
         PosY = new int[n];
@@ -104,20 +106,20 @@ public partial class VectorizedState : IDisposable
         Alive = new bool[n];
         LastAction = new long[n];
         LastSignalReceived = new int[n];
-        SignalMemory = new float[n, ToolDefinitions.SignalValues];
+        ChemicalMemory = new float[n];
         TickCount = new int[n];
         AttackCount = new int[n];
         EatCount = new int[n];
         FoodEatCount = new int[n];
         BigFoodEatCount = new int[n];
         CorpseEatCount = new int[n];
-        SignalCount = new int[n];
+        EmitCount = new int[n];
         StatusMirror = new string[n];
         LastActionNameMirror = new string[n];
         BirthTimes = new DateTime[n];
         LastReproduceTick = new int[n];
-        FacingDirection = new int[n]; // default 0 = up
-        SignalAge = new int[n]; // default 0
+        FacingDirection = new int[n];
+        ChemicalAge = new int[n];
         Thirst = new float[n];
         Hunger = new float[n];
         IsEating = new bool[n];
@@ -126,28 +128,34 @@ public partial class VectorizedState : IDisposable
         Stamina = new float[n];
         TicksSinceLastMove = new int[n];
         IsStationary = new bool[n];
-        PushCount = new int[n];
-        TerraformCount = new int[n];
-        ShoveCount = new int[n];
-        PullCount = new int[n];
-        for (int i = 0; i < n; i++) { Thirst[i] = 100f; Hunger[i] = 100f; BodyTemperature[i] = 20f; Stamina[i] = 100f; }
+
+        Genomes = new Genome[n];
+        BodySize = new float[n];
+        BodySpeed = new float[n];
+        BodyStrength = new float[n];
+        BodyVision = new float[n];
+        BodyFat = new float[n];
+        BodyColdResist = new float[n];
+
+        for (int i = 0; i < n; i++)
+        {
+            Thirst[i] = 100f; Hunger[i] = 100f; BodyTemperature[i] = 20f; Stamina[i] = 100f;
+        }
 
         FoodTiles = new List<FoodTile>();
         CorpseTiles = new List<CorpseTile>();
-        int W = ToolDefinitions.GridWidth;
-        int H = ToolDefinitions.GridHeight;
         ScentGrid = new float[W, H];
         FoodScentGrid = new float[W, H];
         RiverGrid = new int[W, H];
         WaterSoundGrid = new float[W, H];
         TemperatureGrid = new float[W, H];
-        SignalField = new float[W, H, 4];
+        ChemicalField = new float[W, H];
         TerrainType = new byte[W, H];
         TerrainTTL = new int[W, H];
         RiverFlow = new byte[W, H];
         DistanceToRiver = new int[W, H];
+        HeightMap = new float[W, H];
 
-        // Spatial query grids (pre-allocated, cleared each tick)
         int gridSize = W * H;
         _agentGrid = new int[gridSize];
         _foodGrid = new byte[gridSize];
@@ -159,8 +167,8 @@ public partial class VectorizedState : IDisposable
         var localRng = rng ?? new Random();
         for (int i = 0; i < n; i++)
         {
-            PosX[i] = localRng.Next(ToolDefinitions.GridWidth);
-            PosY[i] = localRng.Next(ToolDefinitions.GridHeight);
+            PosX[i] = localRng.Next(W);
+            PosY[i] = localRng.Next(H);
             Existence[i] = 100f;
             Stress[i] = 0f;
             Alive[i] = true;
@@ -169,14 +177,13 @@ public partial class VectorizedState : IDisposable
             TickCount[i] = 0;
             AttackCount[i] = 0;
             EatCount[i] = 0;
-            SignalCount[i] = 0;
+            EmitCount[i] = 0;
             StatusMirror[i] = "idle";
             LastActionNameMirror[i] = "none";
             BirthTimes[i] = DateTime.UtcNow;
         }
     }
 
-    /// <summary>Rebuild spatial query grids. Call once per tick after food/agent movement.</summary>
     public bool HasFoodAt(int x, int y, out bool isBig)
     {
         isBig = false;
@@ -218,14 +225,12 @@ public partial class VectorizedState : IDisposable
         return GetTerrainAt(x, y) == ToolDefinitions.TerrainMound;
     }
 
-    /// <summary>True if cell is any kind of water (river shallow/deep or dynamic floodwater).</summary>
     public bool IsAnyWater(int x, int y)
     {
         if (x < 0 || x >= ToolDefinitions.GridWidth || y < 0 || y >= ToolDefinitions.GridHeight) return false;
         return RiverGrid[x, y] > 0 || TerrainType[x, y] == ToolDefinitions.TerrainDynamicWater;
     }
 
-    /// <summary>Count adjacent (Moore 8) cells of a given terrain type, excluding self.</summary>
     public int CountAdjacentTerrain(int x, int y, byte terrainType)
     {
         int W = ToolDefinitions.GridWidth;
@@ -244,10 +249,6 @@ public partial class VectorizedState : IDisposable
         return count;
     }
 
-    /// <summary>
-    /// Compute Chebyshev distance from each cell to the nearest water cell (RiverGrid > 0).
-    /// Water cells get distance 0. Cells beyond RiverLandInfluence cap at influence+1.
-    /// </summary>
     public void ComputeDistanceToRiver(int maxInfluence)
     {
         int W = ToolDefinitions.GridWidth;
@@ -269,7 +270,6 @@ public partial class VectorizedState : IDisposable
                 }
             }
 
-        // Moore neighborhood (8-direction) BFS → Chebyshev distance
         while (queue.Count > 0)
         {
             var (cx, cy) = queue.Dequeue();
@@ -299,7 +299,7 @@ public partial class VectorizedState : IDisposable
         return _agentGrid[x * H + y] >= 0;
     }
 
-    private bool HasCorpseAt(int x, int y)
+    public bool HasCorpseAt(int x, int y)
     {
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
@@ -307,7 +307,7 @@ public partial class VectorizedState : IDisposable
         return _corpseGrid[x * H + y];
     }
 
-    private bool HasOtherAgentAt(int excludeIdx, int x, int y)
+    public bool HasOtherAgentAt(int excludeIdx, int x, int y)
     {
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
@@ -321,7 +321,6 @@ public partial class VectorizedState : IDisposable
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
 
-        // Random position avoiding deep water
         int attempts = 0;
         do
         {
@@ -335,62 +334,56 @@ public partial class VectorizedState : IDisposable
         Alive[i] = true;
         LastAction[i] = 0;
         LastSignalReceived[i] = -1;
-        for (int ch = 0; ch < ToolDefinitions.SignalValues; ch++)
-            SignalMemory[i, ch] = 0f;
+        ChemicalMemory[i] = 0f;
         TickCount[i] = 0;
         AttackCount[i] = 0;
         EatCount[i] = 0;
         FoodEatCount[i] = 0;
         BigFoodEatCount[i] = 0;
         CorpseEatCount[i] = 0;
-        SignalCount[i] = 0;
+        EmitCount[i] = 0;
         StatusMirror[i] = "ALIVE";
         LastActionNameMirror[i] = "none";
         BirthTimes[i] = DateTime.UtcNow;
         LastReproduceTick[i] = 0;
         FacingDirection[i] = rng.Next(4);
-        SignalAge[i] = 0;
+        ChemicalAge[i] = 0;
         Thirst[i] = 100f;
         Hunger[i] = 100f;
         IsEating[i] = false;
-        BodyTemperature[i] = 20f; // reset to ambient
+        BodyTemperature[i] = 20f;
         Stamina[i] = 100f;
         TicksSinceLastMove[i] = 0;
         IsStationary[i] = false;
-        PushCount[i] = 0;
-        TerraformCount[i] = 0;
-        ShoveCount[i] = 0;
-        PullCount[i] = 0;
         RespawnCount[i]++;
     }
 
     public float[] GetStateBuffer() => _stateAssemblyBuffer;
 
-    /// <summary>Add a new agent (reproduction). Returns the new agent index.</summary>
     public int AddAgent(int x, int y, float existence)
     {
         int newN = N + 1;
         PosX = Resize(PosX, newN); PosX[newN - 1] = x;
         PosY = Resize(PosY, newN); PosY[newN - 1] = y;
         Existence = Resize(Existence, newN); Existence[newN - 1] = existence;
-        Stress = Resize(Stress, newN); Stress[newN - 1] = 0f;
+        Stress = Resize(Stress, newN);
         Alive = Resize(Alive, newN); Alive[newN - 1] = true;
-        LastAction = Resize(LastAction, newN); LastAction[newN - 1] = 0;
+        LastAction = Resize(LastAction, newN);
         LastSignalReceived = Resize(LastSignalReceived, newN); LastSignalReceived[newN - 1] = -1;
-        SignalMemory = Resize2D(SignalMemory, newN, ToolDefinitions.SignalValues);
+        ChemicalMemory = Resize(ChemicalMemory, newN);
         TickCount = Resize(TickCount, newN);
         AttackCount = Resize(AttackCount, newN);
         EatCount = Resize(EatCount, newN);
         FoodEatCount = Resize(FoodEatCount, newN);
         BigFoodEatCount = Resize(BigFoodEatCount, newN);
         CorpseEatCount = Resize(CorpseEatCount, newN);
-        SignalCount = Resize(SignalCount, newN);
+        EmitCount = Resize(EmitCount, newN);
         StatusMirror = Resize(StatusMirror, newN); StatusMirror[newN - 1] = "ALIVE";
         LastActionNameMirror = Resize(LastActionNameMirror, newN); LastActionNameMirror[newN - 1] = "";
         BirthTimes = Resize(BirthTimes, newN); BirthTimes[newN - 1] = DateTime.UtcNow;
-        LastReproduceTick = Resize(LastReproduceTick, newN); LastReproduceTick[newN - 1] = 0;
-        FacingDirection = Resize(FacingDirection, newN); FacingDirection[newN - 1] = 1; // default down
-        SignalAge = Resize(SignalAge, newN); SignalAge[newN - 1] = 0;
+        LastReproduceTick = Resize(LastReproduceTick, newN);
+        FacingDirection = Resize(FacingDirection, newN); FacingDirection[newN - 1] = 1;
+        ChemicalAge = Resize(ChemicalAge, newN);
         Thirst = Resize(Thirst, newN); Thirst[newN - 1] = 100f;
         Hunger = Resize(Hunger, newN); Hunger[newN - 1] = 100f;
         IsEating = Resize(IsEating, newN);
@@ -398,13 +391,16 @@ public partial class VectorizedState : IDisposable
         Stamina = Resize(Stamina, newN); Stamina[newN - 1] = 100f;
         TicksSinceLastMove = Resize(TicksSinceLastMove, newN);
         IsStationary = Resize(IsStationary, newN);
-        PushCount = Resize(PushCount, newN);
-        TerraformCount = Resize(TerraformCount, newN);
-        ShoveCount = Resize(ShoveCount, newN);
-        PullCount = Resize(PullCount, newN);
         RespawnCount = Resize(RespawnCount, newN);
 
-        // Resize GPU tensor and assembly buffer
+        Genomes = Resize(Genomes, newN);
+        BodySize = Resize(BodySize, newN);
+        BodySpeed = Resize(BodySpeed, newN);
+        BodyStrength = Resize(BodyStrength, newN);
+        BodyVision = Resize(BodyVision, newN);
+        BodyFat = Resize(BodyFat, newN);
+        BodyColdResist = Resize(BodyColdResist, newN);
+
         StateMatrix.Dispose();
         StateMatrix = torch.zeros(newN, ToolDefinitions.StateSize, device: Device);
         _stateAssemblyBuffer = new float[newN * ToolDefinitions.StateSize];
@@ -417,15 +413,6 @@ public partial class VectorizedState : IDisposable
     {
         var dst = new T[newSize];
         Array.Copy(src, dst, Math.Min(src.Length, newSize));
-        return dst;
-    }
-
-    private static T[,] Resize2D<T>(T[,] src, int dim0, int dim1)
-    {
-        var dst = new T[dim0, dim1];
-        for (int i = 0; i < Math.Min(src.GetLength(0), dim0); i++)
-            for (int j = 0; j < Math.Min(src.GetLength(1), dim1); j++)
-                dst[i, j] = src[i, j];
         return dst;
     }
 

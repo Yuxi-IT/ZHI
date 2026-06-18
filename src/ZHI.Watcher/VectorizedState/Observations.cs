@@ -6,16 +6,14 @@ namespace ZHI.Watcher;
 
 public partial class VectorizedState
 {
-    // Forward-facing visibility mask (facing up, 7x7). 1=visible, 0=hidden.
-    // Agent at center (row 3). Can see forward cone, nothing behind.
     private static readonly bool[,] BaseVisionMask = {
-        { true,  true,  true,  true,  true,  true,  true  },  // dy=-3
-        { false, true,  true,  true,  true,  true,  false },  // dy=-2
-        { false, false, true,  true,  true,  false, false },  // dy=-1
-        { false, false, false, true,  false, false, false },  // dy=0 (self)
-        { false, false, false, false, false, false, false },  // dy=+1
-        { false, false, false, false, false, false, false },  // dy=+2
-        { false, false, false, false, false, false, false },  // dy=+3
+        { true,  true,  true,  true,  true,  true,  true  },
+        { false, true,  true,  true,  true,  true,  false },
+        { false, false, true,  true,  true,  false, false },
+        { false, false, false, true,  false, false, false },
+        { false, false, false, false, false, false, false },
+        { false, false, false, false, false, false, false },
+        { false, false, false, false, false, false, false },
     };
 
     public void RebuildSpatialGrids()
@@ -60,7 +58,7 @@ public partial class VectorizedState
 
     public void BuildStateMatrix()
     {
-        int S = ToolDefinitions.StateSize; // 334
+        int S = ToolDefinitions.StateSize; // 340
         int R = ToolDefinitions.VisionRadius;
         int D = R * 2 + 1; // 7
         int W = ToolDefinitions.GridWidth;
@@ -82,7 +80,7 @@ public partial class VectorizedState
             bool agentInPit = TerrainType[cx, cy] == ToolDefinitions.TerrainPit;
             bool agentOnMound = TerrainType[cx, cy] == ToolDefinitions.TerrainMound;
 
-            // [0-293] 7x7 grid x 6 channels: food, bigfood, corpse, agent, self, terrain
+            // [0-293] 7x7 grid x 6 channels
             for (int dy = -R; dy <= R; dy++)
             {
                 for (int dx = -R; dx <= R; dx++)
@@ -127,27 +125,26 @@ public partial class VectorizedState
                 }
             }
 
-            // [294-298] self state: HP, Stress, LastAction, Age, Stamina
+            // ── Non-grid state [294-339] (46 values) ──
+
+            // [294-298] vital signs
             _stateAssemblyBuffer[baseIdx + 294] = Existence[i] / 100f;
             _stateAssemblyBuffer[baseIdx + 295] = Stress[i] / 5f;
-            _stateAssemblyBuffer[baseIdx + 296] = LastAction[i] / 11f;
+            _stateAssemblyBuffer[baseIdx + 296] = LastAction[i] / 7f;
             _stateAssemblyBuffer[baseIdx + 297] = Math.Min(TickCount[i] / 200f, 1f);
             _stateAssemblyBuffer[baseIdx + 298] = Stamina[i] / 100f;
 
-            // [299-302] signal memory (4 channels)
-            _stateAssemblyBuffer[baseIdx + 299] = SignalMemory[i, 0];
-            _stateAssemblyBuffer[baseIdx + 300] = SignalMemory[i, 1];
-            _stateAssemblyBuffer[baseIdx + 301] = SignalMemory[i, 2];
-            _stateAssemblyBuffer[baseIdx + 302] = SignalMemory[i, 3];
+            // [299] chemical memory (continuous 0-1)
+            _stateAssemblyBuffer[baseIdx + 299] = ChemicalMemory[i];
 
-            // [303-306] scent gradient
+            // [300-303] scent gradient
             float scentHere = ScentGrid[cx, cy];
-            _stateAssemblyBuffer[baseIdx + 303] = (cy > 0) ? ScentGrid[cx, cy - 1] - scentHere : 0f;
-            _stateAssemblyBuffer[baseIdx + 304] = (cy < H - 1) ? ScentGrid[cx, cy + 1] - scentHere : 0f;
-            _stateAssemblyBuffer[baseIdx + 305] = (cx < W - 1) ? ScentGrid[cx + 1, cy] - scentHere : 0f;
-            _stateAssemblyBuffer[baseIdx + 306] = (cx > 0) ? ScentGrid[cx - 1, cy] - scentHere : 0f;
+            _stateAssemblyBuffer[baseIdx + 300] = (cy > 0) ? ScentGrid[cx, cy - 1] - scentHere : 0f;
+            _stateAssemblyBuffer[baseIdx + 301] = (cy < H - 1) ? ScentGrid[cx, cy + 1] - scentHere : 0f;
+            _stateAssemblyBuffer[baseIdx + 302] = (cx < W - 1) ? ScentGrid[cx + 1, cy] - scentHere : 0f;
+            _stateAssemblyBuffer[baseIdx + 303] = (cx > 0) ? ScentGrid[cx - 1, cy] - scentHere : 0f;
 
-            // [307-309] local stats (directional visibility)
+            // [304-306] local stats
             int foodVisible = 0;
             int agentVisible = 0;
             for (int dy = -R; dy <= R; dy++)
@@ -156,7 +153,6 @@ public partial class VectorizedState
                 {
                     if (agentInPit && Math.Max(Math.Abs(dx), Math.Abs(dy)) > 1)
                         continue;
-
                     if (!agentOnMound)
                     {
                         int rdx2, rdy2;
@@ -168,11 +164,9 @@ public partial class VectorizedState
                             default: rdx2 = dy; rdy2 = -dx; break;
                         }
                         int mc = rdx2 + R, mr = rdy2 + R;
-                        if (mc < 0 || mc >= D || mr < 0 || mr >= D
-                            || !BaseVisionMask[mr, mc])
+                        if (mc < 0 || mc >= D || mr < 0 || mr >= D || !BaseVisionMask[mr, mc])
                             continue;
                     }
-
                     int gx = cx + dx, gy = cy + dy;
                     if (gx < 0 || gx >= W || gy < 0 || gy >= H) continue;
                     int key = gx * H + gy;
@@ -182,46 +176,51 @@ public partial class VectorizedState
                     if (agentIdx >= 0 && agentIdx != i) agentVisible++;
                 }
             }
-            _stateAssemblyBuffer[baseIdx + 307] = Math.Min(foodVisible / 5f, 1f);
-            _stateAssemblyBuffer[baseIdx + 308] = Math.Min(agentVisible / 8f, 1f);
-            _stateAssemblyBuffer[baseIdx + 309] = Math.Min(scentHere / 10f, 1f);
+            _stateAssemblyBuffer[baseIdx + 304] = Math.Min(foodVisible / 5f, 1f);
+            _stateAssemblyBuffer[baseIdx + 305] = Math.Min(agentVisible / 8f, 1f);
+            _stateAssemblyBuffer[baseIdx + 306] = Math.Min(scentHere / 10f, 1f);
 
-            // [310-311] facing direction (unit vector)
-            _stateAssemblyBuffer[baseIdx + 310] = fd == 2 ? -1f : fd == 3 ? 1f : 0f;
-            _stateAssemblyBuffer[baseIdx + 311] = fd == 0 ? -1f : fd == 1 ? 1f : 0f;
+            // [307-308] facing direction
+            _stateAssemblyBuffer[baseIdx + 307] = fd == 2 ? -1f : fd == 3 ? 1f : 0f;
+            _stateAssemblyBuffer[baseIdx + 308] = fd == 0 ? -1f : fd == 1 ? 1f : 0f;
 
-            // [312] signal age
-            _stateAssemblyBuffer[baseIdx + 312] = Math.Min(SignalAge[i] / 20f, 1f);
+            // [309] chemical age
+            _stateAssemblyBuffer[baseIdx + 309] = Math.Min(ChemicalAge[i] / 20f, 1f);
 
-            // [313] hunger
-            _stateAssemblyBuffer[baseIdx + 313] = Hunger[i] / 100f;
+            // [310] hunger
+            _stateAssemblyBuffer[baseIdx + 310] = Hunger[i] / 100f;
 
-            // [314] thirst
-            _stateAssemblyBuffer[baseIdx + 314] = Thirst[i] / 100f;
+            // [311] thirst
+            _stateAssemblyBuffer[baseIdx + 311] = Thirst[i] / 100f;
 
-            // [315] water sound intensity
-            _stateAssemblyBuffer[baseIdx + 315] = Math.Min(WaterSoundGrid[cx, cy] / 10f, 1f);
+            // [312] water sound
+            _stateAssemblyBuffer[baseIdx + 312] = Math.Min(WaterSoundGrid[cx, cy] / 10f, 1f);
 
-            // [316] is_eating
-            _stateAssemblyBuffer[baseIdx + 316] = IsEating[i] ? 1f : 0f;
+            // [313] is_eating
+            _stateAssemblyBuffer[baseIdx + 313] = IsEating[i] ? 1f : 0f;
 
-            // [317] is_stationary
-            _stateAssemblyBuffer[baseIdx + 317] = IsStationary[i] ? 1f : 0f;
+            // [314] is_stationary
+            _stateAssemblyBuffer[baseIdx + 314] = IsStationary[i] ? 1f : 0f;
 
-            // [318-333] signal field gradient: 4 channels x 4 directions
-            for (int ch = 0; ch < 4; ch++)
-            {
-                float sigHere = SignalField[cx, cy, ch];
-                float sigN = (cy > 0) ? SignalField[cx, cy - 1, ch] - sigHere : 0f;
-                float sigS = (cy < H - 1) ? SignalField[cx, cy + 1, ch] - sigHere : 0f;
-                float sigE = (cx < W - 1) ? SignalField[cx + 1, cy, ch] - sigHere : 0f;
-                float sigW = (cx > 0) ? SignalField[cx - 1, cy, ch] - sigHere : 0f;
+            // [315-320] body parameters (normalized to 0-1)
+            _stateAssemblyBuffer[baseIdx + 315] = (BodySize[i] - 0.3f) / 2.2f;
+            _stateAssemblyBuffer[baseIdx + 316] = (BodySpeed[i] - 0.3f) / 2.2f;
+            _stateAssemblyBuffer[baseIdx + 317] = (BodyStrength[i] - 0.3f) / 2.2f;
+            _stateAssemblyBuffer[baseIdx + 318] = (BodyVision[i] - 0.3f) / 2.2f;
+            _stateAssemblyBuffer[baseIdx + 319] = BodyFat[i];
+            _stateAssemblyBuffer[baseIdx + 320] = BodyColdResist[i];
 
-                _stateAssemblyBuffer[baseIdx + 318 + ch * 4 + 0] = sigN;
-                _stateAssemblyBuffer[baseIdx + 318 + ch * 4 + 1] = sigS;
-                _stateAssemblyBuffer[baseIdx + 318 + ch * 4 + 2] = sigE;
-                _stateAssemblyBuffer[baseIdx + 318 + ch * 4 + 3] = sigW;
-            }
+            // [321] height at position (normalized -10..+10 → 0-1)
+            _stateAssemblyBuffer[baseIdx + 321] = (HeightMap[cx, cy] + 10f) / 20f;
+
+            // [322-325] chemical field gradient (single channel, 4 directions)
+            float chemHere = ChemicalField[cx, cy];
+            _stateAssemblyBuffer[baseIdx + 322] = (cy > 0) ? ChemicalField[cx, cy - 1] - chemHere : 0f;
+            _stateAssemblyBuffer[baseIdx + 323] = (cy < H - 1) ? ChemicalField[cx, cy + 1] - chemHere : 0f;
+            _stateAssemblyBuffer[baseIdx + 324] = (cx < W - 1) ? ChemicalField[cx + 1, cy] - chemHere : 0f;
+            _stateAssemblyBuffer[baseIdx + 325] = (cx > 0) ? ChemicalField[cx - 1, cy] - chemHere : 0f;
+
+            // [326-339] reserved (zero-filled by Array.Clear)
         }
 
         using var cpuData = tensor(_stateAssemblyBuffer, [N, S]);
