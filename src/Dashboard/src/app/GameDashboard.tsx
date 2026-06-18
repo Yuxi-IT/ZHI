@@ -9,7 +9,6 @@ import { AgentCardsPanel } from '../components/AgentCardsPanel';
 import { LogPanel } from '../components/LogPanel';
 import { ChartsPanel } from '../components/ChartsPanel';
 import { EventMonitor } from '../components/EventMonitor';
-import { SettingsPanel } from '../components/SettingsPanel';
 import { ControlBar } from './ControlBar';
 import { useT } from '../i18n/I18nContext';
 
@@ -42,7 +41,7 @@ export function GameDashboard({ worldName, onStop }: Props) {
   const { history, record } = useEcoHistory();
   const { t } = useT();
 
-  const [bottomTab, setBottomTab] = useState<'log' | 'charts' | 'settings'>('log');
+  const [bottomTab, setBottomTab] = useState<'log' | 'charts'>('log');
   const [trackedAgent, setTrackedAgent] = useState<number | null>(null);
   const [trackNextGen, setTrackNextGen] = useState(false);
   const [bottomHeight, setBottomHeight] = useState(192);
@@ -212,7 +211,7 @@ export function GameDashboard({ worldName, onStop }: Props) {
               onMouseDown={onResizeStart}
             />
             <div className="flex items-center gap-1 px-3 py-1 border-b border-zhi-border shrink-0">
-              {(['log', 'charts', 'settings'] as const).map(tab => (
+              {(['log', 'charts'] as const).map(tab => (
                 <Button
                   key={tab}
                   variant={bottomTab === tab ? 'secondary' : 'ghost'}
@@ -220,12 +219,11 @@ export function GameDashboard({ worldName, onStop }: Props) {
                   className={`text-[10px] min-w-0 h-auto px-2 py-0.5 ${bottomTab === tab ? 'bg-zhi-border text-zhi-text' : 'text-zhi-muted hover:text-zhi-text'}`}
                   onPress={() => setBottomTab(tab)}
                 >
-                  {tab === 'log' ? t('tab.log') : tab === 'charts' ? t('tab.charts') : t('tab.settings')}
+                  {tab === 'log' ? t('tab.log') : t('tab.charts')}
                 </Button>
               ))}
             </div>
             {bottomTab === 'charts' ? <ChartsPanel data={history} />
-              : bottomTab === 'settings' ? <SettingsPanel />
               : <LogPanel logs={logs} />}
           </div>
         </div>

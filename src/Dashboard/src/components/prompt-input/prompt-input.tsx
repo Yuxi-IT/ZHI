@@ -404,7 +404,7 @@ function SendIcon({ status }: { status: ChatStatus }) {
   if (status === 'streaming')
     return jsx('span', {
       'aria-hidden': true,
-      className: 'rounded-xs size-3 bg-current',
+      className: 'size-3 bg-current',
     });
   return jsx(status === 'error' ? Xmark : ArrowUp, { className: 'size-4' });
 }

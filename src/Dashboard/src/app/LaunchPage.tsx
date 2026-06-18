@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button, Modal, useOverlayState, Card, TextField, Label, Input, Form, Spinner } from '@heroui/react';
 import { EmptyState } from '../components/empty-state';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
-import { Plus, TrashBin, CircleCheckFill, CircleXmarkFill, CircleFill } from '@gravity-ui/icons';
+import { ConfigFormFields, DEFAULT_CONFIG, type ZhiConfig } from '../components/ConfigSections';
+import { Plus, TrashBin, CircleCheckFill, CircleXmarkFill, CircleFill, Play } from '@gravity-ui/icons';
 import type { WorldMeta } from '../types';
 
 interface Props {
@@ -15,6 +16,7 @@ export function LaunchPage({ onWorldStart }: Props) {
   const [createName, setCreateName] = useState('');
   const [createSeed, setCreateSeed] = useState('');
   const [createDesc, setCreateDesc] = useState('');
+  const [createConfig, setCreateConfig] = useState<ZhiConfig>({ ...DEFAULT_CONFIG });
   const [creating, setCreating] = useState(false);
 
   const createModal = useOverlayState({ defaultOpen: false });
@@ -50,6 +52,7 @@ export function LaunchPage({ onWorldStart }: Props) {
       const body: Record<string, unknown> = {
         name: createName.trim(),
         description: createDesc.trim(),
+        config: createConfig,
       };
       const seedNum = parseInt(createSeed, 10);
       if (!isNaN(seedNum)) body.seed = seedNum;
@@ -69,6 +72,7 @@ export function LaunchPage({ onWorldStart }: Props) {
       setCreateName('');
       setCreateSeed('');
       setCreateDesc('');
+      setCreateConfig({ ...DEFAULT_CONFIG });
       await loadWorlds();
     } catch (err) {
       console.error('Failed to create world:', err);
@@ -105,8 +109,8 @@ export function LaunchPage({ onWorldStart }: Props) {
           <Button
             variant="primary"
             size="sm"
-            className="bg-zhi-accent text-white"
-            onPress={() => createModal.open()}
+            className="text-white"
+            onPress={() => { setCreateConfig({ ...DEFAULT_CONFIG }); createModal.open(); }}
           >
             <Plus className="size-3.5" />
             New World
@@ -127,7 +131,7 @@ export function LaunchPage({ onWorldStart }: Props) {
               <EmptyState.Title>No worlds yet</EmptyState.Title>
               <EmptyState.Description>Create a new world to begin the simulation.</EmptyState.Description>
               <EmptyState.Content>
-                <Button variant="outline" size="sm" onPress={() => createModal.open()}>
+                <Button variant="outline" size="sm" onPress={() => { setCreateConfig({ ...DEFAULT_CONFIG }); createModal.open(); }}>
                   <Plus className="size-3.5" />
                   Create World
                 </Button>
@@ -149,13 +153,13 @@ export function LaunchPage({ onWorldStart }: Props) {
               >
                 <Card.Header>
                   <div className="flex items-center justify-between w-full">
-                    <Card.Title className="text-sm text-zhi-text truncate">{w.name}</Card.Title>
+                    <Card.Title className="text-lg text-zhi-text truncate">{w.name}</Card.Title>
                     <StatusBadge status={w.status} />
                   </div>
                 </Card.Header>
 
                 <Card.Content>
-                  <div className="text-[10px] text-zhi-muted space-y-1">
+                  <div className="text-[14px] text-zhi-muted space-y-1">
                     <Row label="Gen" value={w.total_generations} />
                     <Row label="Deaths" value={w.total_deaths} />
                     {w.seed != null && <Row label="Seed" value={w.seed} mono />}
@@ -164,22 +168,29 @@ export function LaunchPage({ onWorldStart }: Props) {
 
                 <Card.Footer>
                   <div className="flex items-center justify-between w-full">
-                    <span className="text-[10px] text-zhi-muted">
+                    <span className="text-[12px] text-zhi-muted">
                       {formatDate(w.created_at)}
                     </span>
                     <div className="flex items-center gap-1">
                       {w.status !== 'running' && (
-                        <span className="text-[10px] text-zhi-accent font-medium">Start</span>
+                      <Button
+                        isIconOnly
+                        variant="ghost"
+                        className="text-blue-400 hover:text-blue-300 min-w-0 w-5 h-5"
+                        aria-label={`Delete ${w.name}`}
+                        onPress={() => w.status !== 'running' && handleStart(w.name)}
+                      >
+                        <Play className="size-4" />
+                      </Button>
                       )}
                       <Button
                         isIconOnly
                         variant="ghost"
-                        size="sm"
                         className="text-red-400 hover:text-red-300 min-w-0 w-5 h-5"
                         aria-label={`Delete ${w.name}`}
                         onPress={() => { handleDelete(w.name); }}
                       >
-                        <TrashBin className="size-3" />
+                        <TrashBin className="size-4" />
                       </Button>
                     </div>
                   </div>
@@ -201,18 +212,18 @@ export function LaunchPage({ onWorldStart }: Props) {
             else createModal.close();
           }}
         >
-          <Modal.Container placement="center" size="sm">
-            <Modal.Dialog>
+          <Modal.Container placement="center" size="lg">
+            <Modal.Dialog className="max-h-[85vh]">
               <Modal.CloseTrigger />
               <Modal.Header>
                 <Modal.Heading className="text-zhi-text text-sm">New World</Modal.Heading>
               </Modal.Header>
-              <Modal.Body>
-                <Form className="space-y-4" onSubmit={(e: React.FormEvent) => { e.preventDefault(); handleCreate(); }}>
+              <Modal.Body className="overflow-y-auto">
+                <Form className="space-y-3" onSubmit={(e: React.FormEvent) => { e.preventDefault(); handleCreate(); }}>
                   <TextField isRequired>
                     <Label className="text-[10px] text-zhi-muted">Name</Label>
                     <Input
-                      className="bg-zhi-bg border border-zhi-border rounded px-2.5 py-1.5 text-xs text-zhi-text"
+                      className="bg-zhi-bg border border-zhi-border px-2.5 py-1.5 text-xs text-zhi-text"
                       placeholder="my-world"
                       value={createName}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCreateName(e.target.value)}
@@ -220,26 +231,31 @@ export function LaunchPage({ onWorldStart }: Props) {
                     />
                   </TextField>
 
-                  <TextField>
-                    <Label className="text-[10px] text-zhi-muted">Seed (optional, leave empty for random)</Label>
-                    <Input
-                      type="number"
-                      className="bg-zhi-bg border border-zhi-border rounded px-2.5 py-1.5 text-xs text-zhi-text font-mono"
-                      placeholder="42"
-                      value={createSeed}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCreateSeed(e.target.value)}
-                    />
-                  </TextField>
+                  <div className="flex gap-3">
+                    <TextField className="flex-1">
+                      <Label className="text-[10px] text-zhi-muted">Seed (empty = random)</Label>
+                      <Input
+                        type="number"
+                        className="bg-zhi-bg border border-zhi-border px-2.5 py-1.5 text-xs text-zhi-text font-mono"
+                        placeholder="42"
+                        value={createSeed}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCreateSeed(e.target.value)}
+                      />
+                    </TextField>
+                    <TextField className="flex-1">
+                      <Label className="text-[10px] text-zhi-muted">Description</Label>
+                      <Input
+                        className="bg-zhi-bg border border-zhi-border px-2.5 py-1.5 text-xs text-zhi-text"
+                        placeholder="Testing hypothermia..."
+                        value={createDesc}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCreateDesc(e.target.value)}
+                      />
+                    </TextField>
+                  </div>
 
-                  <TextField>
-                    <Label className="text-[10px] text-zhi-muted">Description (optional)</Label>
-                    <Input
-                      className="bg-zhi-bg border border-zhi-border rounded px-2.5 py-1.5 text-xs text-zhi-text"
-                      placeholder="Testing hypothermia..."
-                      value={createDesc}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCreateDesc(e.target.value)}
-                    />
-                  </TextField>
+                  <ConfigFormFields config={createConfig} update={(section, key, value) => {
+                    setCreateConfig(prev => ({ ...prev, [section]: { ...prev[section], [key]: value } }));
+                  }} />
                 </Form>
               </Modal.Body>
               <Modal.Footer>
@@ -254,7 +270,7 @@ export function LaunchPage({ onWorldStart }: Props) {
                 <Button
                   variant="primary"
                   size="sm"
-                  className="bg-zhi-accent text-white disabled:opacity-50"
+                  className="text-white disabled:opacity-50"
                   isDisabled={!createName.trim() || creating}
                   onPress={handleCreate}
                 >
