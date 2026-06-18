@@ -52,6 +52,13 @@ public partial class WebServer
 
     private async Task SendInitialData(WebSocket ws)
     {
+        if (_engine == null) return;
+        var statePayload = JsonSerializer.Serialize(new
+        {
+            type = "cosmos",
+            data = JsonSerializer.Deserialize<object>(BuildCosmosPayload())
+        });
+        await SendAsync(ws, statePayload);
     }
 
     private async Task SendLogHistory(WebSocket ws)

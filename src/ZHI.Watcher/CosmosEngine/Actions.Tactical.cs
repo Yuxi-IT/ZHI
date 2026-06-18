@@ -41,7 +41,6 @@ public partial class CosmosEngine
             _v.Stress[bestTarget] += _config.Combat.StressPerAttack;
             _v.Energy[bestTarget] -= damage;
             _v.LastActionNameMirror[attacker] = $"attack#{bestTarget}";
-            _lastAttackTick[attacker] = _globalTick;
             _tickEvents.Add(new WorldEvent
             {
                 Type = "attack", AgentId = attacker, TargetId = bestTarget,
@@ -53,6 +52,8 @@ public partial class CosmosEngine
         {
             _v.LastActionNameMirror[attacker] = "attack_miss";
         }
+
+        _lastAttackTick[attacker] = _globalTick;
     }
 
     /// <summary>

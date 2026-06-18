@@ -474,7 +474,8 @@ public partial class VectorizedState : IDisposable
 
                 float gw = GroundwaterGrid[x, y];
                 float nu = NutrientGrid[x, y];
-                float temp = TemperatureGrid[x, y];
+                // Use ambient temp with height adjustment (static biome property, not instantaneous grid temp)
+                float temp = tempAvg - (HeightMap[x, y] - 128) * 0.04f;
 
                 // Desert: very dry
                 if (gw < cfg.DesertAridityMax)
@@ -576,11 +577,13 @@ public partial class VectorizedState : IDisposable
 
     public bool HasOtherAgentAt(int excludeIdx, int x, int y)
     {
-        int W = ToolDefinitions.GridWidth;
-        int H = ToolDefinitions.GridHeight;
-        if (x < 0 || x >= W || y < 0 || y >= H) return false;
-        int agentIdx = _agentGrid[x * H + y];
-        return agentIdx >= 0 && agentIdx != excludeIdx;
+        for (int i = 0; i < N; i++)
+        {
+            if (i == excludeIdx) continue;
+            if (!Alive[i]) continue;
+            if (PosX[i] == x && PosY[i] == y) return true;
+        }
+        return false;
     }
 
     public void RespawnAgent(int i, Random rng)

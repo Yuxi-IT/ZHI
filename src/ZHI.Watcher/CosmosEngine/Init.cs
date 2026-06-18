@@ -87,6 +87,19 @@ public partial class CosmosEngine
                     _v.GroundwaterGrid[x, y] = 0.1f;
             }
 
+        // Initialize temperature grid to correct ambient before biome derivation
+        ApplyWorldTemperature(n);
+
+        // Rapid-converge land cells to avoid cold-start
+        float heightLapseRate = _config.Temperature.HeightLapseRate;
+        for (int x = 0; x < gw; x++)
+            for (int y = 0; y < gh; y++)
+            {
+                if (_v.RiverGrid[x, y] > 0 || _v.SurfaceWaterGrid[x, y] > 0.5f) continue;
+                float targetTemp = _temperature - (_v.HeightMap[x, y] - 128) * heightLapseRate;
+                _v.TemperatureGrid[x, y] = targetTemp;
+            }
+
         // Compute biome classification from terrain + initial conditions
         _v.ComputeBiomes(_temperature, _config.Biome);
 

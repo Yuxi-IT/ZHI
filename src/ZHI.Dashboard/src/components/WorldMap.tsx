@@ -744,7 +744,7 @@ export const WorldMap = memo(function WorldMap({
           const nu = nutrient[gy * gridW + gx] ?? 0;
           if (nu > 0.01) lines.push(`${t('map.nutrient')}: ${nu.toFixed(1)}`);
         }
-        if (biome && biome.length > 0) {
+        if (showBiome && biome && biome.length > 0) {
           const b = biome[gy * gridW + gx];
           if (b !== undefined) {
             const names = [t('map.biomeWater'), t('map.biomeRiverBank'), t('map.biomeDesert'), t('map.biomeGrassland'), t('map.biomeJungle'), t('map.biomeWetland'), t('map.biomeHighland'), t('map.biomeValley')];
