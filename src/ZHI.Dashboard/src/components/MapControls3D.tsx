@@ -28,9 +28,9 @@ export function MapControls3D({ heightScale, camTarget }: Props) {
       enableDamping
       dampingFactor={0.08}
       mouseButtons={{
-        LEFT: 2,   // PAN
-        MIDDLE: 1, // ROTATE
-        RIGHT: 0,  // ROTATE
+        LEFT: 2,   // PAN — 左键拖动平移
+        MIDDLE: 0, // ROTATE — 中键拖动旋转
+        RIGHT: 1,  // DOLLY — 右键拖动缩放
       }}
     />
   );
