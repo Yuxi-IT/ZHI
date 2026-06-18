@@ -61,8 +61,8 @@ public partial class CosmosEngine
                 if (_v.DistanceToRiver[x, y] == 0 && _v.RiverGrid[x, y] == 2)
                     target -= deepOffset;
 
-                // Height-based temperature variation: higher = cooler, lower = warmer
-                target -= _v.HeightMap[x, y] * lapseRate;
+                // Height-based temperature variation: centered at 128, higher = cooler
+                target -= (_v.HeightMap[x, y] - 128) * lapseRate;
 
                 // Ambient convergence
                 float newTemp = oldTemp + (target - oldTemp) * lerpRates[x, y];
@@ -105,16 +105,6 @@ public partial class CosmosEngine
                     if (nx >= 0 && nx < W && ny >= 0 && ny < H)
                         newGrid[nx, ny] += agentHeat * 0.5f + neighborBonus;
                 }
-        }
-
-        // Pass 3: daytime mound shade
-        bool isDaytime = _gameTimeOfDay >= 6f && _gameTimeOfDay < 20f;
-        if (isDaytime)
-        {
-            for (int x = 0; x < W; x++)
-                for (int y = 0; y < H; y++)
-                    if (_v.TerrainType[x, y] == ToolDefinitions.TerrainMound)
-                        newGrid[x, y] -= 3f;
         }
 
         // Swap grids
@@ -185,7 +175,7 @@ public partial class CosmosEngine
             if (!_v.Alive[i]) continue;
             float lerpRate = BodyTempLerpRate;
             int rx = _v.PosX[i], ry = _v.PosY[i];
-            if (_v.RiverGrid[rx, ry] > 0 || _v.TerrainType[rx, ry] == ToolDefinitions.TerrainDynamicWater)
+            if (_v.RiverGrid[rx, ry] > 0 || _v.SurfaceWaterGrid[rx, ry] > 0f)
                 lerpRate *= _config.Temperature.WaterCoolingMult;
             float localTemp = _v.TemperatureGrid[rx, ry];
             _v.BodyTemperature[i] += (localTemp - _v.BodyTemperature[i]) * lerpRate;
@@ -214,9 +204,6 @@ public partial class CosmosEngine
                 float coldRatio = 1f - (bodyTemp - _config.Temperature.MinTemp)
                     / (_config.Temperature.ColdThreshold - _config.Temperature.MinTemp);
                 float coldDecay = coldRatio * _config.Metabolism.ColdEnergyDecayMax;
-                if (_v.GetTerrainAt(_v.PosX[i], _v.PosY[i]) == ToolDefinitions.TerrainPit
-                    && _v.CountAdjacentTerrain(_v.PosX[i], _v.PosY[i], ToolDefinitions.TerrainPit) == 0)
-                    coldDecay *= 0.7f;
                 _v.Energy[i] -= coldDecay;
             }
 

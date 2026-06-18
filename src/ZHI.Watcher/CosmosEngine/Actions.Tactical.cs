@@ -36,9 +36,6 @@ public partial class CosmosEngine
         {
             float hpRatio = Math.Clamp(_v.Energy[attacker] / 100f, 0.2f, 1.5f);
             float damage = 20f * hpRatio * _v.BodyStrength[attacker];
-            byte attackerTerrain = _v.TerrainType[ax, ay];
-            if (attackerTerrain == ToolDefinitions.TerrainPit) damage *= 0.8f;
-            else if (attackerTerrain == ToolDefinitions.TerrainMound) damage *= 1.1f;
             if (_v.IsEating[bestTarget]) damage *= 1.1f;
             if (_v.IsStationary[bestTarget]) damage *= _config.Metabolism.StationaryDamageMult;
             _v.Stress[bestTarget] += _config.Combat.StressPerAttack;

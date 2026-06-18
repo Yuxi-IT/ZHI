@@ -95,7 +95,6 @@ public partial class CosmosEngine : IDisposable
 
         _v.IsEating[i] = false;
         if (tx >= 0 && tx < W && ty >= 0 && ty < H
-            && !_v.IsMoundAt(tx, ty)
             && _v.GetCellOccupancy(tx, ty) < 2
             && (_v.Energy[i] >= _config.Metabolism.LowEnergyThreshold || _rng.NextDouble() > 0.5))
         {
@@ -103,8 +102,10 @@ public partial class CosmosEngine : IDisposable
             _v.PosX[i] = tx;
             _v.PosY[i] = ty;
             float moveCost = _config.Metabolism.MoveCost * _v.BodySpeed[i];
-            if (_v.GetTerrainAt(tx, ty) == ToolDefinitions.TerrainPit)
-                moveCost += 2f;
+
+            // Slope penalty: exponential continuous cost, no hard threshold
+            float slope = _v.Slope[tx, ty];
+            moveCost *= MathF.Exp(slope * _config.Metabolism.SlopeMoveExp);
 
             if (_v.IsShallowWater(tx, ty))
                 moveCost += _config.Metabolism.ShallowWaterMoveExtra;

@@ -59,9 +59,8 @@ public partial class CosmosEngine
 
                 float waterFactor = MathF.Min(1f, _v.GroundwaterGrid[x, y] / _config.Plant.WaterNeed);
                 float nutrientFactor = MathF.Min(1f, _v.NutrientGrid[x, y] / _config.Plant.NutrientNeed);
-                float shadeFactor = ComputeShadeFactor(x, y);
 
-                float growth = growthRate * tempFactor * waterFactor * nutrientFactor * shadeFactor;
+                float growth = growthRate * tempFactor * waterFactor * nutrientFactor;
                 growth = MathF.Min(growth, maxEnergy - plant.Energy);
 
                 if (growth > 0)
@@ -157,18 +156,4 @@ public partial class CosmosEngine
         return (mx - _temperature) / (mx - opt);
     }
 
-    private float ComputeShadeFactor(int x, int y)
-    {
-        if (_v.TerrainType[x, y] == ToolDefinitions.TerrainMound) return 0.5f;
-
-        for (int dx = -1; dx <= 1; dx++)
-            for (int dy = -1; dy <= 1; dy++)
-            {
-                int nx = x + dx, ny = y + dy;
-                if (nx >= 0 && nx < ToolDefinitions.GridWidth && ny >= 0 && ny < ToolDefinitions.GridHeight)
-                    if (_v.TerrainType[nx, ny] == ToolDefinitions.TerrainMound)
-                        return 0.7f;
-            }
-        return 1f;
-    }
 }

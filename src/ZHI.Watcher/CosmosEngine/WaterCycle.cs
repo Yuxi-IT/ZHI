@@ -84,6 +84,9 @@ public partial class CosmosEngine
                 if (water <= 0.01f) continue;
 
                 float outflow = water * flowRate;
+                // Steep slopes accelerate surface runoff
+                float slopeFactor = 1f + _v.Slope[x, y] * _config.WaterCycle.SlopeRunoffMult;
+                outflow *= slopeFactor;
                 float totalOutflow = 0f;
                 float myHeight = _v.HeightMap[x, y];
 

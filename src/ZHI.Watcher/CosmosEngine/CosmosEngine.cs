@@ -319,9 +319,6 @@ public partial class CosmosEngine : IDisposable
             _gruHidden!.mul_(mask);
         }
 
-        // 10b. Terrain physics: weathering, flooding, evaporation
-        SettleTerrainPhysics();
-
         // 11. Snapshot current observation (s_t) for PPO storage
         int stateSize = ToolDefinitions.StateSize;
         int nn = _v.N;
