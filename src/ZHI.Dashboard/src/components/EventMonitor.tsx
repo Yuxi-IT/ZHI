@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, memo } from 'react';
 import { Button } from '@heroui/react';
 import { ArrowDownToLine, TrashBin } from '@gravity-ui/icons';
 import type { WorldEvent, WorldEventType } from '../types';
@@ -52,7 +52,7 @@ const FILTER_TEXT_COLORS: Record<string, string> = {
   dam_built: 'text-lime-400',
 };
 
-export function EventMonitor({ events, energySource, onClear }: Props) {
+export const EventMonitor = memo(function EventMonitor({ events, energySource, onClear }: Props) {
   const { t } = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
@@ -198,4 +198,4 @@ export function EventMonitor({ events, energySource, onClear }: Props) {
       </div>
     </div>
   );
-}
+});

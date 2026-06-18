@@ -5,6 +5,7 @@ import { useLogSocket } from '../hooks/useLogSocket';
 import { useStats } from '../hooks/useStats';
 import { useEcoHistory } from '../hooks/useEcoHistory';
 import { WorldMap } from '../components/WorldMap';
+import type { DrawData } from '../components/WorldMap';
 import { AgentCardsPanel } from '../components/AgentCardsPanel';
 import { LogPanel } from '../components/LogPanel';
 import { ChartsPanel } from '../components/ChartsPanel';
@@ -59,6 +60,17 @@ export function GameDashboard({ worldName, onStop }: Props) {
   const [showFlow, setShowFlow] = useState(false);
 
   const aliveCount = agents.filter(a => a.is_alive).length;
+
+  const drawDataRef = useRef<DrawData>({
+    agents: [], food: [], corpses: [], river: [], scent: [], foodScent: [],
+    signalField: [], temperatureGrid: [], terrain: [], terrainTtl: [], riverFlow: [],
+    events: [], timeOfDay: 12, trackedAgent: null,
+  });
+  drawDataRef.current = {
+    agents, food, corpses, river, scent, foodScent, signalField,
+    temperatureGrid, terrain, terrainTtl, riverFlow, events,
+    timeOfDay, trackedAgent,
+  };
 
   useEffect(() => {
     if (agents.length > 0) {
@@ -176,30 +188,18 @@ export function GameDashboard({ worldName, onStop }: Props) {
 
           <div className="flex-1 min-h-0 border-r border-zhi-border">
             <WorldMap
-              agents={agents}
-              food={food}
-              corpses={corpses}
-              river={river}
-              scent={scent}
-              signalField={signalField}
-              events={events}
+              drawDataRef={drawDataRef}
+              gridW={gridW}
+              gridH={gridH}
               trackedAgent={trackedAgent}
               onTrackChange={setTrackedAgent}
               showScent={showScent}
               showFoodScent={showFoodScent}
-              foodScent={foodScent}
-              gridW={gridW}
-              gridH={gridH}
-              timeOfDay={timeOfDay}
               showDirection={showDirection}
               showVision={showVision}
               showSignal={showSignal}
-              temperatureGrid={temperatureGrid}
               showTemp={showTemp}
-              terrain={terrain}
-              terrainTtl={terrainTtl}
               showTerrain={showTerrain}
-              riverFlow={riverFlow}
               showFlow={showFlow}
             />
           </div>

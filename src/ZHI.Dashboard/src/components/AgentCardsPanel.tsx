@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { Card, Button } from '@heroui/react';
 import { Pin, PinFill, Diamond, DiamondFill, CircleFill } from '@gravity-ui/icons';
 import type { AgentSnapshot } from '../types';
@@ -14,7 +14,7 @@ interface Props {
 
 type SortMode = 'none' | 'hp-desc' | 'hp-asc';
 
-export function AgentCardsPanel({ agents, onTrack, trackedId, terrain, gridW }: Props) {
+export const AgentCardsPanel = memo(function AgentCardsPanel({ agents, onTrack, trackedId, terrain, gridW }: Props) {
   const { t } = useT();
   const [pinnedIds, setPinnedIds] = useState<Set<number>>(new Set());
   const [sortMode, setSortMode] = useState<SortMode>('none');
@@ -107,7 +107,7 @@ export function AgentCardsPanel({ agents, onTrack, trackedId, terrain, gridW }: 
       </div>
     </div>
   );
-}
+});
 
 function AgentCard({
   agent, pinned, tracked, onTogglePin, onTrack, terrain, gridW,
