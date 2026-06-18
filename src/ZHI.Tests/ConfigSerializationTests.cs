@@ -34,7 +34,10 @@ public class ConfigSerializationTests
         Assert.Equal(original.Combat.AttackRange, deserialized.Combat.AttackRange);
         Assert.Equal(original.Combat.StressPerAttack, deserialized.Combat.StressPerAttack);
         Assert.Equal(original.Combat.StressDamage, deserialized.Combat.StressDamage);
-        Assert.Equal(original.Combat.AttackCost, deserialized.Combat.AttackCost);
+        Assert.Equal(original.Metabolism.SlopeMoveExp, deserialized.Metabolism.SlopeMoveExp);
+        Assert.Equal(original.Metabolism.VisionHeightBonus, deserialized.Metabolism.VisionHeightBonus);
+        Assert.Equal(original.WaterCycle.SlopeRunoffMult, deserialized.WaterCycle.SlopeRunoffMult);
+        Assert.Equal(original.Temperature.HeightLapseRate, deserialized.Temperature.HeightLapseRate);
 
         Assert.Equal(original.Metabolism.EnergyInitial, deserialized.Metabolism.EnergyInitial);
         Assert.Equal(original.Metabolism.EnergyDecayBase, deserialized.Metabolism.EnergyDecayBase);
