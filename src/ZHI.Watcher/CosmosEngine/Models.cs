@@ -23,4 +23,5 @@ public class WorldEvent
     public int SignalValue { get; set; } = -1;
     public float Value { get; set; }
     public int Tick { get; set; }
+    public string Cause { get; set; } = "";  // for energyloss: "hypothermia","cold","dehydration","stress","age","pollution"
 }

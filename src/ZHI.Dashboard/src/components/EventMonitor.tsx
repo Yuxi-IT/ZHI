@@ -17,13 +17,15 @@ const EVENT_COLORS: Record<string, string> = {
   reproduce: 'text-purple-400',
   signal: 'text-yellow-400',
   respawn: 'text-violet-400',
+  energyloss: 'text-orange-400',
 };
 
-const FILTER_TYPES: WorldEventType[] = ['death', 'attack', 'respawn', 'eat', 'signal'];
+const FILTER_TYPES: WorldEventType[] = ['death', 'attack', 'energyloss', 'respawn', 'eat', 'signal'];
 
 const FILTER_BORDER_COLORS: Record<string, string> = {
   death: 'border-zhi-muted',
   attack: 'border-red-600',
+  energyloss: 'border-orange-600',
   respawn: 'border-violet-600',
   eat: 'border-green-600',
   signal: 'border-yellow-600',
@@ -32,6 +34,7 @@ const FILTER_BORDER_COLORS: Record<string, string> = {
 const FILTER_TEXT_COLORS: Record<string, string> = {
   death: 'text-zhi-muted',
   attack: 'text-red-400',
+  energyloss: 'text-orange-400',
   respawn: 'text-violet-400',
   eat: 'text-green-400',
   signal: 'text-yellow-400',
@@ -43,7 +46,7 @@ export const EventMonitor = memo(function EventMonitor({ events, energySource, o
   const autoScrollRef = useRef(true);
   const [autoScroll, setAutoScroll] = useState(true);
   const [activeFilters, setActiveFilters] = useState<Set<WorldEventType>>(
-    new Set(['death', 'attack', 'respawn', 'eat'])
+    new Set(['death', 'attack', 'energyloss', 'respawn', 'eat'])
   );
 
   const toggleFilter = (type: WorldEventType) => {
@@ -90,6 +93,8 @@ export const EventMonitor = memo(function EventMonitor({ events, energySource, o
         return t('events.signaled', { id: e.agent_id, val: e.signal_value ?? 0 });
       case 'respawn':
         return t('events.respawned', { id: e.agent_id });
+      case 'energyloss':
+        return t('events.lostEnergy', { id: e.agent_id, cause: e.cause ?? '?', val: e.value.toFixed(3) });
       default:
         return JSON.stringify(e);
     }

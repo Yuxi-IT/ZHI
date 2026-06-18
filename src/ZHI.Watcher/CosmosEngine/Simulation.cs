@@ -113,11 +113,16 @@ public partial class CosmosEngine
 
     private void ApplyAgentPhysiology(int n)
     {
+        const float EventThreshold = 0.005f;
+
         // Stress damage → direct Energy loss
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
-            _v.Energy[i] -= _v.Stress[i] * _config.Combat.StressDamage;
+            float dmg = _v.Stress[i] * _config.Combat.StressDamage;
+            _v.Energy[i] -= dmg;
+            if (dmg > EventThreshold)
+                _tickEvents.Add(new WorldEvent { Type = "energyloss", AgentId = i, Value = dmg, Tick = _globalTick, Cause = "stress" });
         }
 
         // Stress decay
@@ -131,7 +136,9 @@ public partial class CosmosEngine
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
-            float energyDecay = _config.Metabolism.EnergyDecayBase;
+            float baseDecay = _config.Metabolism.EnergyDecayBase;
+            float ageDecay = 0f;
+            float pollutionDecay = 0f;
 
             // Corpse pollution
             int ax = _v.PosX[i], ay = _v.PosY[i];
@@ -142,8 +149,7 @@ public partial class CosmosEngine
                     int dist = Math.Max(Math.Abs(ct.X - ax), Math.Abs(ct.Y - ay));
                     if (dist <= 2)
                     {
-                        float pollution = (3f - dist) * 0.02f;
-                        energyDecay += pollution;
+                        pollutionDecay += (3f - dist) * 0.02f;
                     }
                 }
             }
@@ -156,13 +162,18 @@ public partial class CosmosEngine
                 continue;
             }
             else if (age >= _config.AgeDeath.Stage3Age)
-                energyDecay += _config.AgeDeath.Stage3Decay;
+                ageDecay = _config.AgeDeath.Stage3Decay;
             else if (age >= _config.AgeDeath.Stage2Age)
-                energyDecay += _config.AgeDeath.Stage2Decay;
+                ageDecay = _config.AgeDeath.Stage2Decay;
             else if (age >= _config.AgeDeath.Stage1Age)
-                energyDecay += _config.AgeDeath.Stage1Decay;
+                ageDecay = _config.AgeDeath.Stage1Decay;
 
-            _v.Energy[i] -= energyDecay;
+            _v.Energy[i] -= baseDecay + ageDecay + pollutionDecay;
+
+            if (ageDecay > EventThreshold)
+                _tickEvents.Add(new WorldEvent { Type = "energyloss", AgentId = i, Value = ageDecay, Tick = _globalTick, Cause = "age" });
+            if (pollutionDecay > EventThreshold)
+                _tickEvents.Add(new WorldEvent { Type = "energyloss", AgentId = i, Value = pollutionDecay, Tick = _globalTick, Cause = "pollution" });
 
             // Base water decay
             _v.BodyWater[i] = MathF.Max(0f, _v.BodyWater[i] - _config.Metabolism.WaterDecayRate);
@@ -197,6 +208,8 @@ public partial class CosmosEngine
                     / (hypoThreshold - _config.Temperature.MinBodyTemp);
                 float hypoDecay = hypoRatio * _config.Temperature.HypothermiaMaxDamage;
                 _v.Energy[i] -= hypoDecay;
+                if (hypoDecay > EventThreshold)
+                    _tickEvents.Add(new WorldEvent { Type = "energyloss", AgentId = i, Value = hypoDecay, Tick = _globalTick, Cause = "hypothermia" });
             }
 
             // Cold metabolism acceleration: body temp < ColdThreshold → extra energy burn
@@ -206,6 +219,8 @@ public partial class CosmosEngine
                     / (_config.Temperature.ColdThreshold - _config.Temperature.MinTemp);
                 float coldDecay = coldRatio * _config.Metabolism.ColdEnergyDecayMax;
                 _v.Energy[i] -= coldDecay;
+                if (coldDecay > EventThreshold)
+                    _tickEvents.Add(new WorldEvent { Type = "energyloss", AgentId = i, Value = coldDecay, Tick = _globalTick, Cause = "cold" });
             }
 
             // Hot: body temp > HotThreshold → accelerated water loss
@@ -222,7 +237,10 @@ public partial class CosmosEngine
             if (_v.BodyWater[i] < _config.Metabolism.DehydrationThreshold)
             {
                 float dehydRatio = 1f - _v.BodyWater[i] / _config.Metabolism.DehydrationThreshold;
-                _v.Energy[i] -= dehydRatio * _config.Metabolism.DehydrationEnergyPenalty;
+                float dehydPenalty = dehydRatio * _config.Metabolism.DehydrationEnergyPenalty;
+                _v.Energy[i] -= dehydPenalty;
+                if (dehydPenalty > EventThreshold)
+                    _tickEvents.Add(new WorldEvent { Type = "energyloss", AgentId = i, Value = dehydPenalty, Tick = _globalTick, Cause = "dehydration" });
             }
         }
     }

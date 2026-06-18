@@ -89,7 +89,7 @@ export interface CosmosState {
   water_cycle: WaterCycleData
 }
 
-export type WorldEventType = 'eat' | 'attack' | 'death' | 'reproduce' | 'signal' | 'respawn'
+export type WorldEventType = 'eat' | 'attack' | 'death' | 'reproduce' | 'signal' | 'respawn' | 'energyloss'
 
 export interface WorldEvent {
   type: WorldEventType
@@ -98,6 +98,7 @@ export interface WorldEvent {
   child_id?: number
   food_type?: string
   signal_value?: number
+  cause?: string
   value: number
   tick: number
 }
