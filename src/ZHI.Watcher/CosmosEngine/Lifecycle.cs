@@ -76,6 +76,7 @@ public partial class CosmosEngine
             _v.BodyFat[i] = newGenome.FatStorage;
             _v.BodyColdResist[i] = newGenome.ColdResistance;
             _v.BodyHeatResist[i] = newGenome.HeatResistance;
+            _v.ParentId[i] = -1;
             _deathTick[i] = -1;
 
             // Zero GRU hidden state for this agent
@@ -179,6 +180,7 @@ public partial class CosmosEngine
 
             // Create child
             int childIdx = _v.AddAgent(cx, cy, _config.Reproduce.ChildStart);
+            _v.ParentId[childIdx] = i;
 
             var parentGenome = _v.Genomes[i] ?? Genome.Random(_rng, _config.Genome.MutationStd);
             var childGenome = parentGenome.Mutate(_rng, _config.Genome.MutationStd);
@@ -197,6 +199,10 @@ public partial class CosmosEngine
                 _agentWeights.Add(childWeights);
 
             _tickEvents.Add(new WorldEvent { Type = "reproduce", AgentId = i, ChildId = childIdx, Tick = _globalTick });
+
+            _blackbox.RecordBirth(i, childIdx, _globalTick, _generation,
+                JsonSerializer.Serialize(parentGenome), JsonSerializer.Serialize(childGenome));
+
             Log($"[Reproduce] agent {i} gave birth → child {childIdx} at ({cx},{cy})");
         }
     }

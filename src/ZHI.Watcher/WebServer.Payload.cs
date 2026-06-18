@@ -49,7 +49,8 @@ public partial class WebServer
                 body_heat_resist = v.BodyHeatResist[i],
                 is_pregnant = v.IsPregnant[i],
                 pregnancy_ticks = v.PregnancyTicks[i],
-                is_juvenile = v.Alive[i] && v.TickCount[i] < _engine.CurrentConfig.AgeDeath.JuvenileAge
+                is_juvenile = v.Alive[i] && v.TickCount[i] < _engine.CurrentConfig.AgeDeath.JuvenileAge,
+                parent_id = v.ParentId[i]
             });
         }
 

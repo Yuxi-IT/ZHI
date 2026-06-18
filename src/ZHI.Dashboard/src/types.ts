@@ -44,6 +44,7 @@ export interface AgentSnapshot {
   is_pregnant: boolean
   pregnancy_ticks: number
   is_juvenile: boolean
+  parent_id: number
 }
 
 export interface FoodTile {

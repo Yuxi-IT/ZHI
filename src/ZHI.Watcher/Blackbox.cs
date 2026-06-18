@@ -131,6 +131,19 @@ public class Blackbox : IDisposable
             );
 
             CREATE INDEX IF NOT EXISTS idx_deaths_gen ON deaths(generation);
+
+            CREATE TABLE IF NOT EXISTS lineages (
+                parent_id INTEGER NOT NULL,
+                child_id INTEGER NOT NULL,
+                generation INTEGER NOT NULL,
+                birth_tick INTEGER NOT NULL,
+                parent_genome TEXT NOT NULL DEFAULT '{}',
+                child_genome TEXT NOT NULL DEFAULT '{}',
+                PRIMARY KEY (child_id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_lineages_parent ON lineages(parent_id);
+            CREATE INDEX IF NOT EXISTS idx_lineages_gen ON lineages(generation);
             """;
         migrateCmd.ExecuteNonQuery();
 
@@ -193,6 +206,39 @@ public class Blackbox : IDisposable
         cmd.ExecuteNonQuery();
     }
 
+    public void RecordBirth(int parentId, int childId, long tick, int generation, string parentGenomeJson, string childGenomeJson)
+    {
+        using var cmd = _db.CreateCommand();
+        cmd.CommandText = """
+            INSERT OR REPLACE INTO lineages (parent_id, child_id, generation, birth_tick, parent_genome, child_genome)
+            VALUES (@pid, @cid, @gen, @tick, @pgenome, @cgenome)
+            """;
+        cmd.Parameters.AddWithValue("@pid", parentId);
+        cmd.Parameters.AddWithValue("@cid", childId);
+        cmd.Parameters.AddWithValue("@gen", generation);
+        cmd.Parameters.AddWithValue("@tick", tick);
+        cmd.Parameters.AddWithValue("@pgenome", parentGenomeJson);
+        cmd.Parameters.AddWithValue("@cgenome", childGenomeJson);
+        cmd.ExecuteNonQuery();
+    }
+
+    public int[] GetAncestorChain(int childId, int maxDepth = 5)
+    {
+        var chain = new List<int>();
+        int current = childId;
+        for (int d = 0; d < maxDepth; d++)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT parent_id FROM lineages WHERE child_id = @cid LIMIT 1";
+            cmd.Parameters.AddWithValue("@cid", current);
+            var result = cmd.ExecuteScalar();
+            if (result == null || result == DBNull.Value) break;
+            current = Convert.ToInt32(result);
+            chain.Add(current);
+        }
+        return chain.ToArray();
+    }
+
     public void SaveGeneration(GenerationRecord record)
     {
         using var cmd = _db.CreateCommand();
@@ -245,6 +291,14 @@ public class Blackbox : IDisposable
             """;
         cmd.Parameters.AddWithValue("@keep", keepGenerations);
         cmd.ExecuteNonQuery();
+
+        // Clean old lineages (keep only those referencing living agent IDs)
+        using var cmdL = _db.CreateCommand();
+        cmdL.CommandText = """
+            DELETE FROM lineages WHERE generation < (SELECT COALESCE(MAX(generation), 0) - @keep FROM generations)
+            """;
+        cmdL.Parameters.AddWithValue("@keep", keepGenerations);
+        cmdL.ExecuteNonQuery();
 
         // Clean old deaths (keep latest N)
         using var cmd2 = _db.CreateCommand();

@@ -185,7 +185,7 @@ function AgentCard({
             <StatPair label={t('agents.action')} value={actionLabel(agent, terrain, gridW, t)} />
           </div>
           <div className="text-zhi-muted mt-0.5">
-            <span>{t('agents.pos')} ({agent.x},{agent.y})</span>
+            <span>{t('agents.pos')} ({agent.x},{agent.y}){agent.parent_id >= 0 ? `  ← #${agent.parent_id}` : ''}</span>
           </div>
           <div className="flex gap-2 mt-0.5 text-zhi-muted">
             <span title={t('agents.food')}>F:{agent.food_eat_count}</span>

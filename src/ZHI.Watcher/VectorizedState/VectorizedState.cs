@@ -65,6 +65,7 @@ public partial class VectorizedState : IDisposable
     public bool[] IsStationary;
     public bool[] IsPregnant;
     public int[] PregnancyTicks;
+    public int[] ParentId; // agent idx of biological parent, or -1
 
     // Body parameters (derived from Genome, heritable)
     public Genome[] Genomes;
@@ -151,6 +152,8 @@ public partial class VectorizedState : IDisposable
         IsStationary = new bool[n];
         IsPregnant = new bool[n];
         PregnancyTicks = new int[n];
+        ParentId = new int[n];
+        Array.Fill(ParentId, -1);
 
         Genomes = new Genome[n];
         BodySize = new float[n];
@@ -671,6 +674,7 @@ public partial class VectorizedState : IDisposable
         IsStationary = Resize(IsStationary, newN);
         IsPregnant = Resize(IsPregnant, newN);
         PregnancyTicks = Resize(PregnancyTicks, newN);
+        ParentId = Resize(ParentId, newN); ParentId[newN - 1] = -1;
         RespawnCount = Resize(RespawnCount, newN);
 
         Genomes = Resize(Genomes, newN);
