@@ -132,6 +132,9 @@ public partial class WebServer : IDisposable
         catch (TimeoutException) { Console.WriteLine("[WebServer] Engine stop timed out."); }
         catch { }
 
+        int gen = _engine.Generation;
+        int deaths = _engine.TotalDeaths;
+
         if (_engine is IDisposable d) d.Dispose();
         _blackbox?.Dispose();
         _engine = null;
@@ -146,11 +149,8 @@ public partial class WebServer : IDisposable
                 var (_, meta, _) = _worldManager.LoadWorld(name);
                 meta.Status = "stopped";
                 meta.LastRunAt = DateTime.UtcNow.ToString("O");
-                if (_engine != null)
-                {
-                    meta.TotalGenerations = _engine.Generation;
-                    meta.TotalDeaths = _engine.TotalDeaths;
-                }
+                meta.TotalGenerations = gen;
+                meta.TotalDeaths = deaths;
                 _worldManager.SaveWorldMeta(name, meta);
             }
             catch { /* preserve existing meta if load fails */ }

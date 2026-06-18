@@ -3,29 +3,29 @@ import { ChevronDown } from '@gravity-ui/icons';
 import { useT } from '../i18n/I18nContext';
 
 export interface ZhiConfig {
-  Grid: { Width: number; Height: number; InitialFood: number; InitialBigFood: number; FoodEnergy: number; BigFoodEnergy: number; FoodDecayPerTick: number; BigFoodDecayPerTick: number; MaxFood: number; FoodRespawnInterval: number; FoodPerTickEnergy: number; BigFoodPerTickEnergy: number; CorpsePerTickEnergy: number };
-  Cosmos: { AgentCount: number; RespawnDelayTicks: number; MutationStd: number };
-  Temperature: { MaxTemp: number; MinTemp: number; ColdThreshold: number; MaxColdDecay: number; HotThreshold: number; MaxThirstAccel: number; HuddleRange: number; HuddleWarmthPerAgent: number; AgentBodyHeat: number; RiverCooling: number; RiverCoolingRange: number };
-  Combat: { AttackRange: number; StressPerAttack: number; StressDamage: number; AttackCost: number };
-  Hunger: { DecayRate: number; PenaltyStart: number; MaxPenalty: number; Initial: number };
-  Thirst: { DecayRate: number; DrinkRestore: number; PenaltyStart: number; MaxPenalty: number; Initial: number };
-  River: { Count: number; Width: number; DeepWidth: number; FordChance: number; SoundRange: number; SoundDecay: number };
-  Existence: { DecayPerTick: number; Initial: number };
-  Reproduce: { MinExistence: number; MinAge: number; Cooldown: number; ParentCost: number; ChildStart: number; MutationScale: number };
-  AgeDeath: { MaxAge: number; Stage1Age: number; Stage1Decay: number; Stage2Age: number; Stage2Decay: number; Stage3Age: number; Stage3Decay: number };
+  grid: { width: number; height: number; initial_food: number; initial_big_food: number; food_energy: number; big_food_energy: number; food_decay_per_tick: number; big_food_decay_per_tick: number; max_food: number; food_respawn_interval: number; food_per_tick_energy: number; big_food_per_tick_energy: number; corpse_per_tick_energy: number };
+  cosmos: { agent_count: number; respawn_delay_ticks: number; mutation_std: number };
+  temperature: { max_temp: number; min_temp: number; cold_threshold: number; max_cold_decay: number; hot_threshold: number; max_thirst_accel: number; huddle_range: number; huddle_warmth_per_agent: number; agent_body_heat: number; river_cooling: number; river_cooling_range: number };
+  combat: { attack_range: number; stress_per_attack: number; stress_damage: number; attack_cost: number };
+  hunger: { decay_rate: number; penalty_start: number; max_penalty: number; initial: number };
+  thirst: { decay_rate: number; drink_restore: number; penalty_start: number; max_penalty: number; initial: number };
+  river: { count: number; width: number; deep_width: number; ford_chance: number; sound_range: number; sound_decay: number };
+  existence: { decay_per_tick: number; initial: number };
+  reproduce: { min_existence: number; min_age: number; cooldown: number; parent_cost: number; child_start: number; mutation_scale: number };
+  age_death: { max_age: number; stage1_age: number; stage1_decay: number; stage2_age: number; stage2_decay: number; stage3_age: number; stage3_decay: number };
 }
 
 export const DEFAULT_CONFIG: ZhiConfig = {
-  Grid: { Width: 64, Height: 64, InitialFood: 70, InitialBigFood: 10, FoodEnergy: 30, BigFoodEnergy: 100, FoodDecayPerTick: 0.002, BigFoodDecayPerTick: 0.001, MaxFood: 100, FoodRespawnInterval: 60, FoodPerTickEnergy: 3, BigFoodPerTickEnergy: 8, CorpsePerTickEnergy: 2 },
-  Cosmos: { AgentCount: 64, RespawnDelayTicks: 30, MutationStd: 0.1 },
-  Temperature: { MaxTemp: 40, MinTemp: -5, ColdThreshold: 10, MaxColdDecay: 0.5, HotThreshold: 30, MaxThirstAccel: 0.3, HuddleRange: 2, HuddleWarmthPerAgent: 3, AgentBodyHeat: 2, RiverCooling: 5, RiverCoolingRange: 2 },
-  Combat: { AttackRange: 3, StressPerAttack: 1.5, StressDamage: 0.15, AttackCost: 5 },
-  Hunger: { DecayRate: 0.04, PenaltyStart: 30, MaxPenalty: 0.03, Initial: 100 },
-  Thirst: { DecayRate: 0.025, DrinkRestore: 40, PenaltyStart: 20, MaxPenalty: 0.04, Initial: 100 },
-  River: { Count: 2, Width: 3, DeepWidth: 1, FordChance: 30, SoundRange: 15, SoundDecay: 0.05 },
-  Existence: { DecayPerTick: 0.1, Initial: 100 },
-  Reproduce: { MinExistence: 60, MinAge: 100, Cooldown: 50, ParentCost: 30, ChildStart: 50, MutationScale: 0.03 },
-  AgeDeath: { MaxAge: 800, Stage1Age: 400, Stage1Decay: 0.05, Stage2Age: 600, Stage2Decay: 0.15, Stage3Age: 700, Stage3Decay: 0.3 },
+  grid: { width: 64, height: 64, initial_food: 70, initial_big_food: 10, food_energy: 30, big_food_energy: 100, food_decay_per_tick: 0.002, big_food_decay_per_tick: 0.001, max_food: 100, food_respawn_interval: 60, food_per_tick_energy: 3, big_food_per_tick_energy: 8, corpse_per_tick_energy: 2 },
+  cosmos: { agent_count: 64, respawn_delay_ticks: 30, mutation_std: 0.1 },
+  temperature: { max_temp: 40, min_temp: -5, cold_threshold: 10, max_cold_decay: 0.5, hot_threshold: 30, max_thirst_accel: 0.3, huddle_range: 2, huddle_warmth_per_agent: 3, agent_body_heat: 2, river_cooling: 5, river_cooling_range: 2 },
+  combat: { attack_range: 3, stress_per_attack: 1.5, stress_damage: 0.15, attack_cost: 5 },
+  hunger: { decay_rate: 0.04, penalty_start: 30, max_penalty: 0.03, initial: 100 },
+  thirst: { decay_rate: 0.025, drink_restore: 40, penalty_start: 20, max_penalty: 0.04, initial: 100 },
+  river: { count: 2, width: 3, deep_width: 1, ford_chance: 30, sound_range: 15, sound_decay: 0.05 },
+  existence: { decay_per_tick: 0.1, initial: 100 },
+  reproduce: { min_existence: 60, min_age: 100, cooldown: 50, parent_cost: 30, child_start: 50, mutation_scale: 0.03 },
+  age_death: { max_age: 800, stage1_age: 400, stage1_decay: 0.05, stage2_age: 600, stage2_decay: 0.15, stage3_age: 700, stage3_decay: 0.3 },
 };
 
 export function NumberField({ label, value, onChange, min, max, step }: {
@@ -75,63 +75,65 @@ export function ConfigFormFields({ config, update }: {
   update: <K extends keyof ZhiConfig>(section: K, key: keyof ZhiConfig[K], value: number) => void;
 }) {
   const { t } = useT();
+  const g = config.grid, co = config.cosmos, te = config.temperature, cb = config.combat;
+  const r = config.river, h = config.hunger, th = config.thirst, e = config.existence;
   return (
     <div className="space-y-0.5">
       <ConfigSection title={t('settings.world')} defaultExpanded>
-        <NumberField label={t('settings.width')} value={config.Grid.Width} onChange={v => update('Grid', 'Width', v)} min={16} max={256} />
-        <NumberField label={t('settings.height')} value={config.Grid.Height} onChange={v => update('Grid', 'Height', v)} min={16} max={256} />
-        <NumberField label={t('settings.agentCount')} value={config.Cosmos.AgentCount} onChange={v => update('Cosmos', 'AgentCount', v)} min={1} max={256} />
-        <NumberField label={t('settings.initialFood')} value={config.Grid.InitialFood} onChange={v => update('Grid', 'InitialFood', v)} min={0} max={500} />
-        <NumberField label={t('settings.initialBigFood')} value={config.Grid.InitialBigFood} onChange={v => update('Grid', 'InitialBigFood', v)} min={0} max={100} />
-        <NumberField label={t('settings.maxFood')} value={config.Grid.MaxFood} onChange={v => update('Grid', 'MaxFood', v)} min={1} max={1000} />
-        <NumberField label={t('settings.foodRespawnInterval')} value={config.Grid.FoodRespawnInterval} onChange={v => update('Grid', 'FoodRespawnInterval', v)} min={0} max={1000} />
+        <NumberField label={t('settings.width')} value={g.width} onChange={v => update('grid', 'width', v)} min={16} max={256} />
+        <NumberField label={t('settings.height')} value={g.height} onChange={v => update('grid', 'height', v)} min={16} max={256} />
+        <NumberField label={t('settings.agentCount')} value={co.agent_count} onChange={v => update('cosmos', 'agent_count', v)} min={1} max={256} />
+        <NumberField label={t('settings.initialFood')} value={g.initial_food} onChange={v => update('grid', 'initial_food', v)} min={0} max={500} />
+        <NumberField label={t('settings.initialBigFood')} value={g.initial_big_food} onChange={v => update('grid', 'initial_big_food', v)} min={0} max={100} />
+        <NumberField label={t('settings.maxFood')} value={g.max_food} onChange={v => update('grid', 'max_food', v)} min={1} max={1000} />
+        <NumberField label={t('settings.foodRespawnInterval')} value={g.food_respawn_interval} onChange={v => update('grid', 'food_respawn_interval', v)} min={0} max={1000} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.foodEnergySection')}>
-        <NumberField label={t('settings.foodEnergy')} value={config.Grid.FoodEnergy} onChange={v => update('Grid', 'FoodEnergy', v)} min={1} max={200} />
-        <NumberField label={t('settings.bigFoodEnergy')} value={config.Grid.BigFoodEnergy} onChange={v => update('Grid', 'BigFoodEnergy', v)} min={1} max={500} />
-        <NumberField label={t('settings.foodDecay')} value={config.Grid.FoodDecayPerTick} onChange={v => update('Grid', 'FoodDecayPerTick', v)} min={0.001} max={1} step={0.005} />
-        <NumberField label={t('settings.bigFoodDecay')} value={config.Grid.BigFoodDecayPerTick} onChange={v => update('Grid', 'BigFoodDecayPerTick', v)} min={0.001} max={1} step={0.005} />
+        <NumberField label={t('settings.foodEnergy')} value={g.food_energy} onChange={v => update('grid', 'food_energy', v)} min={1} max={200} />
+        <NumberField label={t('settings.bigFoodEnergy')} value={g.big_food_energy} onChange={v => update('grid', 'big_food_energy', v)} min={1} max={500} />
+        <NumberField label={t('settings.foodDecay')} value={g.food_decay_per_tick} onChange={v => update('grid', 'food_decay_per_tick', v)} min={0.001} max={1} step={0.005} />
+        <NumberField label={t('settings.bigFoodDecay')} value={g.big_food_decay_per_tick} onChange={v => update('grid', 'big_food_decay_per_tick', v)} min={0.001} max={1} step={0.005} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.eating')}>
-        <NumberField label={t('settings.foodPerTick')} value={config.Grid.FoodPerTickEnergy} onChange={v => update('Grid', 'FoodPerTickEnergy', v)} min={0.1} max={20} step={0.1} />
-        <NumberField label={t('settings.bigFoodPerTick')} value={config.Grid.BigFoodPerTickEnergy} onChange={v => update('Grid', 'BigFoodPerTickEnergy', v)} min={0.1} max={50} step={0.1} />
-        <NumberField label={t('settings.corpsePerTick')} value={config.Grid.CorpsePerTickEnergy} onChange={v => update('Grid', 'CorpsePerTickEnergy', v)} min={0.1} max={20} step={0.1} />
+        <NumberField label={t('settings.foodPerTick')} value={g.food_per_tick_energy} onChange={v => update('grid', 'food_per_tick_energy', v)} min={0.1} max={20} step={0.1} />
+        <NumberField label={t('settings.bigFoodPerTick')} value={g.big_food_per_tick_energy} onChange={v => update('grid', 'big_food_per_tick_energy', v)} min={0.1} max={50} step={0.1} />
+        <NumberField label={t('settings.corpsePerTick')} value={g.corpse_per_tick_energy} onChange={v => update('grid', 'corpse_per_tick_energy', v)} min={0.1} max={20} step={0.1} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.temperature')}>
-        <NumberField label={t('settings.maxTemp')} value={config.Temperature.MaxTemp} onChange={v => update('Temperature', 'MaxTemp', v)} min={10} max={60} />
-        <NumberField label={t('settings.minTemp')} value={config.Temperature.MinTemp} onChange={v => update('Temperature', 'MinTemp', v)} min={-20} max={30} />
-        <NumberField label={t('settings.coldThreshold')} value={config.Temperature.ColdThreshold} onChange={v => update('Temperature', 'ColdThreshold', v)} min={-10} max={40} />
-        <NumberField label={t('settings.maxColdDecay')} value={config.Temperature.MaxColdDecay} onChange={v => update('Temperature', 'MaxColdDecay', v)} min={0} max={1} step={0.01} />
-        <NumberField label={t('settings.hotThreshold')} value={config.Temperature.HotThreshold} onChange={v => update('Temperature', 'HotThreshold', v)} min={10} max={50} />
-        <NumberField label={t('settings.huddleRange')} value={config.Temperature.HuddleRange} onChange={v => update('Temperature', 'HuddleRange', v)} min={0} max={10} />
-        <NumberField label={t('settings.huddleWarmth')} value={config.Temperature.HuddleWarmthPerAgent} onChange={v => update('Temperature', 'HuddleWarmthPerAgent', v)} min={0} max={20} step={0.5} />
-        <NumberField label={t('settings.agentBodyHeat')} value={config.Temperature.AgentBodyHeat} onChange={v => update('Temperature', 'AgentBodyHeat', v)} min={0} max={10} step={0.5} />
-        <NumberField label={t('settings.riverCooling')} value={config.Temperature.RiverCooling} onChange={v => update('Temperature', 'RiverCooling', v)} min={0} max={20} step={0.5} />
-        <NumberField label={t('settings.coolingRange')} value={config.Temperature.RiverCoolingRange} onChange={v => update('Temperature', 'RiverCoolingRange', v)} min={0} max={5} />
+        <NumberField label={t('settings.maxTemp')} value={te.max_temp} onChange={v => update('temperature', 'max_temp', v)} min={10} max={60} />
+        <NumberField label={t('settings.minTemp')} value={te.min_temp} onChange={v => update('temperature', 'min_temp', v)} min={-20} max={30} />
+        <NumberField label={t('settings.coldThreshold')} value={te.cold_threshold} onChange={v => update('temperature', 'cold_threshold', v)} min={-10} max={40} />
+        <NumberField label={t('settings.maxColdDecay')} value={te.max_cold_decay} onChange={v => update('temperature', 'max_cold_decay', v)} min={0} max={1} step={0.01} />
+        <NumberField label={t('settings.hotThreshold')} value={te.hot_threshold} onChange={v => update('temperature', 'hot_threshold', v)} min={10} max={50} />
+        <NumberField label={t('settings.huddleRange')} value={te.huddle_range} onChange={v => update('temperature', 'huddle_range', v)} min={0} max={10} />
+        <NumberField label={t('settings.huddleWarmth')} value={te.huddle_warmth_per_agent} onChange={v => update('temperature', 'huddle_warmth_per_agent', v)} min={0} max={20} step={0.5} />
+        <NumberField label={t('settings.agentBodyHeat')} value={te.agent_body_heat} onChange={v => update('temperature', 'agent_body_heat', v)} min={0} max={10} step={0.5} />
+        <NumberField label={t('settings.riverCooling')} value={te.river_cooling} onChange={v => update('temperature', 'river_cooling', v)} min={0} max={20} step={0.5} />
+        <NumberField label={t('settings.coolingRange')} value={te.river_cooling_range} onChange={v => update('temperature', 'river_cooling_range', v)} min={0} max={5} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.combat')}>
-        <NumberField label={t('settings.attackRange')} value={config.Combat.AttackRange} onChange={v => update('Combat', 'AttackRange', v)} min={1} max={10} />
-        <NumberField label={t('settings.stressPerAttack')} value={config.Combat.StressPerAttack} onChange={v => update('Combat', 'StressPerAttack', v)} min={0} max={5} step={0.1} />
-        <NumberField label={t('settings.stressDamage')} value={config.Combat.StressDamage} onChange={v => update('Combat', 'StressDamage', v)} min={0} max={1} step={0.01} />
-        <NumberField label={t('settings.attackCost')} value={config.Combat.AttackCost} onChange={v => update('Combat', 'AttackCost', v)} min={0} max={50} step={0.5} />
+        <NumberField label={t('settings.attackRange')} value={cb.attack_range} onChange={v => update('combat', 'attack_range', v)} min={1} max={10} />
+        <NumberField label={t('settings.stressPerAttack')} value={cb.stress_per_attack} onChange={v => update('combat', 'stress_per_attack', v)} min={0} max={5} step={0.1} />
+        <NumberField label={t('settings.stressDamage')} value={cb.stress_damage} onChange={v => update('combat', 'stress_damage', v)} min={0} max={1} step={0.01} />
+        <NumberField label={t('settings.attackCost')} value={cb.attack_cost} onChange={v => update('combat', 'attack_cost', v)} min={0} max={50} step={0.5} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.river')}>
-        <NumberField label={t('settings.riverCount')} value={config.River.Count} onChange={v => update('River', 'Count', v)} min={0} max={10} />
-        <NumberField label={t('settings.riverWidth')} value={config.River.Width} onChange={v => update('River', 'Width', v)} min={1} max={20} />
-        <NumberField label={t('settings.riverDeepWidth')} value={config.River.DeepWidth} onChange={v => update('River', 'DeepWidth', v)} min={0} max={10} />
-        <NumberField label={t('settings.fordChance')} value={config.River.FordChance} onChange={v => update('River', 'FordChance', v)} min={0} max={100} />
+        <NumberField label={t('settings.riverCount')} value={r.count} onChange={v => update('river', 'count', v)} min={0} max={10} />
+        <NumberField label={t('settings.riverWidth')} value={r.width} onChange={v => update('river', 'width', v)} min={1} max={20} />
+        <NumberField label={t('settings.riverDeepWidth')} value={r.deep_width} onChange={v => update('river', 'deep_width', v)} min={0} max={10} />
+        <NumberField label={t('settings.fordChance')} value={r.ford_chance} onChange={v => update('river', 'ford_chance', v)} min={0} max={100} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.physiology')}>
-        <NumberField label={t('settings.hungerDecay')} value={config.Hunger.DecayRate} onChange={v => update('Hunger', 'DecayRate', v)} min={0} max={1} step={0.01} />
-        <NumberField label={t('settings.thirstDecay')} value={config.Thirst.DecayRate} onChange={v => update('Thirst', 'DecayRate', v)} min={0} max={1} step={0.01} />
-        <NumberField label={t('settings.drinkRestore')} value={config.Thirst.DrinkRestore} onChange={v => update('Thirst', 'DrinkRestore', v)} min={1} max={100} />
-        <NumberField label={t('settings.hpDecay')} value={config.Existence.DecayPerTick} onChange={v => update('Existence', 'DecayPerTick', v)} min={0} max={2} step={0.01} />
+        <NumberField label={t('settings.hungerDecay')} value={h.decay_rate} onChange={v => update('hunger', 'decay_rate', v)} min={0} max={1} step={0.01} />
+        <NumberField label={t('settings.thirstDecay')} value={th.decay_rate} onChange={v => update('thirst', 'decay_rate', v)} min={0} max={1} step={0.01} />
+        <NumberField label={t('settings.drinkRestore')} value={th.drink_restore} onChange={v => update('thirst', 'drink_restore', v)} min={1} max={100} />
+        <NumberField label={t('settings.hpDecay')} value={e.decay_per_tick} onChange={v => update('existence', 'decay_per_tick', v)} min={0} max={2} step={0.01} />
       </ConfigSection>
     </div>
   );
@@ -139,63 +141,65 @@ export function ConfigFormFields({ config, update }: {
 
 export function ConfigReadOnly({ config }: { config: ZhiConfig }) {
   const { t } = useT();
+  const g = config.grid, co = config.cosmos, te = config.temperature, cb = config.combat;
+  const r = config.river, h = config.hunger, th = config.thirst, e = config.existence;
   return (
     <div className="space-y-0.5">
       <ConfigSection title={t('settings.world')} defaultExpanded>
-        <ReadOnlyField label={t('settings.width')} value={config.Grid.Width} />
-        <ReadOnlyField label={t('settings.height')} value={config.Grid.Height} />
-        <ReadOnlyField label={t('settings.agentCount')} value={config.Cosmos.AgentCount} />
-        <ReadOnlyField label={t('settings.initialFood')} value={config.Grid.InitialFood} />
-        <ReadOnlyField label={t('settings.initialBigFood')} value={config.Grid.InitialBigFood} />
-        <ReadOnlyField label={t('settings.maxFood')} value={config.Grid.MaxFood} />
-        <ReadOnlyField label={t('settings.foodRespawnInterval')} value={config.Grid.FoodRespawnInterval} />
+        <ReadOnlyField label={t('settings.width')} value={g.width} />
+        <ReadOnlyField label={t('settings.height')} value={g.height} />
+        <ReadOnlyField label={t('settings.agentCount')} value={co.agent_count} />
+        <ReadOnlyField label={t('settings.initialFood')} value={g.initial_food} />
+        <ReadOnlyField label={t('settings.initialBigFood')} value={g.initial_big_food} />
+        <ReadOnlyField label={t('settings.maxFood')} value={g.max_food} />
+        <ReadOnlyField label={t('settings.foodRespawnInterval')} value={g.food_respawn_interval} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.foodEnergySection')}>
-        <ReadOnlyField label={t('settings.foodEnergy')} value={config.Grid.FoodEnergy} />
-        <ReadOnlyField label={t('settings.bigFoodEnergy')} value={config.Grid.BigFoodEnergy} />
-        <ReadOnlyField label={t('settings.foodDecay')} value={config.Grid.FoodDecayPerTick} />
-        <ReadOnlyField label={t('settings.bigFoodDecay')} value={config.Grid.BigFoodDecayPerTick} />
+        <ReadOnlyField label={t('settings.foodEnergy')} value={g.food_energy} />
+        <ReadOnlyField label={t('settings.bigFoodEnergy')} value={g.big_food_energy} />
+        <ReadOnlyField label={t('settings.foodDecay')} value={g.food_decay_per_tick} />
+        <ReadOnlyField label={t('settings.bigFoodDecay')} value={g.big_food_decay_per_tick} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.eating')}>
-        <ReadOnlyField label={t('settings.foodPerTick')} value={config.Grid.FoodPerTickEnergy} />
-        <ReadOnlyField label={t('settings.bigFoodPerTick')} value={config.Grid.BigFoodPerTickEnergy} />
-        <ReadOnlyField label={t('settings.corpsePerTick')} value={config.Grid.CorpsePerTickEnergy} />
+        <ReadOnlyField label={t('settings.foodPerTick')} value={g.food_per_tick_energy} />
+        <ReadOnlyField label={t('settings.bigFoodPerTick')} value={g.big_food_per_tick_energy} />
+        <ReadOnlyField label={t('settings.corpsePerTick')} value={g.corpse_per_tick_energy} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.temperature')}>
-        <ReadOnlyField label={t('settings.maxTemp')} value={config.Temperature.MaxTemp} />
-        <ReadOnlyField label={t('settings.minTemp')} value={config.Temperature.MinTemp} />
-        <ReadOnlyField label={t('settings.coldThreshold')} value={config.Temperature.ColdThreshold} />
-        <ReadOnlyField label={t('settings.maxColdDecay')} value={config.Temperature.MaxColdDecay} />
-        <ReadOnlyField label={t('settings.hotThreshold')} value={config.Temperature.HotThreshold} />
-        <ReadOnlyField label={t('settings.huddleRange')} value={config.Temperature.HuddleRange} />
-        <ReadOnlyField label={t('settings.huddleWarmth')} value={config.Temperature.HuddleWarmthPerAgent} />
-        <ReadOnlyField label={t('settings.agentBodyHeat')} value={config.Temperature.AgentBodyHeat} />
-        <ReadOnlyField label={t('settings.riverCooling')} value={config.Temperature.RiverCooling} />
-        <ReadOnlyField label={t('settings.coolingRange')} value={config.Temperature.RiverCoolingRange} />
+        <ReadOnlyField label={t('settings.maxTemp')} value={te.max_temp} />
+        <ReadOnlyField label={t('settings.minTemp')} value={te.min_temp} />
+        <ReadOnlyField label={t('settings.coldThreshold')} value={te.cold_threshold} />
+        <ReadOnlyField label={t('settings.maxColdDecay')} value={te.max_cold_decay} />
+        <ReadOnlyField label={t('settings.hotThreshold')} value={te.hot_threshold} />
+        <ReadOnlyField label={t('settings.huddleRange')} value={te.huddle_range} />
+        <ReadOnlyField label={t('settings.huddleWarmth')} value={te.huddle_warmth_per_agent} />
+        <ReadOnlyField label={t('settings.agentBodyHeat')} value={te.agent_body_heat} />
+        <ReadOnlyField label={t('settings.riverCooling')} value={te.river_cooling} />
+        <ReadOnlyField label={t('settings.coolingRange')} value={te.river_cooling_range} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.combat')}>
-        <ReadOnlyField label={t('settings.attackRange')} value={config.Combat.AttackRange} />
-        <ReadOnlyField label={t('settings.stressPerAttack')} value={config.Combat.StressPerAttack} />
-        <ReadOnlyField label={t('settings.stressDamage')} value={config.Combat.StressDamage} />
-        <ReadOnlyField label={t('settings.attackCost')} value={config.Combat.AttackCost} />
+        <ReadOnlyField label={t('settings.attackRange')} value={cb.attack_range} />
+        <ReadOnlyField label={t('settings.stressPerAttack')} value={cb.stress_per_attack} />
+        <ReadOnlyField label={t('settings.stressDamage')} value={cb.stress_damage} />
+        <ReadOnlyField label={t('settings.attackCost')} value={cb.attack_cost} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.river')}>
-        <ReadOnlyField label={t('settings.riverCount')} value={config.River.Count} />
-        <ReadOnlyField label={t('settings.riverWidth')} value={config.River.Width} />
-        <ReadOnlyField label={t('settings.riverDeepWidth')} value={config.River.DeepWidth} />
-        <ReadOnlyField label={t('settings.fordChance')} value={config.River.FordChance} />
+        <ReadOnlyField label={t('settings.riverCount')} value={r.count} />
+        <ReadOnlyField label={t('settings.riverWidth')} value={r.width} />
+        <ReadOnlyField label={t('settings.riverDeepWidth')} value={r.deep_width} />
+        <ReadOnlyField label={t('settings.fordChance')} value={r.ford_chance} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.physiology')}>
-        <ReadOnlyField label={t('settings.hungerDecay')} value={config.Hunger.DecayRate} />
-        <ReadOnlyField label={t('settings.thirstDecay')} value={config.Thirst.DecayRate} />
-        <ReadOnlyField label={t('settings.drinkRestore')} value={config.Thirst.DrinkRestore} />
-        <ReadOnlyField label={t('settings.hpDecay')} value={config.Existence.DecayPerTick} />
+        <ReadOnlyField label={t('settings.hungerDecay')} value={h.decay_rate} />
+        <ReadOnlyField label={t('settings.thirstDecay')} value={th.decay_rate} />
+        <ReadOnlyField label={t('settings.drinkRestore')} value={th.drink_restore} />
+        <ReadOnlyField label={t('settings.hpDecay')} value={e.decay_per_tick} />
       </ConfigSection>
     </div>
   );
