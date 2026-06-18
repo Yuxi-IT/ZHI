@@ -51,6 +51,12 @@ export interface CorpseTile {
   energy: number
 }
 
+export interface WaterCycleData {
+  humidity: number
+  season_progress: number
+  is_wet_season: boolean
+}
+
 export interface CosmosState {
   generation: number
   total_deaths: number
@@ -58,6 +64,7 @@ export interface CosmosState {
   time_of_day: number
   temperature: number
   agent_count: number
+  plant_count: number
   grid_width: number
   grid_height: number
   agents: AgentSnapshot[]
@@ -71,6 +78,10 @@ export interface CosmosState {
   terrain: number[]
   terrain_ttl: number[]
   river_flow: number[]
+  surface_water: number[]
+  groundwater: number[]
+  nutrient: number[]
+  water_cycle: WaterCycleData
 }
 
 export type WorldEventType = 'eat' | 'attack' | 'death' | 'reproduce' | 'signal' | 'respawn' | 'flood' | 'weather' | 'dam_built'

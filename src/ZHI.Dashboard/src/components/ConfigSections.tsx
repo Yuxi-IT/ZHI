@@ -19,6 +19,9 @@ export interface ZhiConfig {
   network: { learning_rate: number; gamma: number };
   corpse: { energy: number; decay_per_tick: number; scent_amount: number };
   stamina: { max_stamina: number; move_cost: number; attack_cost: number; push_cost: number; terraform_cost: number; signal_cost: number; shove_cost: number; pull_cost: number; shallow_water_move_extra: number; deep_water_move_extra: number; deep_water_climb_extra: number; base_recovery: number; stationary_recovery_bonus: number; low_stamina_threshold: number; stationary_ticks_required: number; stationary_damage_mult: number; stationary_self_heat: number; stationary_neighbor_heat: number; stationary_hp_recovery_bonus: number };
+  plant: { base_growth_rate: number; max_plant_energy: number; spread_chance: number; spread_radius: number; min_temp: number; optimal_temp: number; max_temp: number; death_temp: number; water_need: number; nutrient_need: number; nutrient_consumption: number; water_consumption: number; initial_plants: number; initial_plant_energy: number };
+  nutrient: { corpse_to_nutrient_ratio: number; plant_to_nutrient_ratio: number; diffusion_rate: number; max_nutrient: number; initial_nutrient: number };
+  water_cycle: { surface_water_max_depth: number; surface_flow_rate: number; evaporation_rate: number; max_groundwater: number; absorption_rate: number; groundwater_diffusion_rate: number; rain_amount: number; rain_interval_min: number; rain_interval_max: number; rain_radius: number };
 }
 
 export const DEFAULT_CONFIG: ZhiConfig = {
@@ -38,6 +41,9 @@ export const DEFAULT_CONFIG: ZhiConfig = {
   network: { learning_rate: 0.001, gamma: 0.99 },
   corpse: { energy: 20, decay_per_tick: 0.067, scent_amount: 0.5 },
   stamina: { max_stamina: 100, move_cost: 0.5, attack_cost: 8, push_cost: 12, terraform_cost: 20, signal_cost: 3, shove_cost: 15, pull_cost: 10, shallow_water_move_extra: 1, deep_water_move_extra: 2.5, deep_water_climb_extra: 1, base_recovery: 1, stationary_recovery_bonus: 2, low_stamina_threshold: 10, stationary_ticks_required: 5, stationary_damage_mult: 1.2, stationary_self_heat: 3, stationary_neighbor_heat: 2, stationary_hp_recovery_bonus: 0.1 },
+  plant: { base_growth_rate: 0.05, max_plant_energy: 20, spread_chance: 0.02, spread_radius: 2, min_temp: 0, optimal_temp: 25, max_temp: 45, death_temp: -2, water_need: 0.2, nutrient_need: 0.5, nutrient_consumption: 0.1, water_consumption: 0.05, initial_plants: 50, initial_plant_energy: 10 },
+  nutrient: { corpse_to_nutrient_ratio: 0.5, plant_to_nutrient_ratio: 0.3, diffusion_rate: 0.02, max_nutrient: 10, initial_nutrient: 2 },
+  water_cycle: { surface_water_max_depth: 3, surface_flow_rate: 0.3, evaporation_rate: 0.05, max_groundwater: 1, absorption_rate: 0.1, groundwater_diffusion_rate: 0.01, rain_amount: 0.5, rain_interval_min: 200, rain_interval_max: 600, rain_radius: 10 },
 };
 
 export function NumberField({ label, value, onChange, min, max, step }: {
@@ -197,6 +203,44 @@ export function ConfigFormFields({ config, update }: {
         <NumberField label={t('settings.stage3Age')} value={ad.stage3_age} onChange={v => update('age_death', 'stage3_age', v)} min={100} max={50000} />
         <NumberField label={t('settings.stage3Decay')} value={ad.stage3_decay} onChange={v => update('age_death', 'stage3_decay', v)} min={0} max={1} step={0.01} />
       </ConfigSection>
+
+      <ConfigSection title={t('settings.plant')}>
+        <NumberField label={t('settings.plantBaseGrowthRate')} value={config.plant.base_growth_rate} onChange={v => update('plant', 'base_growth_rate', v)} min={0} max={1} step={0.005} />
+        <NumberField label={t('settings.plantMaxEnergy')} value={config.plant.max_plant_energy} onChange={v => update('plant', 'max_plant_energy', v)} min={1} max={200} />
+        <NumberField label={t('settings.plantSpreadChance')} value={config.plant.spread_chance} onChange={v => update('plant', 'spread_chance', v)} min={0} max={1} step={0.005} />
+        <NumberField label={t('settings.plantSpreadRadius')} value={config.plant.spread_radius} onChange={v => update('plant', 'spread_radius', v)} min={0} max={10} />
+        <NumberField label={t('settings.plantMinTemp')} value={config.plant.min_temp} onChange={v => update('plant', 'min_temp', v)} min={-50} max={50} />
+        <NumberField label={t('settings.plantOptimalTemp')} value={config.plant.optimal_temp} onChange={v => update('plant', 'optimal_temp', v)} min={-50} max={50} />
+        <NumberField label={t('settings.plantMaxTemp')} value={config.plant.max_temp} onChange={v => update('plant', 'max_temp', v)} min={-50} max={80} />
+        <NumberField label={t('settings.plantDeathTemp')} value={config.plant.death_temp} onChange={v => update('plant', 'death_temp', v)} min={-50} max={20} />
+        <NumberField label={t('settings.plantWaterNeed')} value={config.plant.water_need} onChange={v => update('plant', 'water_need', v)} min={0} max={1} step={0.05} />
+        <NumberField label={t('settings.plantNutrientNeed')} value={config.plant.nutrient_need} onChange={v => update('plant', 'nutrient_need', v)} min={0} max={1} step={0.05} />
+        <NumberField label={t('settings.plantNutrientConsumption')} value={config.plant.nutrient_consumption} onChange={v => update('plant', 'nutrient_consumption', v)} min={0} max={1} step={0.01} />
+        <NumberField label={t('settings.plantWaterConsumption')} value={config.plant.water_consumption} onChange={v => update('plant', 'water_consumption', v)} min={0} max={1} step={0.01} />
+        <NumberField label={t('settings.plantInitialPlants')} value={config.plant.initial_plants} onChange={v => update('plant', 'initial_plants', v)} min={0} max={500} />
+        <NumberField label={t('settings.plantInitialPlantEnergy')} value={config.plant.initial_plant_energy} onChange={v => update('plant', 'initial_plant_energy', v)} min={1} max={100} />
+      </ConfigSection>
+
+      <ConfigSection title={t('settings.nutrient')}>
+        <NumberField label={t('settings.nutrientCorpseRatio')} value={config.nutrient.corpse_to_nutrient_ratio} onChange={v => update('nutrient', 'corpse_to_nutrient_ratio', v)} min={0} max={2} step={0.05} />
+        <NumberField label={t('settings.nutrientPlantRatio')} value={config.nutrient.plant_to_nutrient_ratio} onChange={v => update('nutrient', 'plant_to_nutrient_ratio', v)} min={0} max={2} step={0.05} />
+        <NumberField label={t('settings.nutrientDiffusionRate')} value={config.nutrient.diffusion_rate} onChange={v => update('nutrient', 'diffusion_rate', v)} min={0} max={0.5} step={0.005} />
+        <NumberField label={t('settings.nutrientMaxNutrient')} value={config.nutrient.max_nutrient} onChange={v => update('nutrient', 'max_nutrient', v)} min={1} max={100} />
+        <NumberField label={t('settings.nutrientInitialNutrient')} value={config.nutrient.initial_nutrient} onChange={v => update('nutrient', 'initial_nutrient', v)} min={0} max={20} step={0.5} />
+      </ConfigSection>
+
+      <ConfigSection title={t('settings.waterCycle')}>
+        <NumberField label={t('settings.surfaceWaterMaxDepth')} value={config.water_cycle.surface_water_max_depth} onChange={v => update('water_cycle', 'surface_water_max_depth', v)} min={0.5} max={20} step={0.5} />
+        <NumberField label={t('settings.surfaceFlowRate')} value={config.water_cycle.surface_flow_rate} onChange={v => update('water_cycle', 'surface_flow_rate', v)} min={0} max={1} step={0.05} />
+        <NumberField label={t('settings.evaporationRate')} value={config.water_cycle.evaporation_rate} onChange={v => update('water_cycle', 'evaporation_rate', v)} min={0} max={0.5} step={0.01} />
+        <NumberField label={t('settings.maxGroundwater')} value={config.water_cycle.max_groundwater} onChange={v => update('water_cycle', 'max_groundwater', v)} min={0.1} max={5} step={0.1} />
+        <NumberField label={t('settings.absorptionRate')} value={config.water_cycle.absorption_rate} onChange={v => update('water_cycle', 'absorption_rate', v)} min={0} max={1} step={0.01} />
+        <NumberField label={t('settings.groundwaterDiffusion')} value={config.water_cycle.groundwater_diffusion_rate} onChange={v => update('water_cycle', 'groundwater_diffusion_rate', v)} min={0} max={0.1} step={0.005} />
+        <NumberField label={t('settings.rainAmount')} value={config.water_cycle.rain_amount} onChange={v => update('water_cycle', 'rain_amount', v)} min={0} max={5} step={0.1} />
+        <NumberField label={t('settings.rainIntervalMin')} value={config.water_cycle.rain_interval_min} onChange={v => update('water_cycle', 'rain_interval_min', v)} min={50} max={5000} />
+        <NumberField label={t('settings.rainIntervalMax')} value={config.water_cycle.rain_interval_max} onChange={v => update('water_cycle', 'rain_interval_max', v)} min={100} max={10000} />
+        <NumberField label={t('settings.rainRadius')} value={config.water_cycle.rain_radius} onChange={v => update('water_cycle', 'rain_radius', v)} min={2} max={50} />
+      </ConfigSection>
     </div>
   );
 }
@@ -344,6 +388,44 @@ export function ConfigReadOnly({ config }: { config: ZhiConfig }) {
         <ReadOnlyField label={t('settings.stage2Decay')} value={ad.stage2_decay} />
         <ReadOnlyField label={t('settings.stage3Age')} value={ad.stage3_age} />
         <ReadOnlyField label={t('settings.stage3Decay')} value={ad.stage3_decay} />
+      </ConfigSection>
+
+      <ConfigSection title={t('settings.plant')}>
+        <ReadOnlyField label={t('settings.plantBaseGrowthRate')} value={config.plant.base_growth_rate} />
+        <ReadOnlyField label={t('settings.plantMaxEnergy')} value={config.plant.max_plant_energy} />
+        <ReadOnlyField label={t('settings.plantSpreadChance')} value={config.plant.spread_chance} />
+        <ReadOnlyField label={t('settings.plantSpreadRadius')} value={config.plant.spread_radius} />
+        <ReadOnlyField label={t('settings.plantMinTemp')} value={config.plant.min_temp} />
+        <ReadOnlyField label={t('settings.plantOptimalTemp')} value={config.plant.optimal_temp} />
+        <ReadOnlyField label={t('settings.plantMaxTemp')} value={config.plant.max_temp} />
+        <ReadOnlyField label={t('settings.plantDeathTemp')} value={config.plant.death_temp} />
+        <ReadOnlyField label={t('settings.plantWaterNeed')} value={config.plant.water_need} />
+        <ReadOnlyField label={t('settings.plantNutrientNeed')} value={config.plant.nutrient_need} />
+        <ReadOnlyField label={t('settings.plantNutrientConsumption')} value={config.plant.nutrient_consumption} />
+        <ReadOnlyField label={t('settings.plantWaterConsumption')} value={config.plant.water_consumption} />
+        <ReadOnlyField label={t('settings.plantInitialPlants')} value={config.plant.initial_plants} />
+        <ReadOnlyField label={t('settings.plantInitialPlantEnergy')} value={config.plant.initial_plant_energy} />
+      </ConfigSection>
+
+      <ConfigSection title={t('settings.nutrient')}>
+        <ReadOnlyField label={t('settings.nutrientCorpseRatio')} value={config.nutrient.corpse_to_nutrient_ratio} />
+        <ReadOnlyField label={t('settings.nutrientPlantRatio')} value={config.nutrient.plant_to_nutrient_ratio} />
+        <ReadOnlyField label={t('settings.nutrientDiffusionRate')} value={config.nutrient.diffusion_rate} />
+        <ReadOnlyField label={t('settings.nutrientMaxNutrient')} value={config.nutrient.max_nutrient} />
+        <ReadOnlyField label={t('settings.nutrientInitialNutrient')} value={config.nutrient.initial_nutrient} />
+      </ConfigSection>
+
+      <ConfigSection title={t('settings.waterCycle')}>
+        <ReadOnlyField label={t('settings.surfaceWaterMaxDepth')} value={config.water_cycle.surface_water_max_depth} />
+        <ReadOnlyField label={t('settings.surfaceFlowRate')} value={config.water_cycle.surface_flow_rate} />
+        <ReadOnlyField label={t('settings.evaporationRate')} value={config.water_cycle.evaporation_rate} />
+        <ReadOnlyField label={t('settings.maxGroundwater')} value={config.water_cycle.max_groundwater} />
+        <ReadOnlyField label={t('settings.absorptionRate')} value={config.water_cycle.absorption_rate} />
+        <ReadOnlyField label={t('settings.groundwaterDiffusion')} value={config.water_cycle.groundwater_diffusion_rate} />
+        <ReadOnlyField label={t('settings.rainAmount')} value={config.water_cycle.rain_amount} />
+        <ReadOnlyField label={t('settings.rainIntervalMin')} value={config.water_cycle.rain_interval_min} />
+        <ReadOnlyField label={t('settings.rainIntervalMax')} value={config.water_cycle.rain_interval_max} />
+        <ReadOnlyField label={t('settings.rainRadius')} value={config.water_cycle.rain_radius} />
       </ConfigSection>
     </div>
   );

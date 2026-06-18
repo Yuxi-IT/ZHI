@@ -102,6 +102,21 @@ public partial class WebServer
             for (int fy = 0; fy < gh; fy++)
                 riverFlow[fy * gw + fx] = v.RiverFlow[fx, fy];
 
+        var surfaceWater = new float[gw * gh];
+        for (int sx = 0; sx < gw; sx++)
+            for (int sy = 0; sy < gh; sy++)
+                surfaceWater[sy * gw + sx] = v.SurfaceWaterGrid[sx, sy];
+
+        var groundwater = new float[gw * gh];
+        for (int gx = 0; gx < gw; gx++)
+            for (int gy = 0; gy < gh; gy++)
+                groundwater[gy * gw + gx] = v.GroundwaterGrid[gx, gy];
+
+        var nutrient = new float[gw * gh];
+        for (int nx = 0; nx < gw; nx++)
+            for (int ny = 0; ny < gh; ny++)
+                nutrient[ny * gw + nx] = v.NutrientGrid[nx, ny];
+
         float totalEnergySrc = _engine.GenFoodEnergy + _engine.GenCorpseEnergy;
         float foodPct = totalEnergySrc > 0 ? _engine.GenFoodEnergy / totalEnergySrc * 100f : 0;
         float corpsePct = totalEnergySrc > 0 ? _engine.GenCorpseEnergy / totalEnergySrc * 100f : 0;
@@ -126,6 +141,7 @@ public partial class WebServer
             time_of_day = _engine.GameTimeOfDay,
             temperature = _engine.Temperature,
             agent_count = n,
+            plant_count = foodSnap.Length,
             total_energy = _engine.TotalEnergyInWorld,
             tick_exceptions = _engine.TickExceptionCount,
             agents,
@@ -139,6 +155,15 @@ public partial class WebServer
             terrain,
             terrain_ttl = terrainTtl,
             river_flow = riverFlow,
+            surface_water = surfaceWater,
+            groundwater,
+            nutrient,
+            water_cycle = new
+            {
+                humidity = _engine.Humidity,
+                season_progress = _engine.SeasonProgress,
+                is_wet_season = _engine.IsWetSeason
+            },
             grid_width = ToolDefinitions.GridWidth,
             grid_height = ToolDefinitions.GridHeight,
             stats

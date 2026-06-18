@@ -36,7 +36,7 @@ function tempColor(t: number): string {
 }
 
 export function WorldDashboard({ worldName, onStop }: Props) {
-  const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, chemicalField, terrain, terrainTtl, riverFlow, stats, connected } = useWebSocket();
+  const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, chemicalField, terrain, terrainTtl, riverFlow, surfaceWater, groundwater, nutrient, waterCycle, plantCount, stats, connected } = useWebSocket();
   const { logs, events, clearEvents } = useLogSocket();
   const { stats: dbStats, loading } = useStats();
   const { history, record } = useEcoHistory();
@@ -61,17 +61,22 @@ export function WorldDashboard({ worldName, onStop }: Props) {
   const [showTemp, setShowTemp] = useState(false);
   const [showTerrain, setShowTerrain] = useState(false);
   const [showFlow, setShowFlow] = useState(false);
+  const [showGroundwater, setShowGroundwater] = useState(false);
+  const [showSurfaceWater, setShowSurfaceWater] = useState(false);
+  const [showNutrient, setShowNutrient] = useState(false);
 
   const aliveCount = agents.filter(a => a.is_alive).length;
 
   const drawDataRef = useRef<DrawData>({
     agents: [], food: [], corpses: [], river: [], scent: [], foodScent: [],
     chemicalField: [], temperatureGrid: [], terrain: [], terrainTtl: [], riverFlow: [],
+    surfaceWater: [], groundwater: [], nutrient: [],
     events: [], timeOfDay: 12, trackedAgent: null,
   });
   drawDataRef.current = {
     agents, food, corpses, river, scent, foodScent, chemicalField,
-    temperatureGrid, terrain, terrainTtl, riverFlow, events,
+    temperatureGrid, terrain, terrainTtl, riverFlow, surfaceWater, groundwater, nutrient,
+    events,
     timeOfDay, trackedAgent,
   };
 
@@ -202,6 +207,14 @@ export function WorldDashboard({ worldName, onStop }: Props) {
               <span className="text-[11px] font-semibold cursor-help" style={{ color: tempColor(temperature) }}>{temperature.toFixed(1)}°C</span>
             </MetricTip>
             <Separator orientation="vertical" className="h-3" />
+            <span className="text-zhi-muted text-[11px]">{t('header.plants')} {plantCount}</span>
+            {waterCycle && (
+              <>
+                <Separator orientation="vertical" className="h-3" />
+                <span className="text-zhi-muted text-[11px]">{waterCycle.is_wet_season ? t('header.wetSeason') : t('header.drySeason')} H:{waterCycle.humidity.toFixed(1)}</span>
+              </>
+            )}
+            <Separator orientation="vertical" className="h-3" />
             <span className="text-zhi-muted text-[11px]">{t('toggle.display')}</span>
             {stats && (
               <>
@@ -243,6 +256,9 @@ export function WorldDashboard({ worldName, onStop }: Props) {
             showTemp={showTemp} setShowTemp={setShowTemp}
             showTerrain={showTerrain} setShowTerrain={setShowTerrain}
             showFlow={showFlow} setShowFlow={setShowFlow}
+            showGroundwater={showGroundwater} setShowGroundwater={setShowGroundwater}
+            showSurfaceWater={showSurfaceWater} setShowSurfaceWater={setShowSurfaceWater}
+            showNutrient={showNutrient} setShowNutrient={setShowNutrient}
             trackNextGen={trackNextGen} setTrackNextGen={setTrackNextGen}
           />
 
@@ -261,6 +277,9 @@ export function WorldDashboard({ worldName, onStop }: Props) {
               showTemp={showTemp}
               showTerrain={showTerrain}
               showFlow={showFlow}
+              showGroundwater={showGroundwater}
+              showSurfaceWater={showSurfaceWater}
+              showNutrient={showNutrient}
             />
           </div>
 
@@ -328,6 +347,9 @@ type ToggleKeys = {
   showTemp: boolean; setShowTemp: (v: boolean) => void;
   showTerrain: boolean; setShowTerrain: (v: boolean) => void;
   showFlow: boolean; setShowFlow: (v: boolean) => void;
+  showGroundwater: boolean; setShowGroundwater: (v: boolean) => void;
+  showSurfaceWater: boolean; setShowSurfaceWater: (v: boolean) => void;
+  showNutrient: boolean; setShowNutrient: (v: boolean) => void;
   trackNextGen: boolean; setTrackNextGen: (v: boolean) => void;
 };
 
@@ -342,6 +364,9 @@ const DisplayToggles = memo(function DisplayToggles(p: ToggleKeys) {
     [p.showTemp, p.setShowTemp, t('toggle.temp'), 'border-orange-600 text-orange-400 bg-orange-900/20'],
     [p.showTerrain, p.setShowTerrain, t('toggle.terrain'), 'border-amber-600 text-amber-400 bg-amber-900/20'],
     [p.showFlow, p.setShowFlow, t('toggle.flow'), 'border-sky-600 text-sky-400 bg-sky-900/20'],
+    [p.showGroundwater, p.setShowGroundwater, t('toggle.groundwater'), 'border-blue-600 text-blue-400 bg-blue-900/20'],
+    [p.showSurfaceWater, p.setShowSurfaceWater, t('toggle.surfaceWater'), 'border-cyan-600 text-cyan-400 bg-cyan-900/20'],
+    [p.showNutrient, p.setShowNutrient, t('toggle.nutrient'), 'border-amber-600 text-amber-400 bg-amber-900/20'],
     [p.trackNextGen, p.setTrackNextGen, t('toggle.trackRebirth'), 'border-cyan-600 text-cyan-400 bg-cyan-900/20'],
   ];
 

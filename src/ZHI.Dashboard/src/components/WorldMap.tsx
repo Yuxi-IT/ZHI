@@ -17,6 +17,9 @@ export interface DrawData {
   terrain: number[];
   terrainTtl: number[];
   riverFlow: number[];
+  surfaceWater: number[];
+  groundwater: number[];
+  nutrient: number[];
   events: WorldEvent[];
   timeOfDay: number;
   trackedAgent: number | null;
@@ -36,6 +39,9 @@ interface Props {
   showTemp?: boolean;
   showTerrain?: boolean;
   showFlow?: boolean;
+  showGroundwater?: boolean;
+  showSurfaceWater?: boolean;
+  showNutrient?: boolean;
 }
 
 interface TooltipInfo {
@@ -61,6 +67,7 @@ export const WorldMap = memo(function WorldMap({
   showDirection = false, showVision = false,
   showChemical = false, showTemp = false,
   showTerrain = false, showFlow = false,
+  showGroundwater = false, showSurfaceWater = false, showNutrient = false,
 }: Props) {
   const { t } = useT();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -87,7 +94,8 @@ export const WorldMap = memo(function WorldMap({
 
       const data = drawDataRef.current;
       const { agents, food, corpses, river, scent, foodScent, chemicalField,
-        temperatureGrid, terrain, terrainTtl, riverFlow, events, timeOfDay } = data;
+        temperatureGrid, terrain, terrainTtl, riverFlow,
+        surfaceWater, groundwater, nutrient, events, timeOfDay } = data;
       const tracked = trackedProp !== undefined ? trackedProp : data.trackedAgent;
 
       // Process new events → floating texts (use monotonic _eid to survive clears/truncation)
@@ -342,6 +350,59 @@ export const WorldMap = memo(function WorldMap({
         }
       }
 
+      // Surface water
+      if (showSurfaceWater && surfaceWater && surfaceWater.length > 0) {
+        const sc = Math.max(0, Math.floor(cam.x / cellSize));
+        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
+        const sr = Math.max(0, Math.floor(cam.y / cellSize));
+        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
+        for (let gx = sc; gx < ec; gx++) {
+          for (let gy = sr; gy < er; gy++) {
+            const val = surfaceWater[gy * gridW + gx]!;
+            if (val <= 0.01) continue;
+            ctx.fillStyle = `rgba(59, 130, 246, ${Math.min(val / 3, 0.6)})`;
+            ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+
+      // Groundwater
+      if (showGroundwater && groundwater && groundwater.length > 0) {
+        const sc = Math.max(0, Math.floor(cam.x / cellSize));
+        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
+        const sr = Math.max(0, Math.floor(cam.y / cellSize));
+        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
+        for (let gx = sc; gx < ec; gx++) {
+          for (let gy = sr; gy < er; gy++) {
+            const val = groundwater[gy * gridW + gx]!;
+            if (val <= 0.01) continue;
+            ctx.fillStyle = `rgba(30, 64, 175, ${Math.min(val, 0.5)})`;
+            ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+
+      // Nutrient
+      if (showNutrient && nutrient && nutrient.length > 0) {
+        const maxNutrient = 10;
+        const sc = Math.max(0, Math.floor(cam.x / cellSize));
+        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
+        const sr = Math.max(0, Math.floor(cam.y / cellSize));
+        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
+        for (let gx = sc; gx < ec; gx++) {
+          for (let gy = sr; gy < er; gy++) {
+            const val = nutrient[gy * gridW + gx]!;
+            if (val <= 0.01) continue;
+            const t = Math.min(val / maxNutrient, 1);
+            const r = Math.round(34 + t * 146);
+            const g = Math.round(139 + t * 50);
+            const b = Math.round(34 - t * 10);
+            ctx.fillStyle = `rgba(${r},${g},${b},0.35)`;
+            ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+
       // Corpses
       const corpseSz = Math.max(cellSize * 0.6, 2);
       for (const c of corpses) {
@@ -485,7 +546,7 @@ export const WorldMap = memo(function WorldMap({
         : t('map.hudNormal', { zoom: zoomPct, alive, total: agents.length });
       ctx.fillText(hud, 8, 8);
     };
-  }, [showScent, showFoodScent, showDirection, showVision, showChemical, showTemp, showTerrain, showFlow, gridW, gridH, t, trackedProp, drawDataRef]);
+  }, [showScent, showFoodScent, showDirection, showVision, showChemical, showTemp, showTerrain, showFlow, showGroundwater, showSurfaceWater, showNutrient, gridW, gridH, t, trackedProp, drawDataRef]);
 
   // Stable rAF loop — starts once, never restarts
   useEffect(() => {
@@ -532,7 +593,7 @@ export const WorldMap = memo(function WorldMap({
         setTrackedAgent(null);
       } else {
         // Inline tooltip computation from drawDataRef
-        const { agents, food, corpses, river, terrain, terrainTtl, temperatureGrid } = drawDataRef.current;
+        const { agents, food, corpses, river, terrain, terrainTtl, temperatureGrid, surfaceWater, groundwater, nutrient } = drawDataRef.current;
         const cam = camRef.current;
         const cellSize = cam.zoom * (rect.width / gridW);
         const gx = Math.floor((cam.x + mx) / cellSize);
@@ -574,6 +635,18 @@ export const WorldMap = memo(function WorldMap({
         if (corpseHere) { lines.push(t('map.corpse'), `${t('map.energy')}: ${corpseHere.energy.toFixed(1)}`); }
         if (showTemp && temperatureGrid && temperatureGrid.length > 0) {
           lines.push(`${t('map.cellTemp')}: ${temperatureGrid[gy * gridW + gx]!.toFixed(1)}°C`);
+        }
+        if (showSurfaceWater && surfaceWater && surfaceWater.length > 0) {
+          const sw = surfaceWater[gy * gridW + gx] ?? 0;
+          if (sw > 0.01) lines.push(`${t('map.surfaceWater')}: ${sw.toFixed(2)}`);
+        }
+        if (showGroundwater && groundwater && groundwater.length > 0) {
+          const gw = groundwater[gy * gridW + gx] ?? 0;
+          lines.push(`${t('map.groundwater')}: ${(gw * 100).toFixed(0)}%`);
+        }
+        if (showNutrient && nutrient && nutrient.length > 0) {
+          const nu = nutrient[gy * gridW + gx] ?? 0;
+          if (nu > 0.01) lines.push(`${t('map.nutrient')}: ${nu.toFixed(1)}`);
         }
         setTooltip(lines.length > 0 ? { x: mx + 12, y: my - 10, text: lines } : null);
       }
@@ -622,7 +695,7 @@ export const WorldMap = memo(function WorldMap({
       canvas.removeEventListener('mouseleave', onMouseLeave);
       canvas.removeEventListener('dblclick', onDblClick);
     };
-  }, [gridW, gridH, showTerrain, showTemp, t, trackedAgent, setTrackedAgent, drawDataRef]);
+  }, [gridW, gridH, showTerrain, showTemp, showSurfaceWater, showGroundwater, showNutrient, t, trackedAgent, setTrackedAgent, drawDataRef]);
 
   return (
     <div className="w-full h-full relative">
@@ -656,5 +729,8 @@ export const WorldMap = memo(function WorldMap({
     && prev.showChemical === next.showChemical
     && prev.showTemp === next.showTemp
     && prev.showTerrain === next.showTerrain
-    && prev.showFlow === next.showFlow;
+    && prev.showFlow === next.showFlow
+    && prev.showGroundwater === next.showGroundwater
+    && prev.showSurfaceWater === next.showSurfaceWater
+    && prev.showNutrient === next.showNutrient;
 });

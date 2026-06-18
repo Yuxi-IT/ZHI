@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useReducer } from 'react';
-import type { AgentSnapshot, FoodTile, CorpseTile, CosmosStats } from '../types';
+import type { AgentSnapshot, FoodTile, CorpseTile, CosmosStats, WaterCycleData } from '../types';
 
 const WS_URL = import.meta.env.DEV
   ? 'ws://localhost:8088/ws'
@@ -25,6 +25,11 @@ interface WsState {
   terrain: number[];
   terrainTtl: number[];
   riverFlow: number[];
+  surfaceWater: number[];
+  groundwater: number[];
+  nutrient: number[];
+  waterCycle: WaterCycleData | null;
+  plantCount: number;
   stats: CosmosStats | null;
 }
 
@@ -48,6 +53,11 @@ const INIT: WsState = {
   terrain: [],
   terrainTtl: [],
   riverFlow: [],
+  surfaceWater: [],
+  groundwater: [],
+  nutrient: [],
+  waterCycle: null,
+  plantCount: 0,
   stats: null,
 };
 
@@ -79,6 +89,11 @@ function reducer(state: WsState, action: Action): WsState {
         terrain: (d.terrain as number[]) ?? state.terrain,
         terrainTtl: (d.terrain_ttl as number[]) ?? state.terrainTtl,
         riverFlow: (d.river_flow as number[]) ?? state.riverFlow,
+        surfaceWater: (d.surface_water as number[]) ?? state.surfaceWater,
+        groundwater: (d.groundwater as number[]) ?? state.groundwater,
+        nutrient: (d.nutrient as number[]) ?? state.nutrient,
+        waterCycle: (d.water_cycle as WaterCycleData) ?? state.waterCycle,
+        plantCount: (d.plant_count as number) ?? state.plantCount,
         stats: (d.stats as CosmosStats) ?? state.stats,
       };
     }
@@ -146,6 +161,11 @@ export function useWebSocket() {
     terrain: state.terrain,
     terrainTtl: state.terrainTtl,
     riverFlow: state.riverFlow,
+    surfaceWater: state.surfaceWater,
+    groundwater: state.groundwater,
+    nutrient: state.nutrient,
+    waterCycle: state.waterCycle,
+    plantCount: state.plantCount,
     stats: state.stats,
   };
 }
