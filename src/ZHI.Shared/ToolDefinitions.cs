@@ -8,23 +8,19 @@ public enum ZhiAction
     MoveRight = 3,
     Eat = 4,
     Attack = 5,
-    Signal = 6,
-    Drink = 7,
-    Push = 8,
-    Terraform = 9,
-    Shove = 10,
-    Pull = 11
+    EmitChemical = 6,
+    Drink = 7
 }
 
 public static class ToolDefinitions
 {
-    public const int ActionCount = 12;
-    public const int SignalValues = 4;
-    public const int StateSize = 334; // 294 grid (7×7×6ch) + 40 non-grid (stamina, stationary)
+    public const int ActionCount = 8;
+    public const int ChemicalEmitValues = 1; // continuous 0–1 emission (sampled via beta distribution)
+    public const int StateSize = 340; // 294 grid (7×7×6ch) + 46 non-grid
     public static int GridWidth = 64;
     public static int GridHeight = 64;
     public const int VisionRadius = 3; // 7×7 window = radius 3
-    public const int SignalWaveRadius = 4; // 9×9 wave pattern
+    public const int SignalWaveRadius = 4; // 9×9 chemical diffusion pattern
 
     // Terrain types
     public const byte TerrainFlat = 0;
@@ -46,12 +42,8 @@ public static class ToolDefinitions
         "move_right",
         "eat",
         "attack",
-        "signal",
-        "drink",
-        "push",
-        "terraform",
-        "shove",
-        "pull"
+        "emit_chemical",
+        "drink"
     ];
 
     public static string GetToolName(ZhiAction action) => ActionNames[(int)action];

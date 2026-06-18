@@ -5,7 +5,8 @@ public sealed class ZhiConfig
     public ExistenceConfig Existence { get; set; } = new();
     public GridConfig Grid { get; set; } = new();
     public CombatConfig Combat { get; set; } = new();
-    public SignalConfig Signal { get; set; } = new();
+    public ChemicalConfig Chemical { get; set; } = new();
+    public GenomeConfig Genome { get; set; } = new();
     public ScentConfig Scent { get; set; } = new();
     public FoodScentConfig FoodScent { get; set; } = new();
     public NetworkConfig Network { get; set; } = new();
@@ -63,11 +64,17 @@ public sealed class CombatConfig
     public float AttackCost { get; set; } = 1.0f;
 }
 
-public sealed class SignalConfig
+public sealed class ChemicalConfig
 {
-    public float Cost { get; set; } = 0.25f;
-    public int NumValues { get; set; } = 4;
-    public int WaveRadius { get; set; } = 4;
+    public float EmissionCost { get; set; } = 3f;  // stamina cost per emission
+    public float DiffusionRate { get; set; } = 0.1f; // per-tick spread to neighbors
+    public float DecayRate { get; set; } = 0.95f;    // per-tick multiplicative decay
+    public int WaveRadius { get; set; } = 4;         // Chebyshev radius of emission
+}
+
+public sealed class GenomeConfig
+{
+    public float MutationStd { get; set; } = 0.05f;  // gaussian noise per trait per generation
 }
 
 public sealed class ScentConfig
@@ -192,11 +199,7 @@ public sealed class StaminaConfig
     public float MaxStamina { get; set; } = 100f;
     public float MoveCost { get; set; } = 0.5f;
     public float AttackCost { get; set; } = 8f;
-    public float PushCost { get; set; } = 12f;
-    public float TerraformCost { get; set; } = 20f;
-    public float SignalCost { get; set; } = 3f;
-    public float ShoveCost { get; set; } = 15f;
-    public float PullCost { get; set; } = 10f;
+    public float ChemicalEmitCost { get; set; } = 3f;
     public float ShallowWaterMoveExtra { get; set; } = 1f;
     public float DeepWaterMoveExtra { get; set; } = 2.5f;
     public float DeepWaterClimbExtra { get; set; } = 1f;
