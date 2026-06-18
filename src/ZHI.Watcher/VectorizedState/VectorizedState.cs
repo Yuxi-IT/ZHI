@@ -18,6 +18,7 @@ public struct PlantTile
     public int Y;
     public float Energy;
     public byte Stage;   // PlantStage cast
+    public byte Species; // PlantSpecies cast (0=Grass, 1=Bush, 2=Tree)
     public int Age;      // ticks since creation
     public float Health; // 0-1, tracks environmental fitness
 }

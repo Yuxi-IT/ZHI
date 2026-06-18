@@ -4,6 +4,13 @@ namespace ZHI.Watcher;
 
 public partial class CosmosEngine
 {
+    private PlantSpeciesParams Spp(byte species) => species switch
+    {
+        (byte)PlantSpecies.Bush => _config.Plant.Species.Bush,
+        (byte)PlantSpecies.Tree => _config.Plant.Species.Tree,
+        _ => _config.Plant.Species.Grass,
+    };
+
     private void ApplyPlantGrowth()
     {
         int W = ToolDefinitions.GridWidth;
@@ -29,6 +36,7 @@ public partial class CosmosEngine
                 var plant = _v.Plants[f];
                 int x = plant.X, y = plant.Y;
                 var stage = (PlantStage)plant.Stage;
+                var sp = Spp(plant.Species);
                 float cellTemp = _v.TemperatureGrid[x, y];
                 float gw = _v.GroundwaterGrid[x, y];
                 float nu = _v.NutrientGrid[x, y];
@@ -38,13 +46,13 @@ public partial class CosmosEngine
                 switch (stage)
                 {
                     case PlantStage.Seed:
-                        ProcessSeed(ref plant, x, y, cellTemp, gw, nu, sun, cfg);
+                        ProcessSeed(ref plant, x, y, cellTemp, gw, nu, sun, cfg, sp);
                         break;
                     case PlantStage.Sprout:
-                        ProcessSprout(ref plant, x, y, cellTemp, gw, nu, sun, cfg, tempFactor, isDaytime);
+                        ProcessSprout(ref plant, x, y, cellTemp, gw, nu, sun, cfg, sp, tempFactor, isDaytime);
                         break;
                     case PlantStage.Adult:
-                        ProcessAdult(ref plant, x, y, cellTemp, gw, nu, sun, cfg, tempFactor, isDaytime, plantGrid, newPlants);
+                        ProcessAdult(ref plant, x, y, cellTemp, gw, nu, sun, cfg, sp, tempFactor, isDaytime, plantGrid, newPlants);
                         break;
                     case PlantStage.Decay:
                         ProcessDecay(ref plant, x, y, cfg);
@@ -62,64 +70,58 @@ public partial class CosmosEngine
                 else
                 {
                     _v.Plants[f] = plant;
-                    // Update spatial lookup grid
                     _v.UpdatePlantCell(x, y, plant.Energy, plant.Stage);
                 }
             }
 
-            // Add new seeds from adult reproduction
             if (newPlants.Count > 0)
                 _v.Plants.AddRange(newPlants);
         }
 
-        // Propagate food scent (skip seeds and deep decay)
         PropagateFoodScent(cfg.MaxPlantEnergy);
     }
 
     private void ProcessSeed(ref PlantTile plant, int x, int y,
-        float cellTemp, float gw, float nu, float sun, PlantConfig cfg)
+        float cellTemp, float gw, float nu, float sun, PlantConfig cfg, PlantSpeciesParams sp)
     {
-        // Seeds are dormant and hardy — only extreme temperatures kill them
-        if (cellTemp < cfg.DeathTemp || cellTemp > cfg.MaxTemp)
+        if (cellTemp < sp.DeathTemp || cellTemp > sp.MaxTemp)
         {
             plant.Energy -= 0.01f;
             return;
         }
 
-        // Germination check: need nutrients, water, sunlight, and enough age
         if (plant.Age < cfg.SeedGermDelay) return;
         if (nu < cfg.SeedGermNutrientMin || gw < cfg.SeedGermWaterMin || sun <= 0f) return;
 
-        // Germinate!
         plant.Stage = (byte)PlantStage.Sprout;
         plant.Health = cfg.SproutInitialHealth;
         plant.Age = 0;
     }
 
     private void ProcessSprout(ref PlantTile plant, int x, int y,
-        float cellTemp, float gw, float nu, float sun, PlantConfig cfg,
+        float cellTemp, float gw, float nu, float sun, PlantConfig cfg, PlantSpeciesParams sp,
         float tempFactor, bool isDaytime)
     {
-        // Death by extreme temperature (sprouts are more vulnerable)
-        if (cellTemp < cfg.MinTemp || cellTemp > cfg.MaxTemp - 5f)
+        // Death by extreme temperature
+        if (cellTemp < sp.MinTemp || cellTemp > sp.MaxTemp - 5f)
         {
             plant.Health -= cfg.SproutHealthLoss * 3f;
             if (plant.Health <= 0f) { plant.Stage = (byte)PlantStage.Decay; return; }
             return;
         }
-        if (cellTemp < cfg.DeathTemp + 3f)
+        if (cellTemp < sp.DeathTemp + 3f)
         {
             plant.Energy = 0f;
             return;
         }
 
-        // Health update: recover in good conditions, degrade in stress
-        float waterFactor = MathF.Min(1f, gw / cfg.WaterNeed);
-        float nutrientFactor = MathF.Min(1f, nu / cfg.NutrientNeed);
-        if (waterFactor > 0.7f && nutrientFactor > 0.5f && cellTemp > cfg.MinTemp + 2f)
+        // Health update with drought resistance
+        float waterFactor = MathF.Min(1f, gw / (sp.WaterNeed * (2f - sp.DroughtResist)));
+        float nutrientFactor = MathF.Min(1f, nu / sp.NutrientNeed);
+        if (waterFactor > 0.7f && nutrientFactor > 0.5f && cellTemp > sp.MinTemp + 2f)
             plant.Health = MathF.Min(1f, plant.Health + 0.01f);
         else
-            plant.Health -= cfg.SproutHealthLoss;
+            plant.Health -= cfg.SproutHealthLoss * (2f - sp.DroughtResist);
 
         if (plant.Health <= 0f)
         {
@@ -127,14 +129,13 @@ public partial class CosmosEngine
             return;
         }
 
-        // Growth
-        if (cellTemp < cfg.MinTemp || !isDaytime) return;
+        if (cellTemp < sp.MinTemp || !isDaytime) return;
 
         float sunFactor = 1f + sun * _config.Sunlight.SunPhotosynthesisBoost;
         float biomeFactor = GetBiomePlantGrowthMult(x, y);
-        float growth = cfg.BaseGrowthRate * cfg.SproutGrowthMult * tempFactor
+        float growth = sp.GrowthRate * cfg.SproutGrowthMult * tempFactor
                        * waterFactor * nutrientFactor * sunFactor * biomeFactor;
-        growth = MathF.Min(growth, cfg.MaxPlantEnergy - plant.Energy);
+        growth = MathF.Min(growth, sp.MaxEnergy - plant.Energy);
 
         if (growth > 0)
         {
@@ -143,7 +144,6 @@ public partial class CosmosEngine
             _v.NutrientGrid[x, y] = MathF.Max(0, nu - growth * cfg.NutrientConsumption);
         }
 
-        // Transition to adult
         if (plant.Energy >= cfg.SproutAdultEnergy)
         {
             plant.Stage = (byte)PlantStage.Adult;
@@ -152,38 +152,29 @@ public partial class CosmosEngine
     }
 
     private void ProcessAdult(ref PlantTile plant, int x, int y,
-        float cellTemp, float gw, float nu, float sun, PlantConfig cfg,
+        float cellTemp, float gw, float nu, float sun, PlantConfig cfg, PlantSpeciesParams sp,
         float tempFactor, bool isDaytime,
         bool[,] plantGrid, List<PlantTile> newPlants)
     {
-        // Death by freezing
-        if (cellTemp < cfg.DeathTemp)
-        {
-            plant.Energy = 0f;
-            return;
-        }
-        // Death by overheating
-        if (cellTemp > cfg.MaxTemp)
+        if (cellTemp < sp.DeathTemp || cellTemp > sp.MaxTemp)
         {
             plant.Energy = 0f;
             return;
         }
 
-        // Health update
-        float waterFactor = MathF.Min(1f, gw / cfg.WaterNeed);
-        float nutrientFactor = MathF.Min(1f, nu / cfg.NutrientNeed);
-        if (waterFactor > 0.5f && nutrientFactor > 0.4f && cellTemp > cfg.MinTemp)
+        float waterFactor = MathF.Min(1f, gw / (sp.WaterNeed * (2f - sp.DroughtResist)));
+        float nutrientFactor = MathF.Min(1f, nu / sp.NutrientNeed);
+        if (waterFactor > 0.5f && nutrientFactor > 0.4f && cellTemp > sp.MinTemp)
             plant.Health = MathF.Min(1f, plant.Health + 0.005f);
         else
-            plant.Health -= 0.01f;
+            plant.Health -= 0.01f * (2f - sp.DroughtResist);
 
-        // Forced aging: max age reached → decay
-        if (plant.Age >= cfg.AdultMaxAge)
+        // Species-specific max age → forced decay
+        if (plant.Age >= sp.MaxAge)
         {
             plant.Stage = (byte)PlantStage.Decay;
             return;
         }
-        // Health failure → decay
         if (plant.Health <= 0f)
         {
             plant.Stage = (byte)PlantStage.Decay;
@@ -191,13 +182,13 @@ public partial class CosmosEngine
         }
 
         // Growth
-        if (cellTemp >= cfg.MinTemp && isDaytime)
+        if (cellTemp >= sp.MinTemp && isDaytime)
         {
             float sunFactor = 1f + sun * _config.Sunlight.SunPhotosynthesisBoost;
             float biomeFactor = GetBiomePlantGrowthMult(x, y);
-            float growth = cfg.BaseGrowthRate * tempFactor
+            float growth = sp.GrowthRate * tempFactor
                            * waterFactor * nutrientFactor * sunFactor * biomeFactor;
-            growth = MathF.Min(growth, cfg.MaxPlantEnergy - plant.Energy);
+            growth = MathF.Min(growth, sp.MaxEnergy - plant.Energy);
 
             if (growth > 0)
             {
@@ -211,19 +202,18 @@ public partial class CosmosEngine
         plant.Energy -= _config.Grid.FoodDecayPerTick;
         if (plant.Energy <= 0) return;
 
-        // Seed production: healthy adults with surplus energy spread seeds
-        float seedThreshold = cfg.MaxPlantEnergy * 0.4f + cfg.AdultSeedCost;
+        // Seed production: healthy adults with surplus energy
+        float seedThreshold = sp.MaxEnergy * 0.4f + cfg.AdultSeedCost;
         if (plant.Energy < seedThreshold || plant.Health < 0.5f) return;
 
         float spreadChance = cfg.SpreadChance * tempFactor;
         if (_rng.NextDouble() > spreadChance) return;
 
-        TryProduceSeed(ref plant, cfg, plantGrid, newPlants);
+        TryProduceSeed(ref plant, cfg, sp, plantGrid, newPlants);
     }
 
     private void ProcessDecay(ref PlantTile plant, int x, int y, PlantConfig cfg)
     {
-        // Lose energy and return nutrients to soil
         float decayLoss = cfg.DecayRate * (1f + (1f - plant.Health) * 2f);
         float lost = MathF.Min(decayLoss, plant.Energy);
         plant.Energy -= lost;
@@ -233,19 +223,17 @@ public partial class CosmosEngine
         _v.NutrientGrid[x, y] = MathF.Min(cellMax,
             _v.NutrientGrid[x, y] + lost * cfg.DecayNutrientReturn);
 
-        // Health continues to drop in decay
         plant.Health = MathF.Max(0f, plant.Health - 0.01f);
     }
 
-    private void TryProduceSeed(ref PlantTile parent, PlantConfig cfg,
+    private void TryProduceSeed(ref PlantTile parent, PlantConfig cfg, PlantSpeciesParams sp,
         bool[,] plantGrid, List<PlantTile> newPlants)
     {
-        if (_v.Plants.Count + newPlants.Count >= _config.Plant.MaxPlants) return;
+        if (_v.Plants.Count + newPlants.Count >= cfg.MaxPlants) return;
 
         int W = ToolDefinitions.GridWidth, H = ToolDefinitions.GridHeight;
-        int radius = cfg.SpreadRadius;
+        int radius = sp.SeedDistance;
 
-        // Wind-biased dispersal
         float wx = _v.WindX[parent.X, parent.Y], wy = _v.WindY[parent.X, parent.Y];
         float windMag = MathF.Sqrt(wx * wx + wy * wy);
         float windDirX = windMag > 0.01f ? wx / windMag : 0f;
@@ -266,11 +254,10 @@ public partial class CosmosEngine
             if (_v.SurfaceWaterGrid[nx, ny] > 0.5f) continue;
 
             float nTemp = _v.TemperatureGrid[nx, ny];
-            if (nTemp < cfg.MinTemp || nTemp > cfg.MaxTemp) continue;
-            if (_v.GroundwaterGrid[nx, ny] < cfg.WaterNeed * 0.3f) continue;
-            if (_v.NutrientGrid[nx, ny] < cfg.NutrientNeed * 0.2f) continue;
+            if (nTemp < sp.MinTemp || nTemp > sp.MaxTemp) continue;
+            if (_v.GroundwaterGrid[nx, ny] < sp.WaterNeed * 0.3f) continue;
+            if (_v.NutrientGrid[nx, ny] < sp.NutrientNeed * 0.2f) continue;
 
-            // Pay energy cost and create seed
             parent.Energy -= cfg.AdultSeedCost;
 
             newPlants.Add(new PlantTile
@@ -278,6 +265,7 @@ public partial class CosmosEngine
                 X = nx, Y = ny,
                 Energy = cfg.SeedInitialEnergy,
                 Stage = (byte)PlantStage.Seed,
+                Species = parent.Species, // inherit species
                 Age = 0,
                 Health = 1f
             });
@@ -298,7 +286,6 @@ public partial class CosmosEngine
             foreach (var plant in _v.Plants)
             {
                 var stage = (PlantStage)plant.Stage;
-                // Seeds don't emit scent; Decay emits reduced scent
                 if (stage == PlantStage.Seed) continue;
                 float emission = baseEmission * (plant.Energy / maxEnergy);
                 if (stage == PlantStage.Decay) emission *= 0.3f;

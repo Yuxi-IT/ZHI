@@ -490,22 +490,24 @@ export const WorldMap = memo(function WorldMap({
         ctx.closePath(); ctx.fill();
       }
 
-      // Plants — lifecycle stage visual
-      const stageColors: Record<number, [number, number, number]> = {
-        0: [139, 90, 43],   // Seed: brown
-        1: [144, 238, 144], // Sprout: light green
-        2: [34, 197, 94],   // Adult: rich green
-        3: [128, 128, 128], // Decay: gray
+      // Plants — lifecycle + species visual
+      const speciesStageColors: Record<number, [number, number, number][]> = {
+        0: [[139, 90, 43],  [120, 80, 40],  [100, 70, 35]],   // Seed: Grass/Bush/Tree brown
+        1: [[144, 238, 144],[100, 200, 80], [80, 160, 60]],   // Sprout
+        2: [[34, 197, 94],  [20, 150, 60], [15, 120, 45]],    // Adult
+        3: [[128, 128, 128],[110, 100, 90],[90, 80, 70]],     // Decay
       };
       for (const f of food) {
         const stage: number = (f as any).stage ?? 2;
-        const rgb = stageColors[stage] ?? stageColors[2]!;
+        const sp: number = (f as any).species ?? 0;
+        const colors = speciesStageColors[stage] ?? speciesStageColors[2]!;
+        const rgb = colors[Math.min(sp, 2)]!;
         const [cr, cg, cb] = rgb;
         const energyRatio = f.max_energy > 0 ? f.energy / f.max_energy : 1;
         let sz = Math.max(cellSize * 0.7, 2);
-        if (stage === 0) sz = Math.max(cellSize * 0.35, 1.5); // seeds are small
+        if (stage === 0) sz = Math.max(cellSize * 0.35, 1.5);
         else if (stage === 1) sz = Math.max(cellSize * 0.55, 1.8);
-        else if (stage === 3) sz = Math.max(cellSize * 0.8, 2.2); // decayed plants remain full size
+        else if (stage === 3) sz = Math.max(cellSize * 0.8, 2.2);
         const alpha = stage === 0 ? 0.4 : stage === 3 ? Math.max(0.15, energyRatio * 0.5) : Math.max(0.25, energyRatio);
         ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha})`;
         ctx.fillRect(f.x * cellSize + (cellSize - sz) / 2, f.y * cellSize + (cellSize - sz) / 2, sz, sz);
@@ -702,9 +704,11 @@ export const WorldMap = memo(function WorldMap({
         const foodHere = food.find(f => f.x === gx && f.y === gy);
         if (foodHere) {
           const stageNames = ['Seed', 'Sprout', 'Adult', 'Decay'];
+          const speciesNames = [t('map.speciesGrass'), t('map.speciesBush'), t('map.speciesTree')];
           const stageLabel = stageNames[(foodHere as any).stage] ?? '';
+          const spLabel = speciesNames[(foodHere as any).species] ?? '';
           lines.push(
-            `${t('map.food')}${stageLabel ? ` [${stageLabel}]` : ''}`,
+            `${spLabel || t('map.food')}${stageLabel ? ` [${stageLabel}]` : ''}`,
             `${t('map.energy')}: ${foodHere.energy.toFixed(1)} / ${foodHere.max_energy.toFixed(0)}`,
           );
         }

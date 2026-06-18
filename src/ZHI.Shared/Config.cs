@@ -185,6 +185,60 @@ public sealed class TemperatureConfig
     public float MinBodyTemp { get; set; } = 12f;           // body temp hard floor
 }
 
+public sealed class PlantSpeciesParams
+{
+    public float GrowthRate { get; set; } = 0.05f;
+    public float MaxEnergy { get; set; } = 20f;
+    public float NutrientNeed { get; set; } = 0.5f;
+    public float WaterNeed { get; set; } = 0.2f;
+    public int MaxAge { get; set; } = 4000;         // ticks before forced decay
+    public int SeedDistance { get; set; } = 2;       // seed spread radius
+    public float TempOptimal { get; set; } = 25f;    // optimal temperature in C
+    public float TempRange { get; set; } = 22f;      // +/- tolerance around optimal
+    public float DroughtResist { get; set; } = 0.5f; // 0-1, higher = less water stress
+    public float MinTemp { get; set; } = 0f;         // absolute min (below = damage)
+    public float MaxTemp { get; set; } = 45f;        // absolute max (above = damage)
+    public float DeathTemp { get; set; } = -2f;      // instant death below this
+    public bool EdibleAsSprout { get; set; } = true;  // can agents eat sprouts?
+    public bool EdibleOnlyAdult { get; set; } = false; // only adult+decay are edible
+}
+
+public sealed class PlantSpeciesConfig
+{
+    public PlantSpeciesParams Grass { get; set; } = new()
+    {
+        GrowthRate = 0.12f, MaxEnergy = 8f,
+        NutrientNeed = 0.3f, WaterNeed = 0.1f,
+        MaxAge = 1500, SeedDistance = 3,
+        TempOptimal = 22f, TempRange = 22f,
+        DroughtResist = 0.2f,
+        MinTemp = 0f, MaxTemp = 42f, DeathTemp = -2f,
+        EdibleAsSprout = true, EdibleOnlyAdult = false,
+    };
+
+    public PlantSpeciesParams Bush { get; set; } = new()
+    {
+        GrowthRate = 0.06f, MaxEnergy = 25f,
+        NutrientNeed = 0.6f, WaterNeed = 0.3f,
+        MaxAge = 3000, SeedDistance = 2,
+        TempOptimal = 25f, TempRange = 20f,
+        DroughtResist = 0.6f,
+        MinTemp = 2f, MaxTemp = 44f, DeathTemp = -1f,
+        EdibleAsSprout = true, EdibleOnlyAdult = false,
+    };
+
+    public PlantSpeciesParams Tree { get; set; } = new()
+    {
+        GrowthRate = 0.03f, MaxEnergy = 60f,
+        NutrientNeed = 1.0f, WaterNeed = 0.5f,
+        MaxAge = 8000, SeedDistance = 5,
+        TempOptimal = 20f, TempRange = 18f,
+        DroughtResist = 0.4f,
+        MinTemp = 3f, MaxTemp = 40f, DeathTemp = 0f,
+        EdibleAsSprout = false, EdibleOnlyAdult = true,
+    };
+}
+
 public sealed class PlantConfig
 {
     public float BaseGrowthRate { get; set; } = 0.05f;
@@ -202,20 +256,21 @@ public sealed class PlantConfig
     public int InitialPlants { get; set; } = 60;
     public float InitialPlantEnergy { get; set; } = 10f;
 
-    // Lifecycle stage thresholds
+    // Lifecycle stage thresholds (shared across species)
     public float SeedGermNutrientMin { get; set; } = 0.3f;
     public float SeedGermWaterMin { get; set; } = 0.2f;
-    public int SeedGermDelay { get; set; } = 15;       // min ticks as seed before germination
-    public float SproutAdultEnergy { get; set; } = 5f;  // energy threshold to become adult
-    public float SproutGrowthMult { get; set; } = 1.8f; // faster growth than adult
-    public float SproutHealthLoss { get; set; } = 0.02f; // health lost per tick under stress
-    public int AdultMaxAge { get; set; } = 4000;        // ticks before forced entry to decay
-    public float DecayRate { get; set; } = 0.03f;       // energy loss per tick in decay
-    public float DecayNutrientReturn { get; set; } = 0.6f; // fraction of energy returned as nutrients
-    public float SeedInitialEnergy { get; set; } = 1f;  // energy for new seeds
+    public int SeedGermDelay { get; set; } = 15;
+    public float SproutAdultEnergy { get; set; } = 5f;
+    public float SproutGrowthMult { get; set; } = 1.8f;
+    public float SproutHealthLoss { get; set; } = 0.02f;
+    public float DecayRate { get; set; } = 0.03f;
+    public float DecayNutrientReturn { get; set; } = 0.6f;
+    public float SeedInitialEnergy { get; set; } = 1f;
     public float SproutInitialHealth { get; set; } = 0.8f;
-    public float AdultSeedCost { get; set; } = 2f;      // energy cost to produce a seed
-    public int MaxPlants { get; set; } = 2000;          // hard cap to prevent unbounded growth
+    public float AdultSeedCost { get; set; } = 2f;
+    public int MaxPlants { get; set; } = 2000;
+
+    public PlantSpeciesConfig Species { get; set; } = new();
 }
 
 public sealed class WaterCycleConfig

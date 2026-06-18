@@ -24,6 +24,10 @@ public partial class CosmosEngine
                 var stage = (PlantStage)plant.Stage;
                 if (stage == PlantStage.Seed) continue; // seeds not edible
 
+                // Species-specific edibility
+                var sp = Spp(plant.Species);
+                if (sp.EdibleOnlyAdult && stage != PlantStage.Adult && stage != PlantStage.Decay) continue;
+
                 int eaters = CountEatersOnFood(plant, i);
                 float efficiency = 1f / MathF.Sqrt(eaters);
                 float stageEff = _v.GetPlantEatEfficiency(px, py);

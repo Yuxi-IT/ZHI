@@ -12,6 +12,13 @@ public enum ZhiAction
     Drink = 7
 }
 
+public enum PlantSpecies : byte
+{
+    Grass = 0,
+    Bush = 1,
+    Tree = 2
+}
+
 public static class ToolDefinitions
 {
     public const int ActionCount = 8;

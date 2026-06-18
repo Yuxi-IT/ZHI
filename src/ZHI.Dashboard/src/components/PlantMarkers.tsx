@@ -2,11 +2,12 @@ import { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import type { FoodTile } from '../types';
 
-const STAGE_COLORS: [number, number, number][] = [
-  [0.55, 0.35, 0.15],  // Seed — brown
-  [0.4, 0.7, 0.25],    // Sprout — light green
-  [0.15, 0.55, 0.1],   // Adult — deep green
-  [0.45, 0.45, 0.35],  // Decay — grey
+// [stage][species]: 0=Grass, 1=Bush, 2=Tree
+const SPECIES_STAGE_COLORS: [number, number, number][][] = [
+  [[0.55, 0.35, 0.15], [0.47, 0.32, 0.16], [0.39, 0.27, 0.14]], // Seed: Grass/Bush/Tree
+  [[0.56, 0.93, 0.56], [0.39, 0.78, 0.31], [0.31, 0.63, 0.24]], // Sprout
+  [[0.13, 0.77, 0.37], [0.08, 0.59, 0.24], [0.06, 0.47, 0.18]], // Adult
+  [[0.50, 0.50, 0.50], [0.43, 0.39, 0.35], [0.35, 0.31, 0.27]], // Decay
 ];
 
 interface Props {
@@ -48,7 +49,8 @@ export function PlantMarkers({ food, gridW, gridH, heightMap, heightScale }: Pro
       const scaleXZ = 0.15 + energyRatio * 0.25;
       dummy.scale.set(scaleXZ, scaleY, scaleXZ);
 
-      const c = STAGE_COLORS[Math.min(p.stage, 3)]!;
+      const speciesIdx = Math.min((p as any).species ?? 0, 2);
+      const c = SPECIES_STAGE_COLORS[Math.min(p.stage, 3)]![speciesIdx]!;
       color.setRGB(c[0], c[1], c[2]);
 
       dummy.updateMatrix();

@@ -236,7 +236,16 @@ public partial class CosmosEngine
                 int y = _rng.Next(H);
                 if (!IsValidFoodPlacement(x, y)) continue;
 
-                // Mix of stages: 80% adult, 20% sprout (no seeds — too slow to establish)
+                // Species distribution: 50% Grass, 30% Bush, 20% Tree
+                float roll = (float)_rng.NextDouble();
+                byte species = roll switch
+                {
+                    < 0.5f => (byte)PlantSpecies.Grass,
+                    < 0.8f => (byte)PlantSpecies.Bush,
+                    _ => (byte)PlantSpecies.Tree,
+                };
+
+                // Mix of stages: 80% adult, 20% sprout
                 var stage = i < plantCount * 0.8f ? PlantStage.Adult : PlantStage.Sprout;
                 float energy = stage switch
                 {
@@ -251,6 +260,7 @@ public partial class CosmosEngine
                         X = x, Y = y,
                         Energy = energy,
                         Stage = (byte)stage,
+                        Species = species,
                         Age = stage == PlantStage.Adult ? _rng.Next(1000) : 0,
                         Health = 0.8f
                     });

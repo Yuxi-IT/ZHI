@@ -41,6 +41,7 @@ export interface FoodTile {
   y: number
   energy: number
   stage: number  // 0=Seed, 1=Sprout, 2=Adult, 3=Decay
+  species: number // 0=Grass, 1=Bush, 2=Tree
   max_energy: number
 }
 

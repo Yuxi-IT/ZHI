@@ -52,7 +52,7 @@ public partial class WebServer
         }
         var food = new List<object>(foodSnap.Length);
         foreach (var f in foodSnap)
-            food.Add(new { x = f.X, y = f.Y, energy = f.Energy, stage = f.Stage, max_energy = _engine.CurrentConfig.Plant.MaxPlantEnergy });
+            food.Add(new { x = f.X, y = f.Y, energy = f.Energy, stage = f.Stage, species = f.Species, max_energy = _engine.CurrentConfig.Plant.MaxPlantEnergy });
 
         var corpses = new List<object>(corpseSnap.Length);
         foreach (var c in corpseSnap)
