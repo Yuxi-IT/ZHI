@@ -236,18 +236,13 @@ public partial class CosmosEngine
                 int y = _rng.Next(H);
                 if (!IsValidFoodPlacement(x, y)) continue;
 
-                // Mix of stages: 60% adult, 30% sprout, 10% seed
-                var stage = i switch
-                {
-                    _ when i < plantCount * 0.6f => PlantStage.Adult,
-                    _ when i < plantCount * 0.9f => PlantStage.Sprout,
-                    _ => PlantStage.Seed
-                };
+                // Mix of stages: 80% adult, 20% sprout (no seeds — too slow to establish)
+                var stage = i < plantCount * 0.8f ? PlantStage.Adult : PlantStage.Sprout;
                 float energy = stage switch
                 {
                     PlantStage.Adult => plantEnergy,
-                    PlantStage.Sprout => plantEnergy * 0.4f,
-                    _ => _config.Plant.SeedInitialEnergy
+                    PlantStage.Sprout => plantEnergy * 0.6f,
+                    _ => plantEnergy
                 };
 
                 lock (_v.LockObj)

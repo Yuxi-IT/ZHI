@@ -187,13 +187,13 @@ public sealed class PlantConfig
     public float NutrientNeed { get; set; } = 0.5f;
     public float NutrientConsumption { get; set; } = 0.1f;
     public float WaterConsumption { get; set; } = 0.05f;
-    public int InitialPlants { get; set; } = 50;
+    public int InitialPlants { get; set; } = 60;
     public float InitialPlantEnergy { get; set; } = 10f;
 
     // Lifecycle stage thresholds
-    public float SeedGermNutrientMin { get; set; } = 0.4f;
-    public float SeedGermWaterMin { get; set; } = 0.25f;
-    public int SeedGermDelay { get; set; } = 30;       // min ticks as seed before germination
+    public float SeedGermNutrientMin { get; set; } = 0.3f;
+    public float SeedGermWaterMin { get; set; } = 0.2f;
+    public int SeedGermDelay { get; set; } = 15;       // min ticks as seed before germination
     public float SproutAdultEnergy { get; set; } = 5f;  // energy threshold to become adult
     public float SproutGrowthMult { get; set; } = 1.8f; // faster growth than adult
     public float SproutHealthLoss { get; set; } = 0.02f; // health lost per tick under stress
