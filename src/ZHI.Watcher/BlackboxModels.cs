@@ -6,9 +6,8 @@ public class DeathRecord
     public int Generation { get; set; }
     public string Cause { get; set; } = "";
     public float StressAtDeath { get; set; }
-    public float ExistenceAtDeath { get; set; }
-    public float HungerAtDeath { get; set; }
-    public float ThirstAtDeath { get; set; }
+    public float EnergyAtDeath { get; set; }
+    public float WaterAtDeath { get; set; }
     public float Temperature { get; set; }
     public float TimeOfDay { get; set; }
     public int PosX { get; set; }
@@ -45,8 +44,8 @@ public class StatsResult
     public float SuicideRateRecent_10 { get; set; }
     public double AvgAliveSecondsAll { get; set; }
     public double AvgAliveSecondsRecent_10 { get; set; }
-    public double AvgHungerAtDeath { get; set; }
-    public double AvgThirstAtDeath { get; set; }
+    public double AvgEnergyAtDeath { get; set; }
+    public double AvgWaterAtDeath { get; set; }
     public double AvgTemperatureAtDeath { get; set; }
     public double AvgAttacksPerLife { get; set; }
     public double AvgEatsPerLife { get; set; }

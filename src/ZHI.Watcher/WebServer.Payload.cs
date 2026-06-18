@@ -19,10 +19,9 @@ public partial class WebServer
                 id = i,
                 x = v.PosX[i],
                 y = v.PosY[i],
-                existence = v.Existence[i],
+                energy = v.Energy[i],
                 stress = v.Stress[i],
-                hunger = v.Hunger[i],
-                thirst = v.Thirst[i],
+                water = v.BodyWater[i],
                 body_temperature = v.BodyTemperature[i],
                 is_eating = v.IsEating[i],
                 is_alive = v.Alive[i],
@@ -40,7 +39,6 @@ public partial class WebServer
                 emit_count = v.EmitCount[i],
                 facing_direction = v.FacingDirection[i],
                 respawn_count = v.RespawnCount[i],
-                stamina = v.Stamina[i],
                 is_stationary = v.IsStationary[i]
             });
         }

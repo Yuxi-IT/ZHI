@@ -66,9 +66,8 @@ public class Blackbox : IDisposable
                 generation INTEGER NOT NULL,
                 cause TEXT NOT NULL,
                 stress_at_death REAL NOT NULL,
-                existence_at_death REAL NOT NULL,
-                hunger_at_death REAL NOT NULL DEFAULT 0,
-                thirst_at_death REAL NOT NULL DEFAULT 0,
+                energy_at_death REAL NOT NULL,
+                water_at_death REAL NOT NULL DEFAULT 0,
                 temperature REAL NOT NULL DEFAULT 20,
                 time_of_day REAL NOT NULL DEFAULT 12,
                 pos_x INTEGER NOT NULL DEFAULT 0,
@@ -118,8 +117,8 @@ public class Blackbox : IDisposable
         // Migrate existing DBs: add any missing columns
         var newColumns = new (string Name, string Type)[]
         {
-            ("hunger_at_death", "REAL NOT NULL DEFAULT 0"),
-            ("thirst_at_death", "REAL NOT NULL DEFAULT 0"),
+            ("energy_at_death", "REAL NOT NULL DEFAULT 0"),
+            ("water_at_death", "REAL NOT NULL DEFAULT 0"),
             ("temperature", "REAL NOT NULL DEFAULT 20"),
             ("time_of_day", "REAL NOT NULL DEFAULT 12"),
             ("pos_x", "INTEGER NOT NULL DEFAULT 0"),
@@ -146,21 +145,20 @@ public class Blackbox : IDisposable
     {
         using var cmd = _db.CreateCommand();
         cmd.CommandText = """
-            INSERT INTO deaths (generation, cause, stress_at_death, existence_at_death,
-                hunger_at_death, thirst_at_death, temperature, time_of_day,
+            INSERT INTO deaths (generation, cause, stress_at_death, energy_at_death,
+                water_at_death, temperature, time_of_day,
                 pos_x, pos_y, attack_count, eat_count, signal_count, respawn_count,
                 pre_death_states, death_time, alive_seconds)
-            VALUES (@gen, @cause, @stress, @exist,
-                @hunger, @thirst, @temp, @tod,
+            VALUES (@gen, @cause, @stress, @energy,
+                @water, @temp, @tod,
                 @px, @py, @atk, @eat, @sig, @resp,
                 @states, @time, @alive)
             """;
         cmd.Parameters.AddWithValue("@gen", record.Generation);
         cmd.Parameters.AddWithValue("@cause", record.Cause);
         cmd.Parameters.AddWithValue("@stress", record.StressAtDeath);
-        cmd.Parameters.AddWithValue("@exist", record.ExistenceAtDeath);
-        cmd.Parameters.AddWithValue("@hunger", record.HungerAtDeath);
-        cmd.Parameters.AddWithValue("@thirst", record.ThirstAtDeath);
+        cmd.Parameters.AddWithValue("@energy", record.EnergyAtDeath);
+        cmd.Parameters.AddWithValue("@water", record.WaterAtDeath);
         cmd.Parameters.AddWithValue("@temp", record.Temperature);
         cmd.Parameters.AddWithValue("@tod", record.TimeOfDay);
         cmd.Parameters.AddWithValue("@px", record.PosX);
@@ -320,24 +318,23 @@ public class Blackbox : IDisposable
     {
         return new DeathRecord
         {
-            Id = reader.GetInt32(0),
-            Generation = reader.GetInt32(1),
-            Cause = reader.GetString(2),
-            StressAtDeath = reader.GetFloat(3),
-            ExistenceAtDeath = reader.GetFloat(4),
-            HungerAtDeath = reader.GetFloat(5),
-            ThirstAtDeath = reader.GetFloat(6),
-            Temperature = reader.GetFloat(7),
-            TimeOfDay = reader.GetFloat(8),
-            PosX = reader.GetInt32(9),
-            PosY = reader.GetInt32(10),
-            AttackCount = reader.GetInt32(11),
-            EatCount = reader.GetInt32(12),
-            EmitCount = reader.GetInt32(13),
-            RespawnCount = reader.GetInt32(14),
-            PreDeathStatesJson = reader.GetString(15),
-            DeathTime = DateTime.Parse(reader.GetString(16)),
-            AliveSeconds = reader.GetDouble(17)
+            Id = reader.GetInt32(reader.GetOrdinal("id")),
+            Generation = reader.GetInt32(reader.GetOrdinal("generation")),
+            Cause = reader.GetString(reader.GetOrdinal("cause")),
+            StressAtDeath = reader.GetFloat(reader.GetOrdinal("stress_at_death")),
+            EnergyAtDeath = reader.GetFloat(reader.GetOrdinal("energy_at_death")),
+            WaterAtDeath = reader.GetFloat(reader.GetOrdinal("water_at_death")),
+            Temperature = reader.GetFloat(reader.GetOrdinal("temperature")),
+            TimeOfDay = reader.GetFloat(reader.GetOrdinal("time_of_day")),
+            PosX = reader.GetInt32(reader.GetOrdinal("pos_x")),
+            PosY = reader.GetInt32(reader.GetOrdinal("pos_y")),
+            AttackCount = reader.GetInt32(reader.GetOrdinal("attack_count")),
+            EatCount = reader.GetInt32(reader.GetOrdinal("eat_count")),
+            EmitCount = reader.GetInt32(reader.GetOrdinal("signal_count")),
+            RespawnCount = reader.GetInt32(reader.GetOrdinal("respawn_count")),
+            PreDeathStatesJson = reader.GetString(reader.GetOrdinal("pre_death_states")),
+            DeathTime = DateTime.Parse(reader.GetString(reader.GetOrdinal("death_time"))),
+            AliveSeconds = reader.GetDouble(reader.GetOrdinal("alive_seconds"))
         };
     }
 
@@ -368,8 +365,8 @@ public class Blackbox : IDisposable
             .ToDictionary(g => g.Key, g => g.Count());
 
         // Aggregate stats from new dimensions
-        result.AvgHungerAtDeath = all.Average(d => d.HungerAtDeath);
-        result.AvgThirstAtDeath = all.Average(d => d.ThirstAtDeath);
+        result.AvgEnergyAtDeath = all.Average(d => d.EnergyAtDeath);
+        result.AvgWaterAtDeath = all.Average(d => d.WaterAtDeath);
         result.AvgTemperatureAtDeath = all.Average(d => d.Temperature);
         result.AvgAttacksPerLife = all.Average(d => d.AttackCount);
         result.AvgEatsPerLife = all.Average(d => d.EatCount);
