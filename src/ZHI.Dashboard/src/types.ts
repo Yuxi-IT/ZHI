@@ -80,6 +80,9 @@ export interface CosmosState {
   groundwater: number[]
   nutrient: number[]
   permeability: number[]
+  pressure: number[]
+  wind_x: number[]
+  wind_y: number[]
   water_cycle: WaterCycleData
 }
 

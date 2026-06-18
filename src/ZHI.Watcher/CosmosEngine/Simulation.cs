@@ -282,6 +282,14 @@ public partial class CosmosEngine
                     _v.FoodScentGrid[x, y] = _foodScentBuf[x * H + y];
         }
 
+        // Wind advection for scent fields
+        float scentAdvRate = _config.Wind.ScentAdvectionRate;
+        if (scentAdvRate > 0f)
+        {
+            AdvectScalarField(_v.ScentGrid, scentAdvRate);
+            AdvectScalarField(_v.FoodScentGrid, scentAdvRate);
+        }
+
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;

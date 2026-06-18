@@ -79,6 +79,9 @@ public partial class VectorizedState : IDisposable
     public float[,] SurfaceWaterGrid; // [W, H] — surface water depth (0 to SurfaceWaterMaxDepth)
     public float[,] GroundwaterGrid;  // [W, H] — groundwater saturation (0 to 1)
     public float[,] Permeability;    // [W, H] — soil infiltration multiplier derived from terrain
+    public float[,] Pressure;        // [W, H] — atmospheric pressure (hPa)
+    public float[,] WindX;           // [W, H] — wind vector X component
+    public float[,] WindY;           // [W, H] — wind vector Y component
 
     // Spatial query grids
     private int[] _agentGrid;
@@ -156,6 +159,9 @@ public partial class VectorizedState : IDisposable
         SurfaceWaterGrid = new float[W, H];
         GroundwaterGrid = new float[W, H];
         Permeability = new float[W, H];
+        Pressure = new float[W, H];
+        WindX = new float[W, H];
+        WindY = new float[W, H];
 
         int gridSize = W * H;
         _agentGrid = new int[gridSize];
@@ -322,6 +328,35 @@ public partial class VectorizedState : IDisposable
                 float slopeNorm = MathF.Min(Slope[x, y] / 30f, 1f);
                 perm -= slopeNorm * 0.4f;
                 Permeability[x, y] = Math.Clamp(perm, 0.2f, 2.0f);
+            }
+    }
+
+    /// <summary>
+    /// Compute atmospheric pressure from temperature (warm = low pressure, cold = high pressure)
+    /// and wind from pressure gradient. Call once per tick after temperature update.
+    /// </summary>
+    public void ComputePressureAndWind(float tempAvg, float pressureTempFactor, float windStrength)
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        // Pressure: P = 1013 - k * (T - Tavg), warm cells have lower pressure
+        for (int x = 0; x < W; x++)
+            for (int y = 0; y < H; y++)
+                Pressure[x, y] = 1013f - pressureTempFactor * (TemperatureGrid[x, y] - tempAvg) * 10f;
+
+        // Wind = -∇P * windStrength (flows from high to low pressure)
+        for (int x = 0; x < W; x++)
+            for (int y = 0; y < H; y++)
+            {
+                float dpdx = 0, dpdy = 0;
+                if (x > 0 && x < W - 1) dpdx = (Pressure[x + 1, y] - Pressure[x - 1, y]) / 2f;
+                else if (x == 0 && W > 1) dpdx = Pressure[1, y] - Pressure[0, y];
+                else if (x == W - 1 && W > 1) dpdx = Pressure[W - 1, y] - Pressure[W - 2, y];
+                if (y > 0 && y < H - 1) dpdy = (Pressure[x, y + 1] - Pressure[x, y - 1]) / 2f;
+                else if (y == 0 && H > 1) dpdy = Pressure[x, 1] - Pressure[x, 0];
+                else if (y == H - 1 && H > 1) dpdy = Pressure[x, H - 1] - Pressure[x, H - 2];
+                WindX[x, y] = -dpdx * windStrength;
+                WindY[x, y] = -dpdy * windStrength;
             }
     }
 

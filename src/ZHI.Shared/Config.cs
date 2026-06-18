@@ -20,6 +20,7 @@ public sealed class ZhiConfig
     public NutrientConfig Nutrient { get; set; } = new();
     public WaterCycleConfig WaterCycle { get; set; } = new();
     public PlantConfig Plant { get; set; } = new();
+    public WindConfig Wind { get; set; } = new();
     public int Port { get; set; } = 19816;
     public int DecisionIntervalMs { get; set; } = 200;
     public int DeathCount { get; set; } = 0;
@@ -240,6 +241,16 @@ public sealed class MetabolismConfig
     public float StationaryNeighborHeat { get; set; } = 0.3f;
     public float SlopeMoveExp { get; set; } = 0.5f;    // moveCost *= exp(slope * k), continuous penalty
     public float VisionHeightBonus { get; set; } = 0.15f; // effective vision += height/255 * k
+}
+
+public sealed class WindConfig
+{
+    public float PressureTempFactor { get; set; } = 0.5f;  // pressure drop per °C deviation from avg
+    public float WindStrength { get; set; } = 1.0f;        // global wind multiplier
+    public float AdvectionRate { get; set; } = 0.05f;      // temperature advection per tick
+    public float ScentAdvectionRate { get; set; } = 0.08f; // scent/food-scent advection per tick
+    public float EvaporationWindMult { get; set; } = 1.5f; // evaporation multiplier at wind speed 1
+    public float SeedWindDrift { get; set; } = 0.5f;       // seed dispersal wind influence (0=random, 1=pure downwind)
 }
 
 

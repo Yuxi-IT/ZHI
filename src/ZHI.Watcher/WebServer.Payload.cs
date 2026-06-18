@@ -120,6 +120,20 @@ public partial class WebServer
             for (int py = 0; py < gh; py++)
                 permeability[py * gw + px] = v.Permeability[px, py];
 
+        var pressure = new float[gw * gh];
+        for (int px = 0; px < gw; px++)
+            for (int py = 0; py < gh; py++)
+                pressure[py * gw + px] = v.Pressure[px, py];
+
+        var windX = new float[gw * gh];
+        var windY = new float[gw * gh];
+        for (int wx = 0; wx < gw; wx++)
+            for (int wy = 0; wy < gh; wy++)
+            {
+                windX[wy * gw + wx] = v.WindX[wx, wy];
+                windY[wy * gw + wx] = v.WindY[wx, wy];
+            }
+
         float totalEnergySrc = _engine.GenFoodEnergy + _engine.GenCorpseEnergy;
         float foodPct = totalEnergySrc > 0 ? _engine.GenFoodEnergy / totalEnergySrc * 100f : 0;
         float corpsePct = totalEnergySrc > 0 ? _engine.GenCorpseEnergy / totalEnergySrc * 100f : 0;
@@ -162,6 +176,9 @@ public partial class WebServer
             groundwater,
             nutrient,
             permeability,
+            pressure,
+            wind_x = windX,
+            wind_y = windY,
             water_cycle = new
             {
                 humidity = _engine.Humidity,

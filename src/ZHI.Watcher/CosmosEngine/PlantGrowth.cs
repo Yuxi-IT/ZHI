@@ -85,8 +85,9 @@ public partial class CosmosEngine
                 }
             }
 
-            // 2. Plant spreading (seed dispersal)
+            // 2. Plant spreading (seed dispersal with wind drift)
             var spreadCandidates = new List<FoodTile>(_v.FoodTiles);
+            float seedWindDrift = _config.Wind.SeedWindDrift;
             foreach (var plant in spreadCandidates)
             {
                 if (plant.Energy < maxEnergy * 0.5f) continue;
@@ -95,10 +96,19 @@ public partial class CosmosEngine
                 if (_rng.NextDouble() > spreadChance) continue;
 
                 int radius = _config.Plant.SpreadRadius;
+                // Wind-biased dispersal: blend random direction with wind direction
+                float wx = _v.WindX[plant.X, plant.Y], wy = _v.WindY[plant.X, plant.Y];
+                float windMag = MathF.Sqrt(wx * wx + wy * wy);
+                float windDirX = windMag > 0.01f ? wx / windMag : 0f;
+                float windDirY = windMag > 0.01f ? wy / windMag : 0f;
+
                 for (int attempt = 0; attempt < 3; attempt++)
                 {
                     int dx = _rng.Next(-radius, radius + 1);
                     int dy = _rng.Next(-radius, radius + 1);
+                    // Drift toward downwind direction
+                    dx += (int)MathF.Round(windDirX * radius * seedWindDrift * (float)_rng.NextDouble());
+                    dy += (int)MathF.Round(windDirY * radius * seedWindDrift * (float)_rng.NextDouble());
                     if (dx == 0 && dy == 0) continue;
                     int nx = plant.X + dx, ny = plant.Y + dy;
                     if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;

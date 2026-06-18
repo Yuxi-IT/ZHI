@@ -21,6 +21,9 @@ export interface DrawData {
   groundwater: number[];
   nutrient: number[];
   permeability: number[];
+  pressure: number[];
+  windX: number[];
+  windY: number[];
   events: WorldEvent[];
   timeOfDay: number;
   trackedAgent: number | null;
@@ -44,6 +47,8 @@ interface Props {
   showSurfaceWater?: boolean;
   showNutrient?: boolean;
   showPermeability?: boolean;
+  showPressure?: boolean;
+  showWind?: boolean;
 }
 
 interface TooltipInfo {
@@ -71,6 +76,8 @@ export const WorldMap = memo(function WorldMap({
   showTerrain = false, showFlow = false,
   showGroundwater = false, showSurfaceWater = false, showNutrient = false,
   showPermeability = false,
+  showPressure = false,
+  showWind = false,
 }: Props) {
   const { t } = useT();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -98,7 +105,7 @@ export const WorldMap = memo(function WorldMap({
       const data = drawDataRef.current;
       const { agents, food, corpses, river, scent, foodScent, chemicalField,
         temperatureGrid, heightMap, slope, riverFlow,
-        surfaceWater, groundwater, nutrient, permeability, events, timeOfDay } = data;
+        surfaceWater, groundwater, nutrient, permeability, pressure, windX, windY, events, timeOfDay } = data;
       const tracked = trackedProp !== undefined ? trackedProp : data.trackedAgent;
 
       // Process new events → floating texts (use monotonic _eid to survive clears/truncation)
@@ -380,6 +387,67 @@ export const WorldMap = memo(function WorldMap({
         }
       }
 
+      // Pressure
+      if (showPressure && pressure && pressure.length > 0) {
+        const sc = Math.max(0, Math.floor(cam.x / cellSize));
+        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
+        const sr = Math.max(0, Math.floor(cam.y / cellSize));
+        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
+        for (let gx = sc; gx < ec; gx++) {
+          for (let gy = sr; gy < er; gy++) {
+            const p = pressure[gy * gridW + gx]!;
+            const t = (p - 1000) / 30; // normalize around 1000-1030 hPa
+            const ct = Math.max(-1, Math.min(1, t));
+            if (ct < 0) {
+              // Low pressure: warm colors
+              ctx.fillStyle = `rgba(${Math.round(239 + ct * 50)},${Math.round(68 - ct * 30)},${Math.round(68 - ct * 30)},0.2)`;
+            } else {
+              // High pressure: cool colors
+              ctx.fillStyle = `rgba(${Math.round(59 - ct * 30)},${Math.round(130 - ct * 50)},${Math.round(246 - ct * 50)},0.2)`;
+            }
+            ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+
+      // Wind arrows
+      if (showWind && windX && windY && windX.length > 0 && cellSize > 6) {
+        const sc = Math.max(0, Math.floor(cam.x / cellSize));
+        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
+        const sr = Math.max(0, Math.floor(cam.y / cellSize));
+        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
+        const arrowStep = Math.max(1, Math.floor(8 / cam.zoom));
+        for (let gx = sc; gx < ec; gx += arrowStep) {
+          for (let gy = sr; gy < er; gy += arrowStep) {
+            const wx = windX[gy * gridW + gx]!;
+            const wy = windY[gy * gridW + gx]!;
+            const mag = Math.sqrt(wx * wx + wy * wy);
+            if (mag < 0.05) continue;
+            const cx = gx * cellSize + cellSize / 2;
+            const cy = gy * cellSize + cellSize / 2;
+            const len = Math.min(mag * cellSize * 3, cellSize * 1.5);
+            const nx = wx / mag, ny = wy / mag;
+            const ex = cx + nx * len, ey = cy + ny * len;
+            ctx.strokeStyle = `rgba(255, 255, 255, ${Math.min(0.6, mag * 2)})`;
+            ctx.lineWidth = Math.max(0.5, mag * 1.5);
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(ex, ey);
+            ctx.stroke();
+            // Arrowhead
+            if (len > 3) {
+              const ah = len * 0.3;
+              ctx.beginPath();
+              ctx.moveTo(ex, ey);
+              ctx.lineTo(ex - nx * ah + ny * ah * 0.5, ey - ny * ah - nx * ah * 0.5);
+              ctx.lineTo(ex - nx * ah - ny * ah * 0.5, ey - ny * ah + nx * ah * 0.5);
+              ctx.closePath();
+              ctx.fill();
+            }
+          }
+        }
+      }
+
       // Corpses
       const corpseSz = Math.max(cellSize * 0.6, 2);
       for (const c of corpses) {
@@ -519,7 +587,7 @@ export const WorldMap = memo(function WorldMap({
         : t('map.hudNormal', { zoom: zoomPct, alive, total: agents.length });
       ctx.fillText(hud, 8, 8);
     };
-  }, [showScent, showFoodScent, showDirection, showVision, showChemical, showTemp, showTerrain, showFlow, showGroundwater, showSurfaceWater, showNutrient, showPermeability, gridW, gridH, t, trackedProp, drawDataRef]);
+  }, [showScent, showFoodScent, showDirection, showVision, showChemical, showTemp, showTerrain, showFlow, showGroundwater, showSurfaceWater, showNutrient, showPermeability, showPressure, showWind, gridW, gridH, t, trackedProp, drawDataRef]);
 
   // Stable rAF loop — starts once, never restarts
   useEffect(() => {
@@ -566,7 +634,7 @@ export const WorldMap = memo(function WorldMap({
         setTrackedAgent(null);
       } else {
         // Inline tooltip computation from drawDataRef
-        const { agents, food, corpses, river, heightMap, slope, temperatureGrid, surfaceWater, groundwater, nutrient, permeability } = drawDataRef.current;
+        const { agents, food, corpses, river, heightMap, slope, temperatureGrid, surfaceWater, groundwater, nutrient, permeability, pressure, windX, windY } = drawDataRef.current;
         const cam = camRef.current;
         const cellSize = cam.zoom * (rect.width / gridW);
         const gx = Math.floor((cam.x + mx) / cellSize);
@@ -617,6 +685,16 @@ export const WorldMap = memo(function WorldMap({
         if (showPermeability && permeability && permeability.length > 0) {
           const p = permeability[gy * gridW + gx] ?? 1;
           lines.push(`${t('map.permeability')}: ${p.toFixed(2)}`);
+        }
+        if (showPressure && pressure && pressure.length > 0) {
+          const p = pressure[gy * gridW + gx] ?? 1013;
+          lines.push(`${t('map.pressure')}: ${p.toFixed(0)} hPa`);
+        }
+        if (showWind && windX && windY && windX.length > 0) {
+          const wx = windX[gy * gridW + gx] ?? 0;
+          const wy = windY[gy * gridW + gx] ?? 0;
+          const wspd = Math.sqrt(wx * wx + wy * wy);
+          lines.push(`${t('map.wind')}: ${wspd.toFixed(2)} (${wx.toFixed(1)}, ${wy.toFixed(1)})`);
         }
         if (showNutrient && nutrient && nutrient.length > 0) {
           const nu = nutrient[gy * gridW + gx] ?? 0;
@@ -669,7 +747,7 @@ export const WorldMap = memo(function WorldMap({
       canvas.removeEventListener('mouseleave', onMouseLeave);
       canvas.removeEventListener('dblclick', onDblClick);
     };
-  }, [gridW, gridH, showTerrain, showTemp, showSurfaceWater, showGroundwater, showNutrient, showPermeability, t, trackedAgent, setTrackedAgent, drawDataRef]);
+  }, [gridW, gridH, showTerrain, showTemp, showSurfaceWater, showGroundwater, showNutrient, showPermeability, showPressure, showWind, t, trackedAgent, setTrackedAgent, drawDataRef]);
 
   return (
     <div className="w-full h-full relative">
@@ -707,5 +785,7 @@ export const WorldMap = memo(function WorldMap({
     && prev.showGroundwater === next.showGroundwater
     && prev.showSurfaceWater === next.showSurfaceWater
     && prev.showNutrient === next.showNutrient
-    && prev.showPermeability === next.showPermeability;
+    && prev.showPermeability === next.showPermeability
+    && prev.showPressure === next.showPressure
+    && prev.showWind === next.showWind;
 });

@@ -36,7 +36,7 @@ function tempColor(t: number): string {
 }
 
 export function WorldDashboard({ worldName, onStop }: Props) {
-  const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, chemicalField, heightMap, slope, riverFlow, surfaceWater, groundwater, nutrient, permeability, waterCycle, plantCount, stats, connected } = useWebSocket();
+  const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, chemicalField, heightMap, slope, riverFlow, surfaceWater, groundwater, nutrient, permeability, pressure, windX, windY, waterCycle, plantCount, stats, connected } = useWebSocket();
   const { logs, events, clearEvents } = useLogSocket();
   const { stats: dbStats, loading } = useStats();
   const { history, record } = useEcoHistory();
@@ -65,18 +65,20 @@ export function WorldDashboard({ worldName, onStop }: Props) {
   const [showSurfaceWater, setShowSurfaceWater] = useState(false);
   const [showNutrient, setShowNutrient] = useState(false);
   const [showPermeability, setShowPermeability] = useState(false);
+  const [showPressure, setShowPressure] = useState(false);
+  const [showWind, setShowWind] = useState(false);
 
   const aliveCount = agents.filter(a => a.is_alive).length;
 
   const drawDataRef = useRef<DrawData>({
     agents: [], food: [], corpses: [], river: [], scent: [], foodScent: [],
     chemicalField: [], temperatureGrid: [], heightMap: [], slope: [], riverFlow: [],
-    surfaceWater: [], groundwater: [], nutrient: [], permeability: [],
+    surfaceWater: [], groundwater: [], nutrient: [], permeability: [], pressure: [], windX: [], windY: [],
     events: [], timeOfDay: 12, trackedAgent: null,
   });
   drawDataRef.current = {
     agents, food, corpses, river, scent, foodScent, chemicalField,
-    temperatureGrid, heightMap, slope, riverFlow, surfaceWater, groundwater, nutrient, permeability,
+    temperatureGrid, heightMap, slope, riverFlow, surfaceWater, groundwater, nutrient, permeability, pressure, windX, windY,
     events,
     timeOfDay, trackedAgent,
   };
@@ -261,6 +263,8 @@ export function WorldDashboard({ worldName, onStop }: Props) {
             showSurfaceWater={showSurfaceWater} setShowSurfaceWater={setShowSurfaceWater}
             showNutrient={showNutrient} setShowNutrient={setShowNutrient}
             showPermeability={showPermeability} setShowPermeability={setShowPermeability}
+            showPressure={showPressure} setShowPressure={setShowPressure}
+            showWind={showWind} setShowWind={setShowWind}
             trackNextGen={trackNextGen} setTrackNextGen={setTrackNextGen}
           />
 
@@ -283,6 +287,8 @@ export function WorldDashboard({ worldName, onStop }: Props) {
               showSurfaceWater={showSurfaceWater}
               showNutrient={showNutrient}
               showPermeability={showPermeability}
+              showPressure={showPressure}
+              showWind={showWind}
             />
           </div>
 
@@ -353,6 +359,8 @@ type ToggleKeys = {
   showSurfaceWater: boolean; setShowSurfaceWater: (v: boolean) => void;
   showNutrient: boolean; setShowNutrient: (v: boolean) => void;
   showPermeability: boolean; setShowPermeability: (v: boolean) => void;
+  showPressure: boolean; setShowPressure: (v: boolean) => void;
+  showWind: boolean; setShowWind: (v: boolean) => void;
   trackNextGen: boolean; setTrackNextGen: (v: boolean) => void;
 };
 
@@ -371,6 +379,8 @@ const DisplayToggles = memo(function DisplayToggles(p: ToggleKeys) {
     [p.showSurfaceWater, p.setShowSurfaceWater, t('toggle.surfaceWater'), 'border-cyan-600 text-cyan-400 bg-cyan-900/20'],
     [p.showNutrient, p.setShowNutrient, t('toggle.nutrient'), 'border-amber-600 text-amber-400 bg-amber-900/20'],
     [p.showPermeability, p.setShowPermeability, t('toggle.permeability'), 'border-teal-600 text-teal-400 bg-teal-900/20'],
+    [p.showPressure, p.setShowPressure, t('toggle.pressure'), 'border-red-600 text-red-400 bg-red-900/20'],
+    [p.showWind, p.setShowWind, t('toggle.wind'), 'border-slate-400 text-slate-300 bg-slate-700/30'],
     [p.trackNextGen, p.setTrackNextGen, t('toggle.trackRebirth'), 'border-cyan-600 text-cyan-400 bg-cyan-900/20'],
   ];
 

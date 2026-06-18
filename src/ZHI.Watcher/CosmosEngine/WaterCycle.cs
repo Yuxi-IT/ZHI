@@ -59,6 +59,7 @@ public partial class CosmosEngine
 
         float evapRate = _config.WaterCycle.EvaporationRate;
         float tempFactor = MathF.Max(0, (_temperature - 5f) / 30f);
+        float windEvapMult = _config.Wind.EvaporationWindMult;
 
         for (int x = 0; x < W; x++)
             for (int y = 0; y < H; y++)
@@ -66,7 +67,11 @@ public partial class CosmosEngine
                 float water = _v.SurfaceWaterGrid[x, y];
                 if (water <= 0) continue;
 
-                float evap = evapRate * tempFactor * water;
+                // Wind accelerates evaporation
+                float windSpeed = MathF.Sqrt(_v.WindX[x, y] * _v.WindX[x, y] + _v.WindY[x, y] * _v.WindY[x, y]);
+                float windFactor = 1f + windSpeed * windEvapMult;
+
+                float evap = evapRate * tempFactor * water * windFactor;
                 _v.SurfaceWaterGrid[x, y] = MathF.Max(0, water - evap);
                 _humidity = MathF.Min(1f, _humidity + evap * 0.01f);
             }
