@@ -5,13 +5,11 @@ import { useT } from '../i18n/I18nContext';
 export interface ZhiConfig {
   grid: { width: number; height: number; max_agents: number; initial_food: number; food_energy: number; food_decay_per_tick: number; food_per_tick_energy: number; corpse_per_tick_energy: number };
   cosmos: { agent_count: number; elite_count: number; mutation_rate: number; mutation_std: number; mutation_rate_min: number; mutation_decay_generations: number; respawn_delay_ticks: number };
-  temperature: { max_temp: number; min_temp: number; cold_threshold: number; max_cold_decay: number; hot_threshold: number; max_thirst_accel: number; huddle_range: number; huddle_warmth_per_agent: number; agent_body_heat: number; land_lerp_rate: number; water_heat_capacity: number; thermal_diffusion_rate: number; river_land_influence: number; hypothermia_threshold: number; hypothermia_max_damage: number; water_cooling_mult: number; deep_water_extra_cold: number; min_body_temp: number };
+  temperature: { max_temp: number; min_temp: number; cold_threshold: number; max_cold_decay: number; hot_threshold: number; max_water_decay_mult: number; huddle_range: number; huddle_warmth_per_agent: number; agent_body_heat: number; land_lerp_rate: number; water_heat_capacity: number; thermal_diffusion_rate: number; river_land_influence: number; hypothermia_threshold: number; hypothermia_max_damage: number; water_cooling_mult: number; deep_water_extra_cold: number; min_body_temp: number };
   combat: { attack_range: number; stress_per_attack: number; stress_damage: number; attack_cost: number };
-  hunger: { initial: number; decay_rate: number; penalty_start: number; max_penalty: number };
-  thirst: { initial: number; decay_rate: number; drink_restore: number; penalty_start: number; max_penalty: number };
   river: { count: number; width: number; deep_width: number; ford_chance: number; sound_range: number; sound_decay: number };
-  existence: { initial: number; decay_per_tick: number };
-  reproduce: { min_existence: number; min_age: number; cooldown: number; parent_cost: number; child_start: number; mutation_scale: number };
+  metabolism: { energy_initial: number; energy_decay_base: number; cold_energy_decay_max: number; water_initial: number; water_decay_rate: number; drink_restore: number; dehydration_threshold: number; dehydration_energy_penalty: number; move_cost: number; attack_cost_base: number; emit_cost: number; shallow_water_move_extra: number; deep_water_move_extra: number; deep_water_climb_extra: number; low_energy_threshold: number; stationary_ticks_required: number; stationary_damage_mult: number; stationary_self_heat: number; stationary_neighbor_heat: number };
+  reproduce: { min_energy: number; min_age: number; cooldown: number; parent_cost: number; child_start: number; mutation_scale: number };
   age_death: { max_age: number; stage1_age: number; stage1_decay: number; stage2_age: number; stage2_decay: number; stage3_age: number; stage3_decay: number };
   signal: { cost: number; num_values: number; wave_radius: number };
   scent: { deposit_amount: number; decay_rate: number; diffusion_rate: number };
@@ -27,20 +25,17 @@ export interface ZhiConfig {
 export const DEFAULT_CONFIG: ZhiConfig = {
   grid: { width: 64, height: 64, max_agents: 512, initial_food: 50, food_energy: 10, food_decay_per_tick: 0.05, food_per_tick_energy: 1.0, corpse_per_tick_energy: 1.0 },
   cosmos: { agent_count: 64, elite_count: 2, mutation_rate: 0.1, mutation_std: 0.02, mutation_rate_min: 0.02, mutation_decay_generations: 100, respawn_delay_ticks: 25 },
-  temperature: { max_temp: 35, min_temp: 5, cold_threshold: 15, max_cold_decay: 0.15, hot_threshold: 30, max_thirst_accel: 1.5, huddle_range: 2, huddle_warmth_per_agent: 3, agent_body_heat: 2, land_lerp_rate: 0.25, water_heat_capacity: 4, thermal_diffusion_rate: 0.12, river_land_influence: 8, hypothermia_threshold: 33, hypothermia_max_damage: 0.08, water_cooling_mult: 2, deep_water_extra_cold: 3, min_body_temp: 26 },
+  temperature: { max_temp: 35, min_temp: 5, cold_threshold: 15, max_cold_decay: 0.15, hot_threshold: 30, max_water_decay_mult: 1.5, huddle_range: 2, huddle_warmth_per_agent: 3, agent_body_heat: 0.3, land_lerp_rate: 0.25, water_heat_capacity: 4, thermal_diffusion_rate: 0.12, river_land_influence: 8, hypothermia_threshold: 33, hypothermia_max_damage: 0.08, water_cooling_mult: 2, deep_water_extra_cold: 3, min_body_temp: 26 },
   combat: { attack_range: 1, stress_per_attack: 0.5, stress_damage: 0.1, attack_cost: 1.0 },
-  hunger: { initial: 100, decay_rate: 0.05, penalty_start: 60, max_penalty: 0.25 },
-  thirst: { initial: 100, decay_rate: 0.1, drink_restore: 40, penalty_start: 70, max_penalty: 0.8 },
   river: { count: 1, width: 5, deep_width: 1, ford_chance: 25, sound_range: 10, sound_decay: 0.9 },
-  existence: { initial: 100, decay_per_tick: 0.1 },
-  reproduce: { min_existence: 80, min_age: 200, cooldown: 500, parent_cost: 40, child_start: 40, mutation_scale: 0.3 },
+  metabolism: { energy_initial: 100, energy_decay_base: 0.1, cold_energy_decay_max: 0.15, water_initial: 100, water_decay_rate: 0.1, drink_restore: 40, dehydration_threshold: 30, dehydration_energy_penalty: 0.3, move_cost: 0.5, attack_cost_base: 8, emit_cost: 3, shallow_water_move_extra: 1, deep_water_move_extra: 2.5, deep_water_climb_extra: 1, low_energy_threshold: 10, stationary_ticks_required: 5, stationary_damage_mult: 1.2, stationary_self_heat: 0.5, stationary_neighbor_heat: 0.3 },
+  reproduce: { min_energy: 80, min_age: 200, cooldown: 500, parent_cost: 40, child_start: 40, mutation_scale: 0.3 },
   age_death: { max_age: 8000, stage1_age: 5000, stage1_decay: 0.02, stage2_age: 6000, stage2_decay: 0.05, stage3_age: 7000, stage3_decay: 0.1 },
-  signal: { cost: 0.25, num_values: 4, wave_radius: 4 },
+  signal: { cost: 3, num_values: 4, wave_radius: 4 },
   scent: { deposit_amount: 1.0, decay_rate: 0.95, diffusion_rate: 0.1 },
   food_scent: { decay_rate: 0.85, diffusion_rate: 0.08, small_food_emission: 0.3, spread_radius: 2 },
   network: { learning_rate: 0.001, gamma: 0.99 },
   corpse: { energy: 20, decay_per_tick: 0.067, scent_amount: 0.5 },
-  stamina: { max_stamina: 100, move_cost: 0.5, attack_cost: 8, push_cost: 12, terraform_cost: 20, signal_cost: 3, shove_cost: 15, pull_cost: 10, shallow_water_move_extra: 1, deep_water_move_extra: 2.5, deep_water_climb_extra: 1, base_recovery: 1, stationary_recovery_bonus: 2, low_stamina_threshold: 10, stationary_ticks_required: 5, stationary_damage_mult: 1.2, stationary_self_heat: 3, stationary_neighbor_heat: 2, stationary_hp_recovery_bonus: 0.1 },
   plant: { base_growth_rate: 0.05, max_plant_energy: 20, spread_chance: 0.02, spread_radius: 2, min_temp: 0, optimal_temp: 25, max_temp: 45, death_temp: -2, water_need: 0.2, nutrient_need: 0.5, nutrient_consumption: 0.1, water_consumption: 0.05, initial_plants: 50, initial_plant_energy: 10 },
   nutrient: { corpse_to_nutrient_ratio: 0.5, plant_to_nutrient_ratio: 0.3, diffusion_rate: 0.02, max_nutrient: 10, initial_nutrient: 2 },
   water_cycle: { surface_water_max_depth: 3, surface_flow_rate: 0.3, evaporation_rate: 0.05, max_groundwater: 1, absorption_rate: 0.1, groundwater_diffusion_rate: 0.01, rain_amount: 0.5, rain_interval_min: 200, rain_interval_max: 600, rain_radius: 10 },
@@ -94,9 +89,9 @@ export function ConfigFormFields({ config, update }: {
 }) {
   const { t } = useT();
   const g = config.grid, co = config.cosmos, te = config.temperature, cb = config.combat;
-  const r = config.river, h = config.hunger, th = config.thirst, e = config.existence;
+  const r = config.river, m = config.metabolism;
   const re = config.reproduce, ad = config.age_death, si = config.signal;
-  const co2 = config.corpse, st = config.stamina;
+  const co2 = config.corpse;
   return (
     <div className="space-y-0.5">
       <ConfigSection title={t('settings.world')} defaultExpanded>
@@ -117,17 +112,24 @@ export function ConfigFormFields({ config, update }: {
         <NumberField label={t('settings.corpsePerTick')} value={g.corpse_per_tick_energy} onChange={v => update('grid', 'corpse_per_tick_energy', v)} min={0.1} max={20} step={0.1} />
       </ConfigSection>
 
-      <ConfigSection title={t('settings.physiology')}>
-        <NumberField label={t('settings.hungerDecay')} value={h.decay_rate} onChange={v => update('hunger', 'decay_rate', v)} min={0} max={1} step={0.01} />
-        <NumberField label={t('settings.thirstDecay')} value={th.decay_rate} onChange={v => update('thirst', 'decay_rate', v)} min={0} max={1} step={0.01} />
-        <NumberField label={t('settings.drinkRestore')} value={th.drink_restore} onChange={v => update('thirst', 'drink_restore', v)} min={1} max={100} />
-        <NumberField label={t('settings.hungerPenaltyStart')} value={h.penalty_start} onChange={v => update('hunger', 'penalty_start', v)} min={0} max={100} />
-        <NumberField label={t('settings.thirstPenaltyStart')} value={th.penalty_start} onChange={v => update('thirst', 'penalty_start', v)} min={0} max={100} />
-        <NumberField label={t('settings.hpDecay')} value={e.decay_per_tick} onChange={v => update('existence', 'decay_per_tick', v)} min={0} max={2} step={0.01} />
+      <ConfigSection title={t('settings.metabolism')}>
+        <NumberField label={t('settings.energyInitial')} value={m.energy_initial} onChange={v => update('metabolism', 'energy_initial', v)} min={10} max={200} />
+        <NumberField label={t('settings.energyDecayBase')} value={m.energy_decay_base} onChange={v => update('metabolism', 'energy_decay_base', v)} min={0} max={2} step={0.01} />
+        <NumberField label={t('settings.coldEnergyDecayMax')} value={m.cold_energy_decay_max} onChange={v => update('metabolism', 'cold_energy_decay_max', v)} min={0} max={1} step={0.01} />
+        <NumberField label={t('settings.waterInitial')} value={m.water_initial} onChange={v => update('metabolism', 'water_initial', v)} min={10} max={200} />
+        <NumberField label={t('settings.waterDecayRate')} value={m.water_decay_rate} onChange={v => update('metabolism', 'water_decay_rate', v)} min={0} max={1} step={0.01} />
+        <NumberField label={t('settings.drinkRestore')} value={m.drink_restore} onChange={v => update('metabolism', 'drink_restore', v)} min={1} max={100} />
+        <NumberField label={t('settings.dehydrationThreshold')} value={m.dehydration_threshold} onChange={v => update('metabolism', 'dehydration_threshold', v)} min={0} max={100} />
+        <NumberField label={t('settings.dehydrationEnergyPenalty')} value={m.dehydration_energy_penalty} onChange={v => update('metabolism', 'dehydration_energy_penalty', v)} min={0} max={1} step={0.05} />
+        <NumberField label={t('settings.moveCost')} value={m.move_cost} onChange={v => update('metabolism', 'move_cost', v)} min={0} max={10} step={0.1} />
+        <NumberField label={t('settings.attackCostBase')} value={m.attack_cost_base} onChange={v => update('metabolism', 'attack_cost_base', v)} min={0} max={50} step={0.5} />
+        <NumberField label={t('settings.emitCost')} value={m.emit_cost} onChange={v => update('metabolism', 'emit_cost', v)} min={0} max={20} step={0.5} />
+        <NumberField label={t('settings.lowEnergyThreshold')} value={m.low_energy_threshold} onChange={v => update('metabolism', 'low_energy_threshold', v)} min={0} max={50} />
+        <NumberField label={t('settings.stationaryTicksRequired')} value={m.stationary_ticks_required} onChange={v => update('metabolism', 'stationary_ticks_required', v)} min={1} max={50} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.reproduction')}>
-        <NumberField label={t('settings.minExistence')} value={re.min_existence} onChange={v => update('reproduce', 'min_existence', v)} min={0} max={100} />
+        <NumberField label={t('settings.minEnergy')} value={re.min_energy} onChange={v => update('reproduce', 'min_energy', v)} min={0} max={100} />
         <NumberField label={t('settings.minAge')} value={re.min_age} onChange={v => update('reproduce', 'min_age', v)} min={0} max={2000} />
         <NumberField label={t('settings.reproCooldown')} value={re.cooldown} onChange={v => update('reproduce', 'cooldown', v)} min={0} max={5000} />
         <NumberField label={t('settings.parentCost')} value={re.parent_cost} onChange={v => update('reproduce', 'parent_cost', v)} min={0} max={100} />
@@ -142,7 +144,7 @@ export function ConfigFormFields({ config, update }: {
         <NumberField label={t('settings.coldThreshold')} value={te.cold_threshold} onChange={v => update('temperature', 'cold_threshold', v)} min={-10} max={40} />
         <NumberField label={t('settings.maxColdDecay')} value={te.max_cold_decay} onChange={v => update('temperature', 'max_cold_decay', v)} min={0} max={1} step={0.01} />
         <NumberField label={t('settings.hotThreshold')} value={te.hot_threshold} onChange={v => update('temperature', 'hot_threshold', v)} min={10} max={50} />
-        <NumberField label={t('settings.maxThirstAccel')} value={te.max_thirst_accel} onChange={v => update('temperature', 'max_thirst_accel', v)} min={1} max={5} step={0.1} />
+        <NumberField label={t('settings.maxWaterDecayMult')} value={te.max_water_decay_mult} onChange={v => update('temperature', 'max_water_decay_mult', v)} min={1} max={5} step={0.1} />
         <NumberField label={t('settings.agentBodyHeat')} value={te.agent_body_heat} onChange={v => update('temperature', 'agent_body_heat', v)} min={0} max={10} step={0.5} />
         <NumberField label={t('settings.huddleRange')} value={te.huddle_range} onChange={v => update('temperature', 'huddle_range', v)} min={0} max={10} />
         <NumberField label={t('settings.huddleWarmth')} value={te.huddle_warmth_per_agent} onChange={v => update('temperature', 'huddle_warmth_per_agent', v)} min={0} max={20} step={0.5} />
@@ -175,18 +177,6 @@ export function ConfigFormFields({ config, update }: {
         <NumberField label={t('settings.signalCost')} value={si.cost} onChange={v => update('signal', 'cost', v)} min={0} max={5} step={0.05} />
         <NumberField label={t('settings.signalNumValues')} value={si.num_values} onChange={v => update('signal', 'num_values', v)} min={1} max={8} />
         <NumberField label={t('settings.signalWaveRadius')} value={si.wave_radius} onChange={v => update('signal', 'wave_radius', v)} min={1} max={10} />
-      </ConfigSection>
-
-      <ConfigSection title={t('settings.stamina')}>
-        <NumberField label={t('settings.maxStamina')} value={st.max_stamina} onChange={v => update('stamina', 'max_stamina', v)} min={10} max={200} />
-        <NumberField label={t('settings.moveCost')} value={st.move_cost} onChange={v => update('stamina', 'move_cost', v)} min={0} max={10} step={0.1} />
-        <NumberField label={t('settings.staminaAttackCost')} value={st.attack_cost} onChange={v => update('stamina', 'attack_cost', v)} min={0} max={50} step={0.5} />
-        <NumberField label={t('settings.pushCost')} value={st.push_cost} onChange={v => update('stamina', 'push_cost', v)} min={0} max={50} step={0.5} />
-        <NumberField label={t('settings.terraformCost')} value={st.terraform_cost} onChange={v => update('stamina', 'terraform_cost', v)} min={0} max={50} step={0.5} />
-        <NumberField label={t('settings.staminaSignalCost')} value={st.signal_cost} onChange={v => update('stamina', 'signal_cost', v)} min={0} max={20} step={0.5} />
-        <NumberField label={t('settings.baseRecovery')} value={st.base_recovery} onChange={v => update('stamina', 'base_recovery', v)} min={0} max={10} step={0.1} />
-        <NumberField label={t('settings.lowStaminaThreshold')} value={st.low_stamina_threshold} onChange={v => update('stamina', 'low_stamina_threshold', v)} min={0} max={50} />
-        <NumberField label={t('settings.stationaryTicksRequired')} value={st.stationary_ticks_required} onChange={v => update('stamina', 'stationary_ticks_required', v)} min={1} max={50} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.corpse')}>
@@ -248,10 +238,10 @@ export function ConfigFormFields({ config, update }: {
 export function ConfigReadOnly({ config }: { config: ZhiConfig }) {
   const { t } = useT();
   const g = config.grid, co = config.cosmos, te = config.temperature, cb = config.combat;
-  const r = config.river, h = config.hunger, th = config.thirst, e = config.existence;
+  const r = config.river, m = config.metabolism;
   const re = config.reproduce, ad = config.age_death, si = config.signal;
   const sc = config.scent, fs = config.food_scent, nw = config.network;
-  const co2 = config.corpse, st = config.stamina;
+  const co2 = config.corpse;
   return (
     <div className="space-y-0.5">
       <ConfigSection title={t('settings.world')} defaultExpanded>
@@ -272,17 +262,24 @@ export function ConfigReadOnly({ config }: { config: ZhiConfig }) {
         <ReadOnlyField label={t('settings.corpsePerTick')} value={g.corpse_per_tick_energy} />
       </ConfigSection>
 
-      <ConfigSection title={t('settings.physiology')}>
-        <ReadOnlyField label={t('settings.hungerDecay')} value={h.decay_rate} />
-        <ReadOnlyField label={t('settings.thirstDecay')} value={th.decay_rate} />
-        <ReadOnlyField label={t('settings.drinkRestore')} value={th.drink_restore} />
-        <ReadOnlyField label={t('settings.hungerPenaltyStart')} value={h.penalty_start} />
-        <ReadOnlyField label={t('settings.thirstPenaltyStart')} value={th.penalty_start} />
-        <ReadOnlyField label={t('settings.hpDecay')} value={e.decay_per_tick} />
+      <ConfigSection title={t('settings.metabolism')}>
+        <ReadOnlyField label={t('settings.energyInitial')} value={m.energy_initial} />
+        <ReadOnlyField label={t('settings.energyDecayBase')} value={m.energy_decay_base} />
+        <ReadOnlyField label={t('settings.coldEnergyDecayMax')} value={m.cold_energy_decay_max} />
+        <ReadOnlyField label={t('settings.waterInitial')} value={m.water_initial} />
+        <ReadOnlyField label={t('settings.waterDecayRate')} value={m.water_decay_rate} />
+        <ReadOnlyField label={t('settings.drinkRestore')} value={m.drink_restore} />
+        <ReadOnlyField label={t('settings.dehydrationThreshold')} value={m.dehydration_threshold} />
+        <ReadOnlyField label={t('settings.dehydrationEnergyPenalty')} value={m.dehydration_energy_penalty} />
+        <ReadOnlyField label={t('settings.moveCost')} value={m.move_cost} />
+        <ReadOnlyField label={t('settings.attackCostBase')} value={m.attack_cost_base} />
+        <ReadOnlyField label={t('settings.emitCost')} value={m.emit_cost} />
+        <ReadOnlyField label={t('settings.lowEnergyThreshold')} value={m.low_energy_threshold} />
+        <ReadOnlyField label={t('settings.stationaryTicksRequired')} value={m.stationary_ticks_required} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.reproduction')}>
-        <ReadOnlyField label={t('settings.minExistence')} value={re.min_existence} />
+        <ReadOnlyField label={t('settings.minEnergy')} value={re.min_energy} />
         <ReadOnlyField label={t('settings.minAge')} value={re.min_age} />
         <ReadOnlyField label={t('settings.reproCooldown')} value={re.cooldown} />
         <ReadOnlyField label={t('settings.parentCost')} value={re.parent_cost} />
@@ -298,7 +295,7 @@ export function ConfigReadOnly({ config }: { config: ZhiConfig }) {
         <ReadOnlyField label={t('settings.coldThreshold')} value={te.cold_threshold} />
         <ReadOnlyField label={t('settings.maxColdDecay')} value={te.max_cold_decay} />
         <ReadOnlyField label={t('settings.hotThreshold')} value={te.hot_threshold} />
-        <ReadOnlyField label={t('settings.maxThirstAccel')} value={te.max_thirst_accel} />
+        <ReadOnlyField label={t('settings.maxWaterDecayMult')} value={te.max_water_decay_mult} />
         <ReadOnlyField label={t('settings.agentBodyHeat')} value={te.agent_body_heat} />
         <ReadOnlyField label={t('settings.huddleRange')} value={te.huddle_range} />
         <ReadOnlyField label={t('settings.huddleWarmth')} value={te.huddle_warmth_per_agent} />
@@ -357,27 +354,6 @@ export function ConfigReadOnly({ config }: { config: ZhiConfig }) {
         <ReadOnlyField label={t('settings.corpseEnergy')} value={co2.energy} />
         <ReadOnlyField label={t('settings.corpseDecay')} value={co2.decay_per_tick} />
         <ReadOnlyField label={t('settings.corpseScentAmount')} value={co2.scent_amount} />
-      </ConfigSection>
-
-      <ConfigSection title={t('settings.stamina')}>
-        <ReadOnlyField label={t('settings.maxStamina')} value={st.max_stamina} />
-        <ReadOnlyField label={t('settings.moveCost')} value={st.move_cost} />
-        <ReadOnlyField label={t('settings.staminaAttackCost')} value={st.attack_cost} />
-        <ReadOnlyField label={t('settings.pushCost')} value={st.push_cost} />
-        <ReadOnlyField label={t('settings.terraformCost')} value={st.terraform_cost} />
-        <ReadOnlyField label={t('settings.staminaSignalCost')} value={st.signal_cost} />
-        <ReadOnlyField label={t('settings.shoveCost')} value={st.shove_cost} />
-        <ReadOnlyField label={t('settings.pullCost')} value={st.pull_cost} />
-        <ReadOnlyField label={t('settings.shallowWaterExtra')} value={st.shallow_water_move_extra} />
-        <ReadOnlyField label={t('settings.deepWaterExtra')} value={st.deep_water_move_extra} />
-        <ReadOnlyField label={t('settings.baseRecovery')} value={st.base_recovery} />
-        <ReadOnlyField label={t('settings.stationaryRecoveryBonus')} value={st.stationary_recovery_bonus} />
-        <ReadOnlyField label={t('settings.lowStaminaThreshold')} value={st.low_stamina_threshold} />
-        <ReadOnlyField label={t('settings.stationaryTicksRequired')} value={st.stationary_ticks_required} />
-        <ReadOnlyField label={t('settings.stationaryDamageMult')} value={st.stationary_damage_mult} />
-        <ReadOnlyField label={t('settings.stationarySelfHeat')} value={st.stationary_self_heat} />
-        <ReadOnlyField label={t('settings.stationaryNeighborHeat')} value={st.stationary_neighbor_heat} />
-        <ReadOnlyField label={t('settings.stationaryHpRecovery')} value={st.stationary_hp_recovery_bonus} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.ageDeath')}>

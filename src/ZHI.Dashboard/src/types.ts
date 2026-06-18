@@ -14,10 +14,9 @@ export interface AgentSnapshot {
   id: number
   x: number
   y: number
-  existence: number
+  energy: number
   stress: number
-  hunger: number
-  thirst: number
+  water: number
   body_temperature: number
   is_eating: boolean
   is_alive: boolean
@@ -34,7 +33,6 @@ export interface AgentSnapshot {
   emit_count: number
   facing_direction: number
   respawn_count: number
-  stamina: number
   is_stationary: boolean
 }
 
@@ -122,8 +120,8 @@ export interface StatsData {
   suicide_rate_recent_10: number
   avg_alive_seconds_all: number
   avg_alive_seconds_recent_10: number
-  avg_hunger_at_death: number
-  avg_thirst_at_death: number
+  avg_energy_at_death: number
+  avg_water_at_death: number
   avg_temperature_at_death: number
   avg_attacks_per_life: number
   avg_eats_per_life: number

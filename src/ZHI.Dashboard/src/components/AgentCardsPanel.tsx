@@ -34,8 +34,8 @@ export const AgentCardsPanel = memo(function AgentCardsPanel({ agents, onTrack, 
   const sortedAlive = useMemo(() => {
     const pinned = aliveAgents.filter(a => pinnedIds.has(a.id));
     const rest = aliveAgents.filter(a => !pinnedIds.has(a.id));
-    if (sortMode === 'hp-desc') rest.sort((a, b) => b.existence - a.existence);
-    else if (sortMode === 'hp-asc') rest.sort((a, b) => a.existence - b.existence);
+    if (sortMode === 'hp-desc') rest.sort((a, b) => b.energy - a.energy);
+    else if (sortMode === 'hp-asc') rest.sort((a, b) => a.energy - b.energy);
     return [...pinned, ...rest];
   }, [aliveAgents, pinnedIds, sortMode]);
 
@@ -121,11 +121,9 @@ function AgentCard({
   gridW?: number;
 }) {
   const { t } = useT();
-  const hp = Math.max(0, Math.min(1, agent.existence / 100));
+  const hp = Math.max(0, Math.min(1, agent.energy / 100));
   const hpColor = `hsl(${hp * 120}, 70%, 50%)`;
-  const warnHunger = agent.hunger < 20;
-  const warnThirst = agent.thirst < 20;
-  const warnStamina = agent.stamina < 10;
+  const warnWater = agent.water < 20;
   const warnCold = agent.body_temperature < 10;
   const warnHot = agent.body_temperature > 35;
 
@@ -175,11 +173,9 @@ function AgentCard({
 
         <div className="text-zhi-muted leading-relaxed">
           <div className="grid grid-cols-2 gap-x-2 gap-y-0">
-            <StatPair label={t('agents.hp')} value={agent.existence.toFixed(1)} />
+            <StatPair label={t('agents.energy')} value={agent.energy.toFixed(1)} />
             <StatPair label={t('agents.stress')} value={agent.stress.toFixed(2)} warn={agent.stress > 1} />
-            <StatPair label={t('agents.hunger')} value={agent.hunger.toFixed(1)} warn={warnHunger} warnColor="orange" />
-            <StatPair label={t('agents.thirst')} value={agent.thirst.toFixed(1)} warn={warnThirst} warnColor="cyan" />
-            <StatPair label={t('agents.stamina')} value={agent.stamina.toFixed(1)} warn={warnStamina} warnColor="yellow" />
+            <StatPair label={t('agents.water')} value={agent.water.toFixed(1)} warn={warnWater} warnColor="cyan" />
             <StatPair label={t('agents.btemp')} value={`${agent.body_temperature.toFixed(1)}°C`} warn={warnCold || warnHot} warnColor={warnHot ? 'red' : 'blue'} />
             <StatPair label={t('agents.age')} value={`${agent.tick_count}t`} />
             <StatPair label={t('agents.action')} value={actionLabel(agent, terrain, gridW, t)} />

@@ -473,7 +473,7 @@ export const WorldMap = memo(function WorldMap({
         const cx = agent.x * cellSize + cellSize / 2;
         const cy = agent.y * cellSize + cellSize / 2;
         const r = Math.max(cellSize * 0.4, 3);
-        const hp = Math.max(0, Math.min(1, agent.existence / 100));
+        const hp = Math.max(0, Math.min(1, agent.energy / 100));
         ctx.fillStyle = `hsl(${hp * 120}, 70%, 50%)`;
 
         if (agent.stress > 0.5) { ctx.shadowColor = 'rgba(239, 68, 68, 0.6)'; ctx.shadowBlur = agent.stress * 6; }
@@ -605,9 +605,8 @@ export const WorldMap = memo(function WorldMap({
         if (agent) {
           lines.push(
             t('map.tooltipAgent', { id: agent.id }) + (agent.respawn_count > 0 ? ` ${t('map.tooltipGen', { gen: agent.respawn_count })}` : ''),
-            `${t('map.tooltipHP')}: ${agent.existence.toFixed(1)}  ${t('agents.stress')}: ${agent.stress.toFixed(2)}`,
-            `${t('agents.hunger')}: ${agent.hunger.toFixed(1)}  ${t('agents.thirst')}: ${agent.thirst.toFixed(1)}`,
-            `${t('map.tooltipBTemp')}: ${agent.body_temperature.toFixed(1)}°C  ${t('agents.age')}: ${agent.tick_count}`,
+            `${t('map.tooltipEnergy')}: ${agent.energy.toFixed(1)}  ${t('agents.stress')}: ${agent.stress.toFixed(2)}`,
+            `${t('agents.water')}: ${agent.water.toFixed(1)}  ${t('map.tooltipBTemp')}: ${agent.body_temperature.toFixed(1)}°C  ${t('agents.age')}: ${agent.tick_count}`,
             `${t('agents.action')}: ${agent.is_eating ? '\u{1F356} ' : ''}${agent.last_action || t('agents.none')}`,
             `${t('map.tooltipEats')}: ${agent.eat_count}  ${t('map.tooltipAttacks')}: ${agent.attack_count}  ${t('map.tooltipEmits')}: ${agent.emit_count}`,
           );
