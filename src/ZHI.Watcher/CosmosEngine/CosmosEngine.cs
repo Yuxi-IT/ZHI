@@ -244,7 +244,17 @@ public partial class CosmosEngine : IDisposable
         Array.Clear(_rewardBuf, 0, n);
         ProcessActions(_actionsBuf, _signalBuf, _rewardBuf);
 
-        // 8b. Stationary detection
+        // 8b. Decay recent memory
+        for (int i = 0; i < n; i++)
+        {
+            if (!_v.Alive[i]) continue;
+            _v.RecentMemory[i, 0] *= 0.95f; // saw_food
+            _v.RecentMemory[i, 1] *= 0.95f; // was_attacked
+            _v.RecentMemory[i, 2] *= 0.95f; // ate
+            _v.RecentMemory[i, 3] *= 0.95f; // drank
+        }
+
+        // 8c. Stationary detection
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;

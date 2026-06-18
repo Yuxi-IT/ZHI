@@ -172,6 +172,7 @@ public partial class VectorizedState
             }
 
             // [0-293] 7x7 grid x 6 channels
+            bool sawFoodThisTick = false;
             for (int dy = -R; dy <= R; dy++)
             {
                 for (int dx = -R; dx <= R; dx++)
@@ -189,7 +190,9 @@ public partial class VectorizedState
                     bool isSelf = (dx == 0 && dy == 0);
                     float cellHeightNorm = HeightMap[gx, gy] / 255f;
 
-                    _stateAssemblyBuffer[gridBase + cellIdx + 0] = GetPlantEnergyAt(gx, gy) / PlantMaxEnergy * vis;
+                    float plantEnergy = GetPlantEnergyAt(gx, gy);
+                    if (plantEnergy > 0) sawFoodThisTick = true;
+                    _stateAssemblyBuffer[gridBase + cellIdx + 0] = plantEnergy / PlantMaxEnergy * vis;
                     // Perception noise: plants may be missed
                     if (_stateAssemblyBuffer[gridBase + cellIdx + 0] > 0f && _noiseRng.NextDouble() < NoisePlantMissChance)
                         _stateAssemblyBuffer[gridBase + cellIdx + 0] = 0f;
@@ -202,6 +205,9 @@ public partial class VectorizedState
                     _stateAssemblyBuffer[gridBase + cellIdx + 5] = cellHeightNorm * vis;
                 }
             }
+
+            if (sawFoodThisTick)
+                RecentMemory[i, 0] = 1f; // saw_food memory
 
             // ── Non-grid state [294-339] (46 values) ──
 
@@ -290,7 +296,13 @@ public partial class VectorizedState
             // [326] heat resistance (0-1)
             _stateAssemblyBuffer[baseIdx + 326] = BodyHeatResist[i];
 
-            // [327-339] reserved (zero-filled by Array.Clear)
+            // [327-330] recent memory (decaying event flags)
+            _stateAssemblyBuffer[baseIdx + 327] = RecentMemory[i, 0]; // saw_food
+            _stateAssemblyBuffer[baseIdx + 328] = RecentMemory[i, 1]; // was_attacked
+            _stateAssemblyBuffer[baseIdx + 329] = RecentMemory[i, 2]; // ate
+            _stateAssemblyBuffer[baseIdx + 330] = RecentMemory[i, 3]; // drank
+
+            // [331-339] reserved (zero-filled by Array.Clear)
         }
 
         using var cpuData = tensor(_stateAssemblyBuffer, [N, S]);

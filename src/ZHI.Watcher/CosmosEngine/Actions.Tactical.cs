@@ -39,6 +39,7 @@ public partial class CosmosEngine
             if (_v.IsEating[bestTarget]) damage *= 1.1f;
             if (_v.IsStationary[bestTarget]) damage *= _config.Metabolism.StationaryDamageMult;
             _v.Stress[bestTarget] += _config.Combat.StressPerAttack;
+            _v.RecentMemory[bestTarget, 1] = 1f; // was_attacked memory
             if (_v.IsPregnant[bestTarget])
                 damage *= _config.Reproduce.PregnancyDamageMult;
             _v.Energy[bestTarget] -= damage;

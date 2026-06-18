@@ -60,6 +60,7 @@ public partial class CosmosEngine : IDisposable
                     {
                         float waterBefore = _v.BodyWater[i];
                         _v.BodyWater[i] = MathF.Min(100f, _v.BodyWater[i] + _config.Metabolism.DrinkRestore);
+                        _v.RecentMemory[i, 3] = 1f; // drank memory
                         float waterDelta = _v.BodyWater[i] - waterBefore;
                         if (waterDelta > 0) rewards[i] += waterDelta * 0.05f;
                     }

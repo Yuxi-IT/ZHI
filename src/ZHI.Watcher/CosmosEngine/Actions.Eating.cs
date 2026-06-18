@@ -82,6 +82,7 @@ public partial class CosmosEngine
 
         float energyBefore = _v.Energy[i];
         _v.Energy[i] = MathF.Min(100f, _v.Energy[i] + extracted);
+        _v.RecentMemory[i, 2] = 1f; // ate memory
         float energyDelta = _v.Energy[i] - energyBefore;
         if (energyDelta > 0) rewards[i] += energyDelta * 0.05f;
 
