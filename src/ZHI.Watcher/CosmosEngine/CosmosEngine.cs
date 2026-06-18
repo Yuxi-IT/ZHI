@@ -333,6 +333,9 @@ public partial class CosmosEngine : IDisposable
         _v.PlantMaxEnergy = _config.Plant.MaxPlantEnergy;
         _v.JuvenileVisionMult = _config.AgeDeath.JuvenileVisionMult;
         _v.JuvenileAgeThreshold = _config.AgeDeath.JuvenileAge;
+        _v.NoisePlantMissChance = _config.Noise.PlantMissChance;
+        _v.NoiseChemicalRange = _config.Noise.ChemicalNoiseRange;
+        _v.NoiseSoundStd = _config.Noise.SoundNoiseStd;
         _v.RebuildSpatialGrids();
         _v.ComputeVisibilityBlock();
         _v.BuildStateMatrix();

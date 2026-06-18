@@ -190,7 +190,12 @@ public partial class VectorizedState
                     float cellHeightNorm = HeightMap[gx, gy] / 255f;
 
                     _stateAssemblyBuffer[gridBase + cellIdx + 0] = GetPlantEnergyAt(gx, gy) / PlantMaxEnergy * vis;
-                    _stateAssemblyBuffer[gridBase + cellIdx + 1] = GroundwaterGrid[gx, gy] * vis;
+                    // Perception noise: plants may be missed
+                    if (_stateAssemblyBuffer[gridBase + cellIdx + 0] > 0f && _noiseRng.NextDouble() < NoisePlantMissChance)
+                        _stateAssemblyBuffer[gridBase + cellIdx + 0] = 0f;
+                    // Water sound: groundwater signal + gaussian noise
+                    float gw = GroundwaterGrid[gx, gy] * vis;
+                    _stateAssemblyBuffer[gridBase + cellIdx + 1] = gw + (float)(_noiseRng.NextDouble() * 2 - 1) * NoiseSoundStd;
                     _stateAssemblyBuffer[gridBase + cellIdx + 2] = (hasCorpse ? 1f : 0f) * vis;
                     _stateAssemblyBuffer[gridBase + cellIdx + 3] = ((hasAgent && !isSelf) ? 1f : 0f) * vis;
                     _stateAssemblyBuffer[gridBase + cellIdx + 4] = isSelf ? 1f : 0f;
@@ -208,7 +213,9 @@ public partial class VectorizedState
             _stateAssemblyBuffer[baseIdx + 298] = 0f; // reserved (was Stamina)
 
             // [299] chemical memory (continuous 0-1)
-            _stateAssemblyBuffer[baseIdx + 299] = ChemicalMemory[i];
+            // Chemical memory with multiplicative noise
+            float chemNoise = 1f + ((float)_noiseRng.NextDouble() * 2f - 1f) * NoiseChemicalRange;
+            _stateAssemblyBuffer[baseIdx + 299] = Math.Clamp(ChemicalMemory[i] * chemNoise, 0f, 1f);
 
             // [300-303] scent gradient
             float scentHere = ScentGrid[cx, cy];

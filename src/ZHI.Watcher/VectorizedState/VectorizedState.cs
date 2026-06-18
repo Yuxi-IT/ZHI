@@ -109,6 +109,11 @@ public partial class VectorizedState : IDisposable
     public float PlantMaxEnergy = 20f;
     public float JuvenileVisionMult = 1f;
     public int JuvenileAgeThreshold = 0;
+    // Perception noise
+    public float NoisePlantMissChance;
+    public float NoiseChemicalRange;
+    public float NoiseSoundStd;
+    private static readonly Random _noiseRng = new();
     private bool[] _corpseGrid;
     public short[] CellOccupancy; // live agent count per cell, updated during movement
 

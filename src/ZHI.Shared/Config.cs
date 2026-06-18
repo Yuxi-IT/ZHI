@@ -1,5 +1,12 @@
 namespace ZHI.Shared;
 
+public sealed class NoiseConfig
+{
+    public float PlantMissChance { get; set; } = 0.2f;        // 20% chance plant cell appears empty
+    public float ChemicalNoiseRange { get; set; } = 0.3f;     // chemical × uniform(1-R, 1+R)
+    public float SoundNoiseStd { get; set; } = 0.05f;         // water sound + gaussian(0, std)
+}
+
 public sealed class ZhiConfig
 {
     public GridConfig Grid { get; set; } = new();
@@ -9,6 +16,7 @@ public sealed class ZhiConfig
     public GenomeConfig Genome { get; set; } = new();
     public ScentConfig Scent { get; set; } = new();
     public FoodScentConfig FoodScent { get; set; } = new();
+    public NoiseConfig Noise { get; set; } = new();
     public NetworkConfig Network { get; set; } = new();
     public CosmosConfig Cosmos { get; set; } = new();
     public CorpseConfig Corpse { get; set; } = new();
