@@ -139,6 +139,11 @@ public partial class CosmosEngine
             float baseDecay = _config.Metabolism.EnergyDecayBase;
             // High fat = slower base metabolism (energy stores more efficiently)
             baseDecay *= 1f - _v.BodyFat[i] * _config.Metabolism.FatMetabolismMult;
+
+            // Juveniles burn more energy (growing metabolism)
+            if (_v.TickCount[i] < _config.AgeDeath.JuvenileAge)
+                baseDecay *= _config.AgeDeath.JuvenileMetabolismMult;
+
             float ageDecay = 0f;
             float pollutionDecay = 0f;
 

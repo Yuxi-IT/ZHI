@@ -106,6 +106,8 @@ public partial class VectorizedState : IDisposable
     private float[] _plantGrid; // plant energy per cell, 0 = no plant; Also check _plantStage for Decay
     private byte[] _plantStageGrid; // per-cell plant stage
     public float PlantMaxEnergy = 20f;
+    public float JuvenileVisionMult = 1f;
+    public int JuvenileAgeThreshold = 0;
     private bool[] _corpseGrid;
     public short[] CellOccupancy; // live agent count per cell, updated during movement
 

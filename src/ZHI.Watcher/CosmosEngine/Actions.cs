@@ -110,6 +110,10 @@ public partial class CosmosEngine : IDisposable
             if (_v.IsPregnant[i])
                 moveCost /= _config.Reproduce.PregnancySpeedPenalty;
 
+            // Juveniles move slower
+            if (_v.TickCount[i] < _config.AgeDeath.JuvenileAge)
+                moveCost /= _config.AgeDeath.JuvenileSpeedMult;
+
             // Slope penalty: exponential continuous cost, capped at 10x
             float slope = _v.Slope[tx, ty];
             moveCost *= MathF.Min(MathF.Exp(slope * _config.Metabolism.SlopeMoveExp), 10f);

@@ -331,6 +331,8 @@ public partial class CosmosEngine : IDisposable
 
         // 11b. Rebuild spatial grids + build next observation (s_{t+1}) for GRU
         _v.PlantMaxEnergy = _config.Plant.MaxPlantEnergy;
+        _v.JuvenileVisionMult = _config.AgeDeath.JuvenileVisionMult;
+        _v.JuvenileAgeThreshold = _config.AgeDeath.JuvenileAge;
         _v.RebuildSpatialGrids();
         _v.ComputeVisibilityBlock();
         _v.BuildStateMatrix();

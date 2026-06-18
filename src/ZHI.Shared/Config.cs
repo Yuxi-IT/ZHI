@@ -133,6 +133,12 @@ public sealed class AgeDeathConfig
     public int Stage3Age { get; set; } = 7000;
     public float Stage3Decay { get; set; } = 0.1f;
     public int MaxAge { get; set; } = 8000;
+
+    // Juvenile stage
+    public int JuvenileAge { get; set; } = 200;         // ticks to reach adulthood
+    public float JuvenileVisionMult { get; set; } = 0.6f; // reduced vision cone
+    public float JuvenileSpeedMult { get; set; } = 0.7f;  // slower movement
+    public float JuvenileMetabolismMult { get; set; } = 1.5f; // higher energy consumption
 }
 
 public sealed class ReproduceConfig

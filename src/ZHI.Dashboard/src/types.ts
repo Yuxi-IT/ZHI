@@ -43,6 +43,7 @@ export interface AgentSnapshot {
   body_heat_resist: number
   is_pregnant: boolean
   pregnancy_ticks: number
+  is_juvenile: boolean
 }
 
 export interface FoodTile {

@@ -163,6 +163,14 @@ public partial class VectorizedState
             // Precompute per-agent visibility
             float[] cellVis = ComputeAgentVisibility(cx, cy, R, fd, heightNorm, blockMax, blockDist);
 
+            // Juvenile: narrower vision cone
+            if (TickCount[i] < JuvenileAgeThreshold)
+            {
+                float juvMult = JuvenileVisionMult;
+                for (int v = 0; v < cellVis.Length; v++)
+                    cellVis[v] *= juvMult;
+            }
+
             // [0-293] 7x7 grid x 6 channels
             for (int dy = -R; dy <= R; dy++)
             {
