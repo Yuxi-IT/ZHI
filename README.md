@@ -1,4 +1,18 @@
-# ZHI（栀）— Zero-Hypothesis Intelligence Ecosystem
+# ZHI (栀) — Zero-Hypothesis Intelligence Ecosystem
+
+[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
+[![C#](https://img.shields.io/badge/C%23-13-239120?logo=csharp)](https://learn.microsoft.com/en-us/dotnet/csharp/)
+[![TorchSharp](https://img.shields.io/badge/TorchSharp-0.107-EE4C2C?logo=pytorch)](https://github.com/dotnet/TorchSharp)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)](https://www.typescriptlang.org/)
+[![Three.js](https://img.shields.io/badge/Three.js-r174-000000?logo=threedotjs)](https://threejs.org/)
+[![SQLite](https://img.shields.io/badge/SQLite-3-003B57?logo=sqlite)](https://www.sqlite.org/)
+[![PPO](https://img.shields.io/badge/RL-PPO%2BGAE-blueviolet)](https://arxiv.org/abs/1707.06347)
+[![Artificial Life](https://img.shields.io/badge/field-Artificial%20Life-brightgreen)](https://en.wikipedia.org/wiki/Artificial_life)
+
+中文 | [English](README_EN.md)
+
+---
 
 ## 我们在问什么
 
