@@ -28,22 +28,22 @@ public class Blackbox : IDisposable
             hasGenerationsTable = cmd.ExecuteScalar() != null;
         }
 
-        if (!hasGenerationsTable)
+        bool hasExistenceAtDeath = false;
+
+        // Check if deaths table exists with old schema (always, regardless of generations table)
+        using (var checkCmd = _db.CreateCommand())
         {
-            // Check if deaths table exists with old schema
-            using (var cmd = _db.CreateCommand())
+            checkCmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='deaths'";
+            if (checkCmd.ExecuteScalar() != null)
             {
-                cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='deaths'";
-                if (cmd.ExecuteScalar() != null)
+                using var pragma = _db.CreateCommand();
+                pragma.CommandText = "PRAGMA table_info(deaths)";
+                using var reader = pragma.ExecuteReader();
+                while (reader.Read())
                 {
-                    // Check for old column name
-                    using var pragma = _db.CreateCommand();
-                    pragma.CommandText = "PRAGMA table_info(deaths)";
-                    using var reader = pragma.ExecuteReader();
-                    while (reader.Read())
-                    {
-                        if (reader.GetString(1) == "cpu_at_death") hasOldCpuColumn = true;
-                    }
+                    var colName = reader.GetString(1);
+                    if (colName == "cpu_at_death") hasOldCpuColumn = true;
+                    if (colName == "existence_at_death") hasExistenceAtDeath = true;
                 }
             }
         }
@@ -57,6 +57,26 @@ public class Blackbox : IDisposable
                 ALTER TABLE deaths DROP COLUMN mem_at_death;
                 """;
             migrateCmd.ExecuteNonQuery();
+        }
+
+        // Migrate old existence_at_death → energy_at_death
+        if (hasExistenceAtDeath)
+        {
+            try
+            {
+                migrateCmd.CommandText = "ALTER TABLE deaths RENAME COLUMN existence_at_death TO energy_at_death";
+                migrateCmd.ExecuteNonQuery();
+            }
+            catch (SqliteException)
+            {
+                // energy_at_death already exists — drop the orphaned old column
+                try
+                {
+                    migrateCmd.CommandText = "ALTER TABLE deaths DROP COLUMN existence_at_death";
+                    migrateCmd.ExecuteNonQuery();
+                }
+                catch (SqliteException) { /* ignore */ }
+            }
         }
 
         // Create tables with correct schema
