@@ -1,20 +1,21 @@
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
-import type { EcoDataPoint } from '../hooks/useEcoHistory'
-import { useT } from '../i18n/I18nContext'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { Card } from '@heroui/react';
+import type { EcoDataPoint } from '../hooks/useEcoHistory';
+import { useT } from '../i18n/I18nContext';
 
 interface Props {
-  data: EcoDataPoint[]
+  data: EcoDataPoint[];
 }
 
 export function ChartsPanel({ data }: Props) {
-  const { t } = useT()
+  const { t } = useT();
 
   if (data.length < 2) {
     return (
-      <div className="h-full flex items-center justify-center text-neutral-600 text-[10px]">
+      <div className="h-full flex items-center justify-center text-zhi-muted text-[10px]">
         {t('charts.collecting')}
       </div>
-    )
+    );
   }
 
   return (
@@ -55,30 +56,32 @@ export function ChartsPanel({ data }: Props) {
         </ResponsiveContainer>
       </ChartCard>
     </div>
-  )
+  );
 }
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded border border-neutral-800 bg-neutral-900/50 p-2">
-      <div className="text-[9px] text-neutral-500 mb-1 uppercase tracking-wider">{title}</div>
-      {children}
-    </div>
-  )
+    <Card variant="secondary" className="bg-zhi-panel/50 border-zhi-border">
+      <Card.Content className="p-2">
+        <div className="text-[9px] text-zhi-muted mb-1 uppercase tracking-wider">{title}</div>
+        {children}
+      </Card.Content>
+    </Card>
+  );
 }
 
 function MiniTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name: string; color: string }>; label?: number }) {
-  if (!active || !payload?.length) return null
+  if (!active || !payload?.length) return null;
   return (
-    <div className="bg-neutral-900/95 border border-neutral-700 rounded px-2 py-1 text-[9px]">
-      <div className="text-neutral-500 mb-0.5">t={label}</div>
+    <div className="bg-zhi-panel/95 border border-zhi-border rounded px-2 py-1 text-[9px]">
+      <div className="text-zhi-muted mb-0.5">t={label}</div>
       {payload.map((p, i) => (
         <div key={i} className="flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color }} />
-          <span className="text-neutral-400">{p.name}</span>
-          <span className="text-neutral-200">{typeof p.value === 'number' ? p.value.toFixed(0) : p.value}</span>
+          <span className="text-zhi-text">{p.name}</span>
+          <span className="text-zhi-text">{typeof p.value === 'number' ? p.value.toFixed(0) : p.value}</span>
         </div>
       ))}
     </div>
-  )
+  );
 }

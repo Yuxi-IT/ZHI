@@ -1,13 +1,18 @@
 import { useEffect, useRef } from 'react';
-import type { LogMessage } from '../types';
 import { useT } from '../i18n/I18nContext';
+
+interface LogMessage {
+  type: 'log';
+  time: string;
+  message: string;
+}
 
 interface Props {
   logs: LogMessage[];
 }
 
 export function LogPanel({ logs }: Props) {
-  const { t } = useT()
+  const { t } = useT();
   const containerRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
 
@@ -43,7 +48,7 @@ export function LogPanel({ logs }: Props) {
 
 function LogLine({ msg }: { msg: LogMessage }) {
   const text = msg.message || '';
-  let color = 'text-neutral-400';
+  let color = 'text-zhi-text';
   if (text.includes('Gen')) color = 'text-yellow-400/70';
   else if (text.includes('Attack')) color = 'text-red-400/70';
   else if (text.includes('DEAD')) color = 'text-red-400';
@@ -54,7 +59,7 @@ function LogLine({ msg }: { msg: LogMessage }) {
 
   return (
     <div className="py-0.5 text-[11px] leading-relaxed">
-      <span className="text-neutral-600">{msg.time} </span>
+      <span className="text-zhi-muted">{msg.time} </span>
       <span className={color}>{text}</span>
     </div>
   );
