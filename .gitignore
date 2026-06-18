@@ -1,4 +1,5 @@
 # Build outputs
+wwwroot/assets/
 **/bin/
 **/obj/
 **/out/
