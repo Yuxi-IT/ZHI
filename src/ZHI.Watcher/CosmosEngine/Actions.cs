@@ -80,6 +80,16 @@ public partial class CosmosEngine : IDisposable
                     _v.IsEating[i] = false;
                     ProcessTerraform(i, rewards);
                     break;
+
+                case ZhiAction.Shove:
+                    _v.IsEating[i] = false;
+                    ProcessShove(i, rewards);
+                    break;
+
+                case ZhiAction.Pull:
+                    _v.IsEating[i] = false;
+                    ProcessPull(i, rewards);
+                    break;
             }
         }
 
@@ -106,7 +116,7 @@ public partial class CosmosEngine : IDisposable
 
         _v.IsEating[i] = false;
         if (tx >= 0 && tx < W && ty >= 0 && ty < H
-            && !_v.IsDeepWater(tx, ty) && !_v.IsMoundAt(tx, ty)
+            && !_v.IsMoundAt(tx, ty)
             && (_v.Stamina[i] >= _config.Stamina.LowStaminaThreshold || _rng.NextDouble() > 0.5))
         {
             _v.PosX[i] = tx;
@@ -114,6 +124,18 @@ public partial class CosmosEngine : IDisposable
             float moveCost = _config.Stamina.MoveCost;
             if (_v.GetTerrainAt(tx, ty) == ToolDefinitions.TerrainPit)
                 moveCost += 2f;
+
+            // Water depth tiers: shallow +1.0, deep +2.5, deep→land climb +1.0
+            if (_v.IsShallowWater(tx, ty))
+                moveCost += _config.Stamina.ShallowWaterMoveExtra;
+            else if (_v.IsDeepWater(tx, ty))
+                moveCost += _config.Stamina.DeepWaterMoveExtra;
+
+            // Climbing from deep water onto land costs extra
+            int fromX = tx - dx, fromY = ty - dy;
+            if (_v.IsDeepWater(fromX, fromY) && !_v.IsDeepWater(tx, ty) && !_v.IsShallowWater(tx, ty))
+                moveCost += _config.Stamina.DeepWaterClimbExtra;
+
             _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - moveCost);
         }
         else

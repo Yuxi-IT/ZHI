@@ -172,15 +172,26 @@ public sealed class TemperatureConfig
     public float AgentBodyHeat { get; set; } = 2f;   // °C per agent on own cell (half on 8 neighbors), scaled by HP ratio
     public float RiverCooling { get; set; } = 5f;     // °C cooling from deep water on own cell
     public int RiverCoolingRange { get; set; } = 2;   // cooling falloff distance (Chebyshev)
+    public float HypothermiaThreshold { get; set; } = 33f;   // below this body temp → HP decay
+    public float HypothermiaMaxDamage { get; set; } = 0.08f; // max HP/tick at body temp 26°C
+    public float WaterCoolingMult { get; set; } = 2f;       // body temp lerp multiplier in water
+    public float DeepWaterExtraCold { get; set; } = 3f;     // extra °C penalty in deep water cells
+    public float MinBodyTemp { get; set; } = 26f;           // body temp hard floor
 }
 
 public sealed class StaminaConfig
 {
     public float MaxStamina { get; set; } = 100f;
     public float MoveCost { get; set; } = 0.5f;
-    public float AttackCost { get; set; } = 5f;
-    public float PushCost { get; set; } = 10f;
+    public float AttackCost { get; set; } = 8f;
+    public float PushCost { get; set; } = 12f;
     public float TerraformCost { get; set; } = 20f;
+    public float SignalCost { get; set; } = 3f;
+    public float ShoveCost { get; set; } = 15f;
+    public float PullCost { get; set; } = 10f;
+    public float ShallowWaterMoveExtra { get; set; } = 1f;
+    public float DeepWaterMoveExtra { get; set; } = 2.5f;
+    public float DeepWaterClimbExtra { get; set; } = 1f;
     public float BaseRecovery { get; set; } = 1f;         // per tick when well-fed
     public float StationaryRecoveryBonus { get; set; } = 2f; // multiplier when stationary
     public float LowStaminaThreshold { get; set; } = 10f;   // cannot push/terraform below this

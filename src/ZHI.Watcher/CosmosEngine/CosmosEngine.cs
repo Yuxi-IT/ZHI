@@ -240,7 +240,7 @@ public partial class CosmosEngine : IDisposable
 
             // Stationary判定: Attack also resets counter
             long act = _actionsBuf[i];
-            bool isMovingOrFighting = act >= 0 && act <= 3 || act == 8 || act == 9 || act == 5;
+            bool isMovingOrFighting = act >= 0 && act <= 3 || act == 5 || act >= 8;
             if (isMovingOrFighting)
                 _v.TicksSinceLastMove[i] = 0;
             else
@@ -249,7 +249,7 @@ public partial class CosmosEngine : IDisposable
             _v.IsStationary[i] = _v.TicksSinceLastMove[i] >= _config.Stamina.StationaryTicksRequired;
 
             // Stamina recovery: well-fed + hydrated + healthy
-            if (_v.Hunger[i] > 60f && _v.Thirst[i] > 70f && _v.Existence[i] > 30f)
+            if (_v.Hunger[i] > 60f && _v.Thirst[i] > 70f)
             {
                 float recovery = _config.Stamina.BaseRecovery;
                 if (_v.IsStationary[i]) recovery *= _config.Stamina.StationaryRecoveryBonus;

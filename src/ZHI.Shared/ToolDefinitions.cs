@@ -11,12 +11,14 @@ public enum ZhiAction
     Signal = 6,
     Drink = 7,
     Push = 8,
-    Terraform = 9
+    Terraform = 9,
+    Shove = 10,
+    Pull = 11
 }
 
 public static class ToolDefinitions
 {
-    public const int ActionCount = 10;
+    public const int ActionCount = 12;
     public const int SignalValues = 4;
     public const int StateSize = 334; // 294 grid (7×7×6ch) + 40 non-grid (stamina, stationary)
     public static int GridWidth = 64;
@@ -46,7 +48,9 @@ public static class ToolDefinitions
         "signal",
         "drink",
         "push",
-        "terraform"
+        "terraform",
+        "shove",
+        "pull"
     ];
 
     public static string GetToolName(ZhiAction action) => ActionNames[(int)action];

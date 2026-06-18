@@ -130,7 +130,7 @@ public partial class VectorizedState
             // [294-298] self state: HP, Stress, LastAction, Age, Stamina
             _stateAssemblyBuffer[baseIdx + 294] = Existence[i] / 100f;
             _stateAssemblyBuffer[baseIdx + 295] = Stress[i] / 5f;
-            _stateAssemblyBuffer[baseIdx + 296] = LastAction[i] / 9f;
+            _stateAssemblyBuffer[baseIdx + 296] = LastAction[i] / 11f;
             _stateAssemblyBuffer[baseIdx + 297] = Math.Min(TickCount[i] / 200f, 1f);
             _stateAssemblyBuffer[baseIdx + 298] = Stamina[i] / 100f;
 

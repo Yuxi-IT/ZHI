@@ -41,6 +41,7 @@ public partial class CosmosEngine
 
         float riverCooling = _config.Temperature.RiverCooling;
         int riverCoolRange = _config.Temperature.RiverCoolingRange;
+        float deepExtraCold = _config.Temperature.DeepWaterExtraCold;
         if (riverCooling > 0f && riverCoolRange > 0)
         {
             for (int x = 0; x < W; x++)
@@ -59,6 +60,15 @@ public partial class CosmosEngine
                             _v.TemperatureGrid[nx, ny] -= riverCooling * depthFactor * falloff;
                         }
                 }
+        }
+
+        // Deep water extra cold (applied directly to deep water cells)
+        if (deepExtraCold > 0f)
+        {
+            for (int x = 0; x < W; x++)
+                for (int y = 0; y < H; y++)
+                    if (_v.RiverGrid[x, y] == 2)
+                        _v.TemperatureGrid[x, y] -= deepExtraCold;
         }
 
         bool isDaytime = _gameTimeOfDay >= 6f && _gameTimeOfDay < 20f;
@@ -133,14 +143,31 @@ public partial class CosmosEngine
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
-            float localTemp = _v.TemperatureGrid[_v.PosX[i], _v.PosY[i]];
-            _v.BodyTemperature[i] += (localTemp - _v.BodyTemperature[i]) * BodyTempLerpRate;
+            float lerpRate = BodyTempLerpRate;
+            // Water accelerates body temp convergence (2x in shallow, 2x in deep)
+            int rx = _v.PosX[i], ry = _v.PosY[i];
+            if (_v.RiverGrid[rx, ry] > 0 || _v.TerrainType[rx, ry] == ToolDefinitions.TerrainDynamicWater)
+                lerpRate *= _config.Temperature.WaterCoolingMult;
+            float localTemp = _v.TemperatureGrid[rx, ry];
+            _v.BodyTemperature[i] += (localTemp - _v.BodyTemperature[i]) * lerpRate;
+            // Hard floor
+            _v.BodyTemperature[i] = MathF.Max(_v.BodyTemperature[i], _config.Temperature.MinBodyTemp);
         }
 
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
             float bodyTemp = _v.BodyTemperature[i];
+
+            // Hypothermia damage: body temp below 33°C → linear HP decay
+            float hypoThreshold = _config.Temperature.HypothermiaThreshold;
+            if (bodyTemp < hypoThreshold)
+            {
+                float hypoRatio = (hypoThreshold - bodyTemp)
+                    / (hypoThreshold - _config.Temperature.MinBodyTemp);
+                float hypoDecay = hypoRatio * _config.Temperature.HypothermiaMaxDamage;
+                _v.Existence[i] -= hypoDecay;
+            }
 
             if (bodyTemp < _config.Temperature.ColdThreshold)
             {

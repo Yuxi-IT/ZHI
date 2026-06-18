@@ -64,6 +64,8 @@ public partial class VectorizedState : IDisposable
     public bool[] IsStationary;    // true when TicksSinceLastMove >= threshold
     public int[] PushCount;        // how many times agent pushed an entity
     public int[] TerraformCount;   // how many times agent changed terrain
+    public int[] ShoveCount;       // how many times agent shoved another agent
+    public int[] PullCount;        // how many times agent pulled another agent
 
     // Grid state
     public List<FoodTile> FoodTiles;
@@ -125,6 +127,8 @@ public partial class VectorizedState : IDisposable
         IsStationary = new bool[n];
         PushCount = new int[n];
         TerraformCount = new int[n];
+        ShoveCount = new int[n];
+        PullCount = new int[n];
         for (int i = 0; i < n; i++) { Thirst[i] = 100f; Hunger[i] = 100f; BodyTemperature[i] = 20f; Stamina[i] = 100f; }
 
         FoodTiles = new List<FoodTile>();
@@ -306,6 +310,8 @@ public partial class VectorizedState : IDisposable
         IsStationary[i] = false;
         PushCount[i] = 0;
         TerraformCount[i] = 0;
+        ShoveCount[i] = 0;
+        PullCount[i] = 0;
         RespawnCount[i]++;
     }
 
@@ -345,6 +351,8 @@ public partial class VectorizedState : IDisposable
         IsStationary = Resize(IsStationary, newN);
         PushCount = Resize(PushCount, newN);
         TerraformCount = Resize(TerraformCount, newN);
+        ShoveCount = Resize(ShoveCount, newN);
+        PullCount = Resize(PullCount, newN);
         RespawnCount = Resize(RespawnCount, newN);
 
         // Resize GPU tensor and assembly buffer

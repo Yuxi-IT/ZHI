@@ -28,7 +28,6 @@ public partial class CosmosEngine
             }
         }
 
-        _v.Existence[attacker] -= _config.Combat.AttackCost;
         _v.AttackCount[attacker]++;
         _v.Stamina[attacker] = MathF.Max(0f, _v.Stamina[attacker] - _config.Stamina.AttackCost);
 
@@ -63,7 +62,7 @@ public partial class CosmosEngine
         int R = ToolDefinitions.VisionRadius;
         int sx = _v.PosX[signaler], sy = _v.PosY[signaler];
 
-        _v.Existence[signaler] -= _config.Signal.Cost;
+        _v.Stamina[signaler] = MathF.Max(0f, _v.Stamina[signaler] - _config.Stamina.SignalCost);
         _v.SignalCount[signaler]++;
 
         _tickEvents.Add(new WorldEvent
@@ -245,6 +244,146 @@ public partial class CosmosEngine
             AgentId = i,
             FoodType = terrainName,
             Tick = _globalTick
+        });
+    }
+
+    private void ProcessShove(int i, float[] rewards)
+    {
+        int W = ToolDefinitions.GridWidth, H = ToolDefinitions.GridHeight;
+        int px = _v.PosX[i], py = _v.PosY[i];
+        int fd = _v.FacingDirection[i];
+
+        if (_v.Stamina[i] < _config.Stamina.LowStaminaThreshold)
+            return;
+
+        int fx = px, fy = py;
+        switch (fd)
+        {
+            case 0: fy = py - 1; break;
+            case 1: fy = py + 1; break;
+            case 2: fx = px - 1; break;
+            default: fx = px + 1; break;
+        }
+
+        if (fx < 0 || fx >= W || fy < 0 || fy >= H)
+        {
+            _v.Stamina[i] -= _config.Stamina.ShoveCost * 0.5f;
+            return;
+        }
+
+        // Find target agent in front cell
+        int target = -1;
+        for (int j = 0; j < _v.N; j++)
+        {
+            if (j == i || !_v.Alive[j]) continue;
+            if (_v.PosX[j] == fx && _v.PosY[j] == fy)
+            {
+                target = j;
+                break;
+            }
+        }
+
+        if (target < 0)
+        {
+            _v.Stamina[i] -= _config.Stamina.ShoveCost * 0.5f;
+            return;
+        }
+
+        // Push target further in same direction
+        int bx = fx, by = fy;
+        switch (fd)
+        {
+            case 0: by = fy - 1; break;
+            case 1: by = fy + 1; break;
+            case 2: bx = fx - 1; break;
+            default: bx = fx + 1; break;
+        }
+
+        if (bx < 0 || bx >= W || by < 0 || by >= H
+            || _v.IsMoundAt(bx, by)
+            || _v.HasAnyAgentAt(bx, by))
+        {
+            _v.Stamina[i] -= _config.Stamina.ShoveCost * 0.5f;
+            return;
+        }
+
+        _v.PosX[target] = bx;
+        _v.PosY[target] = by;
+        _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - _config.Stamina.ShoveCost);
+        _v.ShoveCount[i]++;
+
+        rewards[i] += 0.2f;
+        if (_v.IsDeepWater(bx, by)) rewards[i] += 1.0f; // reward for pushing into deep water
+
+        _tickEvents.Add(new WorldEvent
+        {
+            Type = "shove", AgentId = i, TargetId = target, Tick = _globalTick
+        });
+    }
+
+    private void ProcessPull(int i, float[] rewards)
+    {
+        int W = ToolDefinitions.GridWidth, H = ToolDefinitions.GridHeight;
+        int px = _v.PosX[i], py = _v.PosY[i];
+        int fd = _v.FacingDirection[i];
+
+        if (_v.Stamina[i] < _config.Stamina.LowStaminaThreshold)
+            return;
+
+        int fx = px, fy = py;
+        switch (fd)
+        {
+            case 0: fy = py - 1; break;
+            case 1: fy = py + 1; break;
+            case 2: fx = px - 1; break;
+            default: fx = px + 1; break;
+        }
+
+        if (fx < 0 || fx >= W || fy < 0 || fy >= H)
+        {
+            _v.Stamina[i] -= _config.Stamina.PullCost * 0.5f;
+            return;
+        }
+
+        // Find target agent in front cell
+        int target = -1;
+        for (int j = 0; j < _v.N; j++)
+        {
+            if (j == i || !_v.Alive[j]) continue;
+            if (_v.PosX[j] == fx && _v.PosY[j] == fy)
+            {
+                target = j;
+                break;
+            }
+        }
+
+        if (target < 0)
+        {
+            _v.Stamina[i] -= _config.Stamina.PullCost * 0.5f;
+            return;
+        }
+
+        // Pull target to behind puller (puller's current position becomes the target's new position)
+        // Puller steps into the front cell (target's old position)
+        // Target moves to puller's old position
+        int pullerOldX = px, pullerOldY = py;
+        int targetOldX = fx, targetOldY = fy;
+
+        _v.PosX[i] = targetOldX;
+        _v.PosY[i] = targetOldY;
+        _v.PosX[target] = pullerOldX;
+        _v.PosY[target] = pullerOldY;
+
+        _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - _config.Stamina.PullCost);
+        _v.PullCount[i]++;
+
+        // Reward for rescuing from deep water
+        if (_v.IsDeepWater(targetOldX, targetOldY) && !_v.IsDeepWater(pullerOldX, pullerOldY))
+            rewards[i] += 2.0f;
+
+        _tickEvents.Add(new WorldEvent
+        {
+            Type = "pull", AgentId = i, TargetId = target, Tick = _globalTick
         });
     }
 }
