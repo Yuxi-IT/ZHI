@@ -305,7 +305,8 @@ public partial class CosmosEngine
                 food.Energy -= decay;
                 if (food.Energy <= 0)
                 {
-                    _v.NutrientGrid[food.X, food.Y] = MathF.Min(_config.Nutrient.MaxNutrient,
+                    float foodCellMax = _config.Nutrient.MaxNutrient * (1f - _v.HeightMap[food.X, food.Y] / 255f * _config.Nutrient.HeightRetentionFactor);
+                    _v.NutrientGrid[food.X, food.Y] = MathF.Min(foodCellMax,
                         _v.NutrientGrid[food.X, food.Y] + decay * _config.Nutrient.PlantToNutrientRatio);
                     _v.FoodTiles.RemoveAt(f);
                 }
@@ -328,7 +329,8 @@ public partial class CosmosEngine
                     if (corpse.X < W && corpse.Y < H)
                         _v.FoodScentGrid[corpse.X, corpse.Y] += _config.Corpse.ScentAmount;
                 }
-                _v.NutrientGrid[corpse.X, corpse.Y] = MathF.Min(_config.Nutrient.MaxNutrient,
+                float corpseCellMax = _config.Nutrient.MaxNutrient * (1f - _v.HeightMap[corpse.X, corpse.Y] / 255f * _config.Nutrient.HeightRetentionFactor);
+                _v.NutrientGrid[corpse.X, corpse.Y] = MathF.Min(corpseCellMax,
                     _v.NutrientGrid[corpse.X, corpse.Y] + decay * _config.Nutrient.CorpseToNutrientRatio);
             }
         }
@@ -340,6 +342,7 @@ public partial class CosmosEngine
         int H = ToolDefinitions.GridHeight;
         float rate = _config.Nutrient.DiffusionRate;
         float max = _config.Nutrient.MaxNutrient;
+        float heightRetention = _config.Nutrient.HeightRetentionFactor;
 
         var newGrid = new float[W, H];
         for (int x = 0; x < W; x++)
@@ -353,7 +356,10 @@ public partial class CosmosEngine
                 if (x < W - 1) { inflow += _v.NutrientGrid[x + 1, y] * rate; nc++; }
                 if (y > 0) { inflow += _v.NutrientGrid[x, y - 1] * rate; nc++; }
                 if (y < H - 1) { inflow += _v.NutrientGrid[x, y + 1] * rate; nc++; }
-                newGrid[x, y] = MathF.Min(current - outflow + inflow / MathF.Max(1, nc), max);
+                // Height-adjusted cap: high ground holds fewer nutrients
+                float heightNorm = _v.HeightMap[x, y] / 255f;
+                float cellMax = max * (1f - heightNorm * heightRetention);
+                newGrid[x, y] = MathF.Min(current - outflow + inflow / MathF.Max(1, nc), cellMax);
             }
         _v.NutrientGrid = newGrid;
     }

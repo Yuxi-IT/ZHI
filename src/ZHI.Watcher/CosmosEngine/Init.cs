@@ -47,11 +47,21 @@ public partial class CosmosEngine
         ComputeWaterSound();
         SpawnInitialFood();
 
-        // Initialize nutrient grid
-        float initNutrient = _config.Nutrient.InitialNutrient;
+        // Initialize nutrient grid — riverbank gradient (river=0, bank=peak, inland=baseline)
+        float baseNutrient = _config.Nutrient.InitialNutrient;
+        float bankBoost = _config.Nutrient.RiverBankNutrientBoost;
+        int bankDist = _config.Nutrient.RiverBankDistance;
         for (int x = 0; x < gw; x++)
             for (int y = 0; y < gh; y++)
-                _v.NutrientGrid[x, y] = initNutrient;
+            {
+                int dist = _v.DistanceToRiver[x, y];
+                if (dist == 0)
+                    _v.NutrientGrid[x, y] = 0f;
+                else if (dist <= bankDist)
+                    _v.NutrientGrid[x, y] = baseNutrient + bankBoost * (1f - (dist - 1f) / bankDist);
+                else
+                    _v.NutrientGrid[x, y] = baseNutrient;
+            }
 
         // Initialize surface water from river
         for (int x = 0; x < gw; x++)

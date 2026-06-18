@@ -210,6 +210,9 @@ public sealed class NutrientConfig
     public float DiffusionRate { get; set; } = 0.02f;
     public float MaxNutrient { get; set; } = 10f;
     public float InitialNutrient { get; set; } = 2f;
+    public float RiverBankNutrientBoost { get; set; } = 3f;   // peak extra nutrient at riverbank
+    public int RiverBankDistance { get; set; } = 3;            // how far from river the boost extends
+    public float HeightRetentionFactor { get; set; } = 0.5f;  // 0=flat, 1=high ground holds no nutrients
 }
 
 public sealed class MetabolismConfig
