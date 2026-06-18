@@ -177,7 +177,7 @@ public sealed class TemperatureConfig
     public float MaxThirstAccel { get; set; } = 1.5f;// thirst multiplier at hottest
     public float HuddleRange { get; set; } = 2f;     // Manhattan distance for warmth sharing
     public float HuddleWarmthPerAgent { get; set; } = 3f; // effective °C per nearby agent
-    public float AgentBodyHeat { get; set; } = 2f;   // °C per agent on own cell (half on 8 neighbors), scaled by HP ratio
+    public float AgentBodyHeat { get; set; } = 0.3f; // °C per agent on own cell (half on 8 neighbors), scaled by HP ratio
     [Obsolete("Replaced by thermal diffusion + distance field in v4.3")]
     public float RiverCooling { get; set; } = 5f;
     [Obsolete("Replaced by thermal diffusion + distance field in v4.3")]
@@ -250,8 +250,8 @@ public sealed class StaminaConfig
     public float LowStaminaThreshold { get; set; } = 10f;   // cannot push/terraform below this
     public int StationaryTicksRequired { get; set; } = 5;   // ticks without movement
     public float StationaryDamageMult { get; set; } = 1.2f; // 120% damage taken when stationary
-    public float StationarySelfHeat { get; set; } = 3f;     // own cell heat bonus
-    public float StationaryNeighborHeat { get; set; } = 2f; // neighbor cell heat bonus
+    public float StationarySelfHeat { get; set; } = 0.5f;    // own cell heat bonus
+    public float StationaryNeighborHeat { get; set; } = 0.3f; // neighbor cell heat bonus
     public float StationaryHpRecoveryBonus { get; set; } = 0.1f; // bonus HP/tick when stationary
 }
 
