@@ -37,6 +37,7 @@ public partial class CosmosEngine : IDisposable
     private int _globalTick;
     private int _tickExceptionCount;
     private bool _paused;
+    private int _speedMultiplier = 1;
     private ZhiConfig? _pendingConfig;
     private volatile bool _pendingRestart;
     private float _effectiveMutationRate = 0.1f;
@@ -185,7 +186,7 @@ public partial class CosmosEngine : IDisposable
                         Log($"[Cosmos] Tick error #{_tickExceptionCount}: {ex.Message}");
                     }
                 }
-                try { await Task.Delay(_config.DecisionIntervalMs, _cts.Token); }
+                try { await Task.Delay(_config.DecisionIntervalMs / _speedMultiplier, _cts.Token); }
                 catch (OperationCanceledException) { break; }
             }
         }
@@ -445,6 +446,12 @@ public partial class CosmosEngine : IDisposable
 
 
     public void TogglePause() => _paused = !_paused;
+    public int SpeedMultiplier => _speedMultiplier;
+    public void SetSpeed(int multiplier)
+    {
+        if (multiplier >= 1 && multiplier <= 100)
+            _speedMultiplier = multiplier;
+    }
     public void RequestShutdown() { Log("[Cosmos] Shutting down..."); _cts.Cancel(); }
 
     public void GracefulStop()

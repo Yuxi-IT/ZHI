@@ -32,6 +32,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'control.alive': '存活 {n}/{total}',
     'control.live': '在线',
     'control.off': '离线',
+    'control.speed': '速度',
 
     // Launch page
     'launch.subtitle': 'Zero-Hypothesis Intelligence Ecosystem',
@@ -271,6 +272,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'control.alive': 'Alive {n}/{total}',
     'control.live': 'live',
     'control.off': 'off',
+    'control.speed': 'Speed',
 
     // Launch page
     'launch.subtitle': 'Zero-Hypothesis Intelligence Ecosystem',

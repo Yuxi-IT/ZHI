@@ -1,8 +1,10 @@
 import { Button, Separator } from '@heroui/react';
-import { Pause, Play, Stop } from '@gravity-ui/icons';
+import { Pause, Play, Stop, Thunderbolt } from '@gravity-ui/icons';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
 import { LangSwitcher } from '../components/LangSwitcher';
 import { useT } from '../i18n/I18nContext';
+
+const SPEEDS = [1, 2, 5, 10, 20, 50, 100];
 
 interface Props {
   worldName: string;
@@ -15,13 +17,22 @@ interface Props {
   onStop: () => void;
   paused: boolean;
   stopping: boolean;
+  speed: number;
+  onSpeedChange: (speed: number) => void;
 }
 
 export function ControlBar({
   worldName, generation, totalDeaths, aliveCount, agentCount,
-  connected, onPause, onStop, paused, stopping,
+  connected, onPause, onStop, paused, stopping, speed, onSpeedChange,
 }: Props) {
   const { t } = useT();
+
+  const cycleSpeed = () => {
+    const idx = SPEEDS.indexOf(speed);
+    const next = (idx + 1) % SPEEDS.length;
+    onSpeedChange(SPEEDS[next]!);
+  };
+
   return (
     <header className="flex items-center gap-3 px-5 py-2 border-b border-zhi-border shrink-0 bg-zhi-panel">
       <div className="flex items-center gap-2">
@@ -50,6 +61,16 @@ export function ControlBar({
         >
           <Stop className="size-3" />
           {stopping ? t('control.stopping') : t('control.stop')}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-[10px] text-cyan-400 hover:text-cyan-300 min-w-0 h-auto px-2 py-0.5"
+          onPress={cycleSpeed}
+          isDisabled={stopping}
+        >
+          <Thunderbolt className="size-3" />
+          {speed}x
         </Button>
       </div>
 

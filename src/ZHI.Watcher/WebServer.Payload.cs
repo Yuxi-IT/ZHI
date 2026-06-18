@@ -165,3 +165,5 @@ public partial class WebServer
         });
     }
 }
+
+internal record SpeedPayload(int Multiplier);

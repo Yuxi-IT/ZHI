@@ -226,6 +226,11 @@ public partial class WebServer : IDisposable
             await HandleStop(context);
             return;
         }
+        if (path == "/api/speed" && context.Request.HttpMethod == "POST")
+        {
+            await HandleSetSpeed(context);
+            return;
+        }
 
         // Data endpoints (require engine)
         if (path == "/api/stats")
@@ -413,6 +418,19 @@ public partial class WebServer : IDisposable
     {
         await StopWorldAsync();
         var resp = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { ok = true }));
+        context.Response.ContentType = "application/json; charset=utf-8";
+        context.Response.ContentLength64 = resp.Length;
+        await context.Response.OutputStream.WriteAsync(resp);
+        context.Response.Close();
+    }
+
+    private async Task HandleSetSpeed(HttpListenerContext context)
+    {
+        using var reader = new StreamReader(context.Request.InputStream);
+        var body = await reader.ReadToEndAsync();
+        var req = JsonSerializer.Deserialize<SpeedPayload>(body);
+        _engine?.SetSpeed(req?.Multiplier ?? 1);
+        var resp = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { ok = true, speed = _engine?.SpeedMultiplier ?? 1 }));
         context.Response.ContentType = "application/json; charset=utf-8";
         context.Response.ContentLength64 = resp.Length;
         await context.Response.OutputStream.WriteAsync(resp);

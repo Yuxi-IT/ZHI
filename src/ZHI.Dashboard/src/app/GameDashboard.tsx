@@ -48,6 +48,7 @@ export function GameDashboard({ worldName, onStop }: Props) {
   const [bottomHeight, setBottomHeight] = useState(192);
   const [paused, setPaused] = useState(false);
   const [stopping, setStopping] = useState(false);
+  const [speed, setSpeed] = useState(1);
   const resizeRef = useRef<{ startY: number; startH: number } | null>(null);
 
   const [showScent, setShowScent] = useState(true);
@@ -126,6 +127,19 @@ export function GameDashboard({ worldName, onStop }: Props) {
     }
   }, [onStop]);
 
+  const handleSpeedChange = useCallback(async (multiplier: number) => {
+    setSpeed(multiplier);
+    try {
+      await fetch('/api/speed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ multiplier }),
+      });
+    } catch (err) {
+      console.error('Failed to set speed:', err);
+    }
+  }, []);
+
   return (
     <div className="h-screen flex flex-col bg-zhi-bg text-zhi-text font-mono text-xs overflow-hidden">
       <ControlBar
@@ -139,6 +153,8 @@ export function GameDashboard({ worldName, onStop }: Props) {
         onStop={handleStop}
         paused={paused}
         stopping={stopping}
+        speed={speed}
+        onSpeedChange={handleSpeedChange}
       />
 
       <div className="flex-1 flex min-h-0">
