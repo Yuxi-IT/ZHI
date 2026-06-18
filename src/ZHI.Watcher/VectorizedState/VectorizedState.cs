@@ -83,7 +83,8 @@ public partial class VectorizedState : IDisposable
 
     // Spatial query grids
     private int[] _agentGrid;
-    private bool[] _foodGrid;
+    private float[] _foodGrid; // plant energy per cell, 0 = no plant
+    public float PlantMaxEnergy = 20f; // set by CosmosEngine before BuildStateMatrix
     private bool[] _corpseGrid;
 
     // GPU tensor for batch inference
@@ -159,7 +160,7 @@ public partial class VectorizedState : IDisposable
 
         int gridSize = W * H;
         _agentGrid = new int[gridSize];
-        _foodGrid = new bool[gridSize];
+        _foodGrid = new float[gridSize];
         _corpseGrid = new bool[gridSize];
 
         StateMatrix = torch.zeros(n, ToolDefinitions.StateSize, device: device);
@@ -190,6 +191,14 @@ public partial class VectorizedState : IDisposable
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
         if (x < 0 || x >= W || y < 0 || y >= H) return false;
+        return _foodGrid[x * H + y] > 0f;
+    }
+
+    public float GetPlantEnergyAt(int x, int y)
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        if (x < 0 || x >= W || y < 0 || y >= H) return 0f;
         return _foodGrid[x * H + y];
     }
 

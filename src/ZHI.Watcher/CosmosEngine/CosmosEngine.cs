@@ -344,6 +344,7 @@ public partial class CosmosEngine : IDisposable
         Array.Copy(_v.GetStateBuffer(), _stateForPpoBuf, nn * stateSize);
 
         // 11b. Rebuild spatial grids + build next observation (s_{t+1}) for GRU
+        _v.PlantMaxEnergy = _config.Plant.MaxPlantEnergy;
         _v.RebuildSpatialGrids();
         _v.BuildStateMatrix();
 
