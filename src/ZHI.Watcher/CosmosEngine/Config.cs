@@ -24,9 +24,7 @@ public partial class CosmosEngine
         typeof(ZhiConfig).GetProperty("Cosmos")!.SetValue(_config, updated.Cosmos);
         typeof(ZhiConfig).GetProperty("Grid")!.SetValue(_config, updated.Grid);
         typeof(ZhiConfig).GetProperty("Combat")!.SetValue(_config, updated.Combat);
-        typeof(ZhiConfig).GetProperty("Hunger")!.SetValue(_config, updated.Hunger);
-        typeof(ZhiConfig).GetProperty("Thirst")!.SetValue(_config, updated.Thirst);
-        typeof(ZhiConfig).GetProperty("Existence")!.SetValue(_config, updated.Existence);
+        typeof(ZhiConfig).GetProperty("Metabolism")!.SetValue(_config, updated.Metabolism);
         typeof(ZhiConfig).GetProperty("Reproduce")!.SetValue(_config, updated.Reproduce);
         typeof(ZhiConfig).GetProperty("Temperature")!.SetValue(_config, updated.Temperature);
         typeof(ZhiConfig).GetProperty("Scent")!.SetValue(_config, updated.Scent);

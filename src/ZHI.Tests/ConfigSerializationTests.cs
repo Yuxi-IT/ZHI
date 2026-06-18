@@ -36,16 +36,14 @@ public class ConfigSerializationTests
         Assert.Equal(original.Combat.StressDamage, deserialized.Combat.StressDamage);
         Assert.Equal(original.Combat.AttackCost, deserialized.Combat.AttackCost);
 
-        Assert.Equal(original.Hunger.DecayRate, deserialized.Hunger.DecayRate);
-        Assert.Equal(original.Hunger.PenaltyStart, deserialized.Hunger.PenaltyStart);
-        Assert.Equal(original.Hunger.MaxPenalty, deserialized.Hunger.MaxPenalty);
-        Assert.Equal(original.Hunger.Initial, deserialized.Hunger.Initial);
-
-        Assert.Equal(original.Thirst.DecayRate, deserialized.Thirst.DecayRate);
-        Assert.Equal(original.Thirst.DrinkRestore, deserialized.Thirst.DrinkRestore);
-        Assert.Equal(original.Thirst.PenaltyStart, deserialized.Thirst.PenaltyStart);
-        Assert.Equal(original.Thirst.MaxPenalty, deserialized.Thirst.MaxPenalty);
-        Assert.Equal(original.Thirst.Initial, deserialized.Thirst.Initial);
+        Assert.Equal(original.Metabolism.EnergyInitial, deserialized.Metabolism.EnergyInitial);
+        Assert.Equal(original.Metabolism.EnergyDecayBase, deserialized.Metabolism.EnergyDecayBase);
+        Assert.Equal(original.Metabolism.WaterInitial, deserialized.Metabolism.WaterInitial);
+        Assert.Equal(original.Metabolism.WaterDecayRate, deserialized.Metabolism.WaterDecayRate);
+        Assert.Equal(original.Metabolism.DrinkRestore, deserialized.Metabolism.DrinkRestore);
+        Assert.Equal(original.Metabolism.MoveCost, deserialized.Metabolism.MoveCost);
+        Assert.Equal(original.Metabolism.AttackCostBase, deserialized.Metabolism.AttackCostBase);
+        Assert.Equal(original.Metabolism.EmitCost, deserialized.Metabolism.EmitCost);
 
         Assert.Equal(original.Temperature.MaxTemp, deserialized.Temperature.MaxTemp);
         Assert.Equal(original.Temperature.MinTemp, deserialized.Temperature.MinTemp);
@@ -60,7 +58,7 @@ public class ConfigSerializationTests
         Assert.Equal(original.River.Width, deserialized.River.Width);
         Assert.Equal(original.River.FordChance, deserialized.River.FordChance);
 
-        Assert.Equal(original.Reproduce.MinExistence, deserialized.Reproduce.MinExistence);
+        Assert.Equal(original.Reproduce.MinEnergy, deserialized.Reproduce.MinEnergy);
         Assert.Equal(original.Reproduce.MinAge, deserialized.Reproduce.MinAge);
         Assert.Equal(original.Reproduce.Cooldown, deserialized.Reproduce.Cooldown);
         Assert.Equal(original.Reproduce.MutationScale, deserialized.Reproduce.MutationScale);
@@ -71,11 +69,6 @@ public class ConfigSerializationTests
         Assert.Equal(original.Chemical.EmissionCost, deserialized.Chemical.EmissionCost);
         Assert.Equal(original.Chemical.WaveRadius, deserialized.Chemical.WaveRadius);
 
-        Assert.Equal(original.Stamina.MaxStamina, deserialized.Stamina.MaxStamina);
-        Assert.Equal(original.Stamina.AttackCost, deserialized.Stamina.AttackCost);
-        Assert.Equal(original.Stamina.BaseRecovery, deserialized.Stamina.BaseRecovery);
-        Assert.Equal(original.Stamina.StationaryTicksRequired, deserialized.Stamina.StationaryTicksRequired);
-
         Assert.Equal(original.Corpse.Energy, deserialized.Corpse.Energy);
         Assert.Equal(original.Corpse.DecayPerTick, deserialized.Corpse.DecayPerTick);
     }
@@ -83,7 +76,7 @@ public class ConfigSerializationTests
     [Fact]
     public void Deserialize_CustomFoodEnergy_OverridesDefault()
     {
-        var json = """{"grid":{"food_energy":42},"cosmos":{},"temperature":{},"combat":{},"hunger":{},"thirst":{},"river":{},"existence":{},"reproduce":{},"age_death":{},"chemical":{},"scent":{},"food_scent":{},"network":{},"corpse":{},"stamina":{}}""";
+        var json = """{"grid":{"food_energy":42},"cosmos":{},"temperature":{},"combat":{},"metabolism":{},"river":{},"reproduce":{},"age_death":{},"chemical":{},"scent":{},"food_scent":{},"network":{},"corpse":{}}""";
         var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
         var config = JsonSerializer.Deserialize<ZhiConfig>(json, options)!;
 

@@ -2,7 +2,6 @@ namespace ZHI.Shared;
 
 public sealed class ZhiConfig
 {
-    public ExistenceConfig Existence { get; set; } = new();
     public GridConfig Grid { get; set; } = new();
     public CombatConfig Combat { get; set; } = new();
     [System.Text.Json.Serialization.JsonPropertyName("signal")]
@@ -15,11 +14,9 @@ public sealed class ZhiConfig
     public CorpseConfig Corpse { get; set; } = new();
     public ReproduceConfig Reproduce { get; set; } = new();
     public AgeDeathConfig AgeDeath { get; set; } = new();
-    public ThirstConfig Thirst { get; set; } = new();
-    public HungerConfig Hunger { get; set; } = new();
+    public MetabolismConfig Metabolism { get; set; } = new();
     public RiverConfig River { get; set; } = new();
     public TemperatureConfig Temperature { get; set; } = new();
-    public StaminaConfig Stamina { get; set; } = new();
     public NutrientConfig Nutrient { get; set; } = new();
     public WaterCycleConfig WaterCycle { get; set; } = new();
     public PlantConfig Plant { get; set; } = new();
@@ -29,11 +26,6 @@ public sealed class ZhiConfig
     public int? Seed { get; set; }
 }
 
-public sealed class ExistenceConfig
-{
-    public float Initial { get; set; } = 100.0f;
-    public float DecayPerTick { get; set; } = 0.1f;
-}
 
 public sealed class GridConfig
 {
@@ -131,30 +123,13 @@ public sealed class AgeDeathConfig
 
 public sealed class ReproduceConfig
 {
-    public float MinExistence { get; set; } = 80f;
+    [System.Text.Json.Serialization.JsonPropertyName("min_energy")]
+    public float MinEnergy { get; set; } = 80f;
     public int MinAge { get; set; } = 200;
     public float ParentCost { get; set; } = 40f;
     public float ChildStart { get; set; } = 40f;
     public float MutationScale { get; set; } = 0.3f;
     public int Cooldown { get; set; } = 500;
-}
-
-public sealed class ThirstConfig
-{
-    public float Initial { get; set; } = 100f;
-    public float DecayRate { get; set; } = 0.1f;         // 1000 ticks to empty
-    public float DrinkRestore { get; set; } = 40f;       // per drink action
-    public float PenaltyStart { get; set; } = 70f;       // continuous ramp begins here
-    public float MaxPenalty { get; set; } = 0.8f;        // HP/tick at thirst=0
-}
-
-public sealed class HungerConfig
-{
-    public float Initial { get; set; } = 100f;
-    public float DecayRate { get; set; } = 0.05f;       // 2000 ticks to empty
-    // hunger restored by per-tick food energy extraction
-    public float PenaltyStart { get; set; } = 60f;       // continuous ramp begins here
-    public float MaxPenalty { get; set; } = 0.25f;       // HP/tick at hunger=0
 }
 
 public sealed class RiverConfig
@@ -173,8 +148,9 @@ public sealed class TemperatureConfig
     public float MinTemp { get; set; } = 5f;        // trough @ 04:00
     public float ColdThreshold { get; set; } = 15f;  // below this → cold HP decay
     public float MaxColdDecay { get; set; } = 0.15f; // extra HP/tick at coldest
-    public float HotThreshold { get; set; } = 30f;   // above this → thirst accelerates
-    public float MaxThirstAccel { get; set; } = 1.5f;// thirst multiplier at hottest
+    public float HotThreshold { get; set; } = 30f;   // above this → water decay accelerates
+    [System.Text.Json.Serialization.JsonPropertyName("max_water_decay_mult")]
+    public float MaxWaterDecayMult { get; set; } = 1.5f; // water decay multiplier at hottest
     public float HuddleRange { get; set; } = 2f;     // Manhattan distance for warmth sharing
     public float HuddleWarmthPerAgent { get; set; } = 3f; // effective °C per nearby agent
     public float AgentBodyHeat { get; set; } = 0.3f; // °C per agent on own cell (half on 8 neighbors), scaled by HP ratio
@@ -236,23 +212,27 @@ public sealed class NutrientConfig
     public float InitialNutrient { get; set; } = 2f;
 }
 
-public sealed class StaminaConfig
+public sealed class MetabolismConfig
 {
-    public float MaxStamina { get; set; } = 100f;
+    public float EnergyInitial { get; set; } = 100f;
+    public float EnergyDecayBase { get; set; } = 0.1f;
+    public float ColdEnergyDecayMax { get; set; } = 0.15f;
+    public float WaterInitial { get; set; } = 100f;
+    public float WaterDecayRate { get; set; } = 0.1f;
+    public float DrinkRestore { get; set; } = 40f;
+    public float DehydrationThreshold { get; set; } = 30f;
+    public float DehydrationEnergyPenalty { get; set; } = 0.3f;
     public float MoveCost { get; set; } = 0.5f;
-    public float AttackCost { get; set; } = 8f;
-    public float ChemicalEmitCost { get; set; } = 3f;
+    public float AttackCostBase { get; set; } = 8f;
+    public float EmitCost { get; set; } = 3f;
     public float ShallowWaterMoveExtra { get; set; } = 1f;
     public float DeepWaterMoveExtra { get; set; } = 2.5f;
     public float DeepWaterClimbExtra { get; set; } = 1f;
-    public float BaseRecovery { get; set; } = 1f;         // per tick when well-fed
-    public float StationaryRecoveryBonus { get; set; } = 2f; // multiplier when stationary
-    public float LowStaminaThreshold { get; set; } = 10f;   // cannot push/terraform below this
-    public int StationaryTicksRequired { get; set; } = 5;   // ticks without movement
-    public float StationaryDamageMult { get; set; } = 1.2f; // 120% damage taken when stationary
-    public float StationarySelfHeat { get; set; } = 0.5f;    // own cell heat bonus
-    public float StationaryNeighborHeat { get; set; } = 0.3f; // neighbor cell heat bonus
-    public float StationaryHpRecoveryBonus { get; set; } = 0.1f; // bonus HP/tick when stationary
+    public float LowEnergyThreshold { get; set; } = 10f;
+    public int StationaryTicksRequired { get; set; } = 5;
+    public float StationaryDamageMult { get; set; } = 1.2f;
+    public float StationarySelfHeat { get; set; } = 0.5f;
+    public float StationaryNeighborHeat { get; set; } = 0.3f;
 }
 
 
