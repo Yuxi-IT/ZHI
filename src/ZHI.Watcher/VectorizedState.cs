@@ -396,8 +396,8 @@ public class VectorizedState : IDisposable
             }
         }
 
-        StateMatrix.Dispose();
-        StateMatrix = tensor(_stateAssemblyBuffer, [N, S], device: Device);
+        using var cpuData = tensor(_stateAssemblyBuffer, [N, S]);
+        StateMatrix.copy_(cpuData);
     }
 
     public bool HasFoodAt(int x, int y, out bool isBig)

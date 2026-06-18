@@ -109,11 +109,7 @@ public class GRUBrain : Module
     private Tensor BuildActionMask(Tensor states)
     {
         int N = (int)states.shape[0];
-        int A = ToolDefinitions.ActionCount;
-        // All actions always valid (no hide action)
-        float[] maskData = new float[N * A];
-        for (int i = 0; i < N * A; i++) maskData[i] = 1f;
-        return torch.tensor(maskData, [N, A]).to(states.device);
+        return torch.ones([N, ToolDefinitions.ActionCount], device: states.device);
     }
 
     /// <summary>
