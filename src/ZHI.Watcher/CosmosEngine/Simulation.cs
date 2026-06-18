@@ -320,20 +320,6 @@ public partial class CosmosEngine
                 else
                 {
                     _v.FoodTiles[f] = food;
-                    float scentAmount = _config.FoodScent.SmallFoodEmission;
-                    int spreadRadius = _config.FoodScent.SpreadRadius;
-                    for (int dx = -spreadRadius; dx <= spreadRadius; dx++)
-                        for (int dy = -spreadRadius; dy <= spreadRadius; dy++)
-                        {
-                            int sx = food.X + dx;
-                            int sy = food.Y + dy;
-                            if (sx >= 0 && sx < W && sy >= 0 && sy < H)
-                            {
-                                float dist = MathF.Sqrt(dx * dx + dy * dy);
-                                float falloff = MathF.Max(0, 1f - dist / (spreadRadius + 1));
-                                _v.FoodScentGrid[sx, sy] += scentAmount * falloff;
-                            }
-                        }
                 }
             }
 

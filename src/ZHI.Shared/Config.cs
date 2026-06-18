@@ -21,6 +21,7 @@ public sealed class ZhiConfig
     public StaminaConfig Stamina { get; set; } = new();
     public NutrientConfig Nutrient { get; set; } = new();
     public WaterCycleConfig WaterCycle { get; set; } = new();
+    public PlantConfig Plant { get; set; } = new();
     public int Port { get; set; } = 19816;
     public int DecisionIntervalMs { get; set; } = 200;
     public int DeathCount { get; set; } = 0;
@@ -185,6 +186,24 @@ public sealed class TemperatureConfig
     public float WaterCoolingMult { get; set; } = 2f;       // body temp lerp multiplier in water
     public float DeepWaterExtraCold { get; set; } = 3f;     // extra °C penalty in deep water cells
     public float MinBodyTemp { get; set; } = 26f;           // body temp hard floor
+}
+
+public sealed class PlantConfig
+{
+    public float BaseGrowthRate { get; set; } = 0.05f;
+    public float MaxPlantEnergy { get; set; } = 20f;
+    public float SpreadChance { get; set; } = 0.02f;
+    public int SpreadRadius { get; set; } = 2;
+    public float MinTemp { get; set; } = 0f;
+    public float OptimalTemp { get; set; } = 25f;
+    public float MaxTemp { get; set; } = 45f;
+    public float DeathTemp { get; set; } = -2f;
+    public float WaterNeed { get; set; } = 0.2f;
+    public float NutrientNeed { get; set; } = 0.5f;
+    public float NutrientConsumption { get; set; } = 0.1f;
+    public float WaterConsumption { get; set; } = 0.05f;
+    public int InitialPlants { get; set; } = 50;
+    public float InitialPlantEnergy { get; set; } = 10f;
 }
 
 public sealed class WaterCycleConfig

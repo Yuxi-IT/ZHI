@@ -294,8 +294,10 @@ public partial class CosmosEngine
     {
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
+        int plantCount = _config.Plant.InitialPlants;
+        float plantEnergy = _config.Plant.InitialPlantEnergy;
 
-        for (int i = 0; i < _config.Grid.InitialFood; i++)
+        for (int i = 0; i < plantCount; i++)
         {
             bool placed = false;
             for (int attempt = 0; attempt < 100; attempt++)
@@ -304,12 +306,12 @@ public partial class CosmosEngine
                 int y = _rng.Next(H);
                 if (!IsValidFoodPlacement(x, y)) continue;
                 lock (_v.LockObj)
-                    _v.FoodTiles.Add(new FoodTile { X = x, Y = y, Energy = _config.Grid.FoodEnergy });
+                    _v.FoodTiles.Add(new FoodTile { X = x, Y = y, Energy = plantEnergy });
                 placed = true;
                 break;
             }
             if (!placed)
-                Log($"[Cosmos] WARNING: Could not place food #{i} after 100 attempts");
+                Log($"[Cosmos] WARNING: Could not place plant #{i} after 100 attempts");
         }
     }
 }
