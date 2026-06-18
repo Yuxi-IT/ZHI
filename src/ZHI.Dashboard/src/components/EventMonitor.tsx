@@ -17,14 +17,9 @@ const EVENT_COLORS: Record<string, string> = {
   reproduce: 'text-purple-400',
   signal: 'text-yellow-400',
   respawn: 'text-violet-400',
-  push: 'text-amber-400',
-  terraform: 'text-stone-400',
-  flood: 'text-blue-400',
-  weather: 'text-zhi-muted',
-  dam_built: 'text-lime-400',
 };
 
-const FILTER_TYPES: WorldEventType[] = ['death', 'attack', 'respawn', 'eat', 'signal', 'push', 'terraform', 'flood', 'weather', 'dam_built'];
+const FILTER_TYPES: WorldEventType[] = ['death', 'attack', 'respawn', 'eat', 'signal'];
 
 const FILTER_BORDER_COLORS: Record<string, string> = {
   death: 'border-zhi-muted',
@@ -32,11 +27,6 @@ const FILTER_BORDER_COLORS: Record<string, string> = {
   respawn: 'border-violet-600',
   eat: 'border-green-600',
   signal: 'border-yellow-600',
-  push: 'border-amber-600',
-  terraform: 'border-stone-600',
-  flood: 'border-blue-600',
-  weather: 'border-zhi-muted',
-  dam_built: 'border-lime-600',
 };
 
 const FILTER_TEXT_COLORS: Record<string, string> = {
@@ -45,11 +35,6 @@ const FILTER_TEXT_COLORS: Record<string, string> = {
   respawn: 'text-violet-400',
   eat: 'text-green-400',
   signal: 'text-yellow-400',
-  push: 'text-amber-400',
-  terraform: 'text-stone-400',
-  flood: 'text-blue-400',
-  weather: 'text-zhi-muted',
-  dam_built: 'text-lime-400',
 };
 
 export const EventMonitor = memo(function EventMonitor({ events, energySource, onClear }: Props) {
@@ -105,16 +90,6 @@ export const EventMonitor = memo(function EventMonitor({ events, energySource, o
         return t('events.signaled', { id: e.agent_id, val: e.signal_value ?? 0 });
       case 'respawn':
         return t('events.respawned', { id: e.agent_id });
-      case 'push':
-        return t('events.pushed', { id: e.agent_id, type: e.food_type ?? '?' });
-      case 'terraform':
-        return t('events.terraformed', { id: e.agent_id });
-      case 'flood':
-        return t('events.flooded');
-      case 'weather':
-        return t('events.weathered', { type: e.food_type ?? '?' });
-      case 'dam_built':
-        return t('events.damBuilt');
       default:
         return JSON.stringify(e);
     }

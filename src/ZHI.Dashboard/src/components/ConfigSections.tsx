@@ -5,10 +5,10 @@ import { useT } from '../i18n/I18nContext';
 export interface ZhiConfig {
   grid: { width: number; height: number; max_agents: number; initial_food: number; food_energy: number; food_decay_per_tick: number; food_per_tick_energy: number; corpse_per_tick_energy: number };
   cosmos: { agent_count: number; elite_count: number; mutation_rate: number; mutation_std: number; mutation_rate_min: number; mutation_decay_generations: number; respawn_delay_ticks: number };
-  temperature: { max_temp: number; min_temp: number; cold_threshold: number; max_cold_decay: number; hot_threshold: number; max_water_decay_mult: number; huddle_range: number; huddle_warmth_per_agent: number; agent_body_heat: number; land_lerp_rate: number; water_heat_capacity: number; thermal_diffusion_rate: number; river_land_influence: number; hypothermia_threshold: number; hypothermia_max_damage: number; water_cooling_mult: number; deep_water_extra_cold: number; min_body_temp: number };
-  combat: { attack_range: number; stress_per_attack: number; stress_damage: number; attack_cost: number };
+  temperature: { max_temp: number; min_temp: number; cold_threshold: number; max_cold_decay: number; hot_threshold: number; max_water_decay_mult: number; huddle_range: number; huddle_warmth_per_agent: number; agent_body_heat: number; land_lerp_rate: number; water_heat_capacity: number; thermal_diffusion_rate: number; river_land_influence: number; hypothermia_threshold: number; hypothermia_max_damage: number; water_cooling_mult: number; deep_water_extra_cold: number; water_cooling_offset: number; height_lapse_rate: number; min_body_temp: number };
+  combat: { attack_range: number; stress_per_attack: number; stress_damage: number };
   river: { count: number; width: number; deep_width: number; ford_chance: number; sound_range: number; sound_decay: number };
-  metabolism: { energy_initial: number; energy_decay_base: number; cold_energy_decay_max: number; water_initial: number; water_decay_rate: number; drink_restore: number; dehydration_threshold: number; dehydration_energy_penalty: number; move_cost: number; attack_cost_base: number; emit_cost: number; shallow_water_move_extra: number; deep_water_move_extra: number; deep_water_climb_extra: number; low_energy_threshold: number; stationary_ticks_required: number; stationary_damage_mult: number; stationary_self_heat: number; stationary_neighbor_heat: number };
+  metabolism: { energy_initial: number; energy_decay_base: number; cold_energy_decay_max: number; water_initial: number; water_decay_rate: number; drink_restore: number; dehydration_threshold: number; dehydration_energy_penalty: number; move_cost: number; attack_cost_base: number; emit_cost: number; shallow_water_move_extra: number; deep_water_move_extra: number; deep_water_climb_extra: number; low_energy_threshold: number; stationary_ticks_required: number; stationary_damage_mult: number; stationary_self_heat: number; stationary_neighbor_heat: number; slope_move_exp: number; vision_height_bonus: number };
   reproduce: { min_energy: number; min_age: number; cooldown: number; parent_cost: number; child_start: number; mutation_scale: number };
   age_death: { max_age: number; stage1_age: number; stage1_decay: number; stage2_age: number; stage2_decay: number; stage3_age: number; stage3_decay: number };
   signal: { cost: number; num_values: number; wave_radius: number };
@@ -16,19 +16,18 @@ export interface ZhiConfig {
   food_scent: { decay_rate: number; diffusion_rate: number; small_food_emission: number; spread_radius: number };
   network: { learning_rate: number; gamma: number };
   corpse: { energy: number; decay_per_tick: number; scent_amount: number };
-  stamina: { max_stamina: number; move_cost: number; attack_cost: number; push_cost: number; terraform_cost: number; signal_cost: number; shove_cost: number; pull_cost: number; shallow_water_move_extra: number; deep_water_move_extra: number; deep_water_climb_extra: number; base_recovery: number; stationary_recovery_bonus: number; low_stamina_threshold: number; stationary_ticks_required: number; stationary_damage_mult: number; stationary_self_heat: number; stationary_neighbor_heat: number; stationary_hp_recovery_bonus: number };
   plant: { base_growth_rate: number; max_plant_energy: number; spread_chance: number; spread_radius: number; min_temp: number; optimal_temp: number; max_temp: number; death_temp: number; water_need: number; nutrient_need: number; nutrient_consumption: number; water_consumption: number; initial_plants: number; initial_plant_energy: number };
   nutrient: { corpse_to_nutrient_ratio: number; plant_to_nutrient_ratio: number; diffusion_rate: number; max_nutrient: number; initial_nutrient: number };
-  water_cycle: { surface_water_max_depth: number; surface_flow_rate: number; evaporation_rate: number; max_groundwater: number; absorption_rate: number; groundwater_diffusion_rate: number; rain_amount: number; rain_interval_min: number; rain_interval_max: number; rain_radius: number };
+  water_cycle: { surface_water_max_depth: number; surface_flow_rate: number; evaporation_rate: number; max_groundwater: number; absorption_rate: number; groundwater_diffusion_rate: number; rain_amount: number; rain_interval_min: number; rain_interval_max: number; rain_radius: number; slope_runoff_mult: number };
 }
 
 export const DEFAULT_CONFIG: ZhiConfig = {
   grid: { width: 64, height: 64, max_agents: 512, initial_food: 50, food_energy: 10, food_decay_per_tick: 0.05, food_per_tick_energy: 1.0, corpse_per_tick_energy: 1.0 },
   cosmos: { agent_count: 64, elite_count: 2, mutation_rate: 0.1, mutation_std: 0.02, mutation_rate_min: 0.02, mutation_decay_generations: 100, respawn_delay_ticks: 25 },
-  temperature: { max_temp: 35, min_temp: 5, cold_threshold: 15, max_cold_decay: 0.15, hot_threshold: 30, max_water_decay_mult: 1.5, huddle_range: 2, huddle_warmth_per_agent: 3, agent_body_heat: 0.3, land_lerp_rate: 0.25, water_heat_capacity: 4, thermal_diffusion_rate: 0.12, river_land_influence: 8, hypothermia_threshold: 33, hypothermia_max_damage: 0.08, water_cooling_mult: 2, deep_water_extra_cold: 3, min_body_temp: 26 },
-  combat: { attack_range: 1, stress_per_attack: 0.5, stress_damage: 0.1, attack_cost: 1.0 },
+  temperature: { max_temp: 35, min_temp: 5, cold_threshold: 15, max_cold_decay: 0.15, hot_threshold: 30, max_water_decay_mult: 1.5, huddle_range: 2, huddle_warmth_per_agent: 3, agent_body_heat: 0.3, land_lerp_rate: 0.25, water_heat_capacity: 4, thermal_diffusion_rate: 0.12, river_land_influence: 8, hypothermia_threshold: 33, hypothermia_max_damage: 0.08, water_cooling_mult: 2, deep_water_extra_cold: 3, water_cooling_offset: 14, height_lapse_rate: 0.04, min_body_temp: 26 },
+  combat: { attack_range: 1, stress_per_attack: 0.5, stress_damage: 0.1 },
   river: { count: 1, width: 5, deep_width: 1, ford_chance: 25, sound_range: 10, sound_decay: 0.9 },
-  metabolism: { energy_initial: 100, energy_decay_base: 0.1, cold_energy_decay_max: 0.15, water_initial: 100, water_decay_rate: 0.1, drink_restore: 40, dehydration_threshold: 30, dehydration_energy_penalty: 0.3, move_cost: 0.5, attack_cost_base: 8, emit_cost: 3, shallow_water_move_extra: 1, deep_water_move_extra: 2.5, deep_water_climb_extra: 1, low_energy_threshold: 10, stationary_ticks_required: 5, stationary_damage_mult: 1.2, stationary_self_heat: 0.5, stationary_neighbor_heat: 0.3 },
+  metabolism: { energy_initial: 100, energy_decay_base: 0.1, cold_energy_decay_max: 0.15, water_initial: 100, water_decay_rate: 0.1, drink_restore: 40, dehydration_threshold: 30, dehydration_energy_penalty: 0.3, move_cost: 0.5, attack_cost_base: 8, emit_cost: 3, shallow_water_move_extra: 1, deep_water_move_extra: 2.5, deep_water_climb_extra: 1, low_energy_threshold: 10, stationary_ticks_required: 5, stationary_damage_mult: 1.2, stationary_self_heat: 0.5, stationary_neighbor_heat: 0.3, slope_move_exp: 0.5, vision_height_bonus: 0.15 },
   reproduce: { min_energy: 80, min_age: 200, cooldown: 500, parent_cost: 40, child_start: 40, mutation_scale: 0.3 },
   age_death: { max_age: 8000, stage1_age: 5000, stage1_decay: 0.02, stage2_age: 6000, stage2_decay: 0.05, stage3_age: 7000, stage3_decay: 0.1 },
   signal: { cost: 3, num_values: 4, wave_radius: 4 },
@@ -38,7 +37,7 @@ export const DEFAULT_CONFIG: ZhiConfig = {
   corpse: { energy: 20, decay_per_tick: 0.067, scent_amount: 0.5 },
   plant: { base_growth_rate: 0.05, max_plant_energy: 20, spread_chance: 0.02, spread_radius: 2, min_temp: 0, optimal_temp: 25, max_temp: 45, death_temp: -2, water_need: 0.2, nutrient_need: 0.5, nutrient_consumption: 0.1, water_consumption: 0.05, initial_plants: 50, initial_plant_energy: 10 },
   nutrient: { corpse_to_nutrient_ratio: 0.5, plant_to_nutrient_ratio: 0.3, diffusion_rate: 0.02, max_nutrient: 10, initial_nutrient: 2 },
-  water_cycle: { surface_water_max_depth: 3, surface_flow_rate: 0.3, evaporation_rate: 0.05, max_groundwater: 1, absorption_rate: 0.1, groundwater_diffusion_rate: 0.01, rain_amount: 0.5, rain_interval_min: 200, rain_interval_max: 600, rain_radius: 10 },
+  water_cycle: { surface_water_max_depth: 3, surface_flow_rate: 0.3, evaporation_rate: 0.05, max_groundwater: 1, absorption_rate: 0.1, groundwater_diffusion_rate: 0.01, rain_amount: 0.5, rain_interval_min: 200, rain_interval_max: 600, rain_radius: 10, slope_runoff_mult: 2.0 },
 };
 
 export function NumberField({ label, value, onChange, min, max, step }: {
@@ -126,6 +125,8 @@ export function ConfigFormFields({ config, update }: {
         <NumberField label={t('settings.emitCost')} value={m.emit_cost} onChange={v => update('metabolism', 'emit_cost', v)} min={0} max={20} step={0.5} />
         <NumberField label={t('settings.lowEnergyThreshold')} value={m.low_energy_threshold} onChange={v => update('metabolism', 'low_energy_threshold', v)} min={0} max={50} />
         <NumberField label={t('settings.stationaryTicksRequired')} value={m.stationary_ticks_required} onChange={v => update('metabolism', 'stationary_ticks_required', v)} min={1} max={50} />
+        <NumberField label={t('settings.slopeMoveExp')} value={m.slope_move_exp} onChange={v => update('metabolism', 'slope_move_exp', v)} min={0} max={5} step={0.1} />
+        <NumberField label={t('settings.visionHeightBonus')} value={m.vision_height_bonus} onChange={v => update('metabolism', 'vision_height_bonus', v)} min={0} max={2} step={0.05} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.reproduction')}>
@@ -156,13 +157,14 @@ export function ConfigFormFields({ config, update }: {
         <NumberField label={t('settings.waterCoolingMult')} value={te.water_cooling_mult} onChange={v => update('temperature', 'water_cooling_mult', v)} min={0} max={10} step={0.5} />
         <NumberField label={t('settings.deepWaterExtraCold')} value={te.deep_water_extra_cold} onChange={v => update('temperature', 'deep_water_extra_cold', v)} min={0} max={20} />
         <NumberField label={t('settings.riverLandInfluence')} value={te.river_land_influence} onChange={v => update('temperature', 'river_land_influence', v)} min={0} max={20} />
+        <NumberField label={t('settings.waterCoolingOffset')} value={te.water_cooling_offset} onChange={v => update('temperature', 'water_cooling_offset', v)} min={0} max={30} />
+        <NumberField label={t('settings.heightLapseRate')} value={te.height_lapse_rate} onChange={v => update('temperature', 'height_lapse_rate', v)} min={0} max={0.5} step={0.01} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.combat')}>
         <NumberField label={t('settings.attackRange')} value={cb.attack_range} onChange={v => update('combat', 'attack_range', v)} min={1} max={10} />
         <NumberField label={t('settings.stressPerAttack')} value={cb.stress_per_attack} onChange={v => update('combat', 'stress_per_attack', v)} min={0} max={5} step={0.1} />
         <NumberField label={t('settings.stressDamage')} value={cb.stress_damage} onChange={v => update('combat', 'stress_damage', v)} min={0} max={1} step={0.01} />
-        <NumberField label={t('settings.attackCost')} value={cb.attack_cost} onChange={v => update('combat', 'attack_cost', v)} min={0} max={50} step={0.5} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.river')}>
@@ -230,6 +232,7 @@ export function ConfigFormFields({ config, update }: {
         <NumberField label={t('settings.rainIntervalMin')} value={config.water_cycle.rain_interval_min} onChange={v => update('water_cycle', 'rain_interval_min', v)} min={50} max={5000} />
         <NumberField label={t('settings.rainIntervalMax')} value={config.water_cycle.rain_interval_max} onChange={v => update('water_cycle', 'rain_interval_max', v)} min={100} max={10000} />
         <NumberField label={t('settings.rainRadius')} value={config.water_cycle.rain_radius} onChange={v => update('water_cycle', 'rain_radius', v)} min={2} max={50} />
+        <NumberField label={t('settings.slopeRunoffMult')} value={config.water_cycle.slope_runoff_mult} onChange={v => update('water_cycle', 'slope_runoff_mult', v)} min={0} max={10} step={0.5} />
       </ConfigSection>
     </div>
   );
@@ -276,6 +279,8 @@ export function ConfigReadOnly({ config }: { config: ZhiConfig }) {
         <ReadOnlyField label={t('settings.emitCost')} value={m.emit_cost} />
         <ReadOnlyField label={t('settings.lowEnergyThreshold')} value={m.low_energy_threshold} />
         <ReadOnlyField label={t('settings.stationaryTicksRequired')} value={m.stationary_ticks_required} />
+        <ReadOnlyField label={t('settings.slopeMoveExp')} value={m.slope_move_exp} />
+        <ReadOnlyField label={t('settings.visionHeightBonus')} value={m.vision_height_bonus} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.reproduction')}>
@@ -307,6 +312,8 @@ export function ConfigReadOnly({ config }: { config: ZhiConfig }) {
         <ReadOnlyField label={t('settings.waterCoolingMult')} value={te.water_cooling_mult} />
         <ReadOnlyField label={t('settings.deepWaterExtraCold')} value={te.deep_water_extra_cold} />
         <ReadOnlyField label={t('settings.riverLandInfluence')} value={te.river_land_influence} />
+        <ReadOnlyField label={t('settings.waterCoolingOffset')} value={te.water_cooling_offset} />
+        <ReadOnlyField label={t('settings.heightLapseRate')} value={te.height_lapse_rate} />
         <ReadOnlyField label={t('settings.minBodyTemp')} value={te.min_body_temp} />
       </ConfigSection>
 
@@ -314,7 +321,6 @@ export function ConfigReadOnly({ config }: { config: ZhiConfig }) {
         <ReadOnlyField label={t('settings.attackRange')} value={cb.attack_range} />
         <ReadOnlyField label={t('settings.stressPerAttack')} value={cb.stress_per_attack} />
         <ReadOnlyField label={t('settings.stressDamage')} value={cb.stress_damage} />
-        <ReadOnlyField label={t('settings.attackCost')} value={cb.attack_cost} />
       </ConfigSection>
 
       <ConfigSection title={t('settings.river')}>
@@ -402,6 +408,7 @@ export function ConfigReadOnly({ config }: { config: ZhiConfig }) {
         <ReadOnlyField label={t('settings.rainIntervalMin')} value={config.water_cycle.rain_interval_min} />
         <ReadOnlyField label={t('settings.rainIntervalMax')} value={config.water_cycle.rain_interval_max} />
         <ReadOnlyField label={t('settings.rainRadius')} value={config.water_cycle.rain_radius} />
+        <ReadOnlyField label={t('settings.slopeRunoffMult')} value={config.water_cycle.slope_runoff_mult} />
       </ConfigSection>
     </div>
   );

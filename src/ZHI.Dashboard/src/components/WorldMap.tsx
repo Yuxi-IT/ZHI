@@ -14,8 +14,8 @@ export interface DrawData {
   foodScent: number[];
   chemicalField: number[];
   temperatureGrid: number[];
-  terrain: number[];
-  terrainTtl: number[];
+  heightMap: number[];
+  slope: number[];
   riverFlow: number[];
   surfaceWater: number[];
   groundwater: number[];
@@ -94,7 +94,7 @@ export const WorldMap = memo(function WorldMap({
 
       const data = drawDataRef.current;
       const { agents, food, corpses, river, scent, foodScent, chemicalField,
-        temperatureGrid, terrain, terrainTtl, riverFlow,
+        temperatureGrid, heightMap, slope, riverFlow,
         surfaceWater, groundwater, nutrient, events, timeOfDay } = data;
       const tracked = trackedProp !== undefined ? trackedProp : data.trackedAgent;
 
@@ -102,9 +102,9 @@ export const WorldMap = memo(function WorldMap({
       if (events && events.length > 0) {
         const newEvents: typeof events = [];
         for (let i = events.length - 1; i >= 0; i--) {
-          const eid = (events[i] as any)._eid as number | undefined;
+          const eid = (events[i]! as any)._eid as number | undefined;
           if (eid === undefined || eid <= lastEidRef.current) break;
-          newEvents.unshift(events[i]);
+          newEvents.unshift(events[i]!);
         }
         if (newEvents.length > 0) {
           lastEidRef.current = (events[events.length - 1] as any)._eid ?? lastEidRef.current;
@@ -125,28 +125,12 @@ export const WorldMap = memo(function WorldMap({
               continue;
             }
 
-            if (ev.type === 'flood') {
-              floatingTextsRef.current.push({
-                id: floatingIdRef.current++, x: Math.floor((ev.value ?? 0) / 1000), y: (ev.value ?? 0) % 1000,
-                text: 'FLOOD', color: '#60a5fa', startTime: now,
-              });
-              continue;
-            }
-            if (ev.type === 'weather') {
-              floatingTextsRef.current.push({
-                id: floatingIdRef.current++, x: Math.floor((ev.value ?? 0) / 1000), y: (ev.value ?? 0) % 1000,
-                text: 'WEATHER', color: '#94a3b8', startTime: now,
-              });
-              continue;
-            }
-
             if (!agent) continue;
 
             let text = '', color = '';
             if (ev.type === 'eat') { text = `+${ev.value.toFixed(0)}`; color = '#22c55e'; }
             else if (ev.type === 'death') { text = 'DEAD'; color = '#94a3b8'; }
             else if (ev.type === 'respawn') { text = 'RESPAWN'; color = '#a78bfa'; }
-            else if (ev.type === 'dam_built') { text = 'DAM'; color = '#a3e635'; }
             else { continue; }
 
             floatingTextsRef.current.push({
@@ -216,44 +200,18 @@ export const WorldMap = memo(function WorldMap({
         }
       }
 
-      // Terrain
-      if (showTerrain && terrain && terrain.length > 0) {
+      // Height map
+      if (showTerrain && heightMap && heightMap.length > 0) {
         const sc = Math.max(0, Math.floor(cam.x / cellSize));
         const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
         const sr = Math.max(0, Math.floor(cam.y / cellSize));
         const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
         for (let gx = sc; gx < ec; gx++) {
           for (let gy = sr; gy < er; gy++) {
-            const idx = gy * gridW + gx;
-            const tv = terrain[idx];
-            if (tv === 0) continue;
-            const px = gx * cellSize, py = gy * cellSize;
-            if (tv === 1) {
-              ctx.fillStyle = 'rgba(120, 80, 40, 0.35)';
-              ctx.fillRect(px, py, cellSize, cellSize);
-              ctx.strokeStyle = 'rgba(80, 40, 10, 0.3)'; ctx.lineWidth = 0.5;
-              ctx.strokeRect(px + 2, py + 2, cellSize - 4, cellSize - 4);
-            } else if (tv === 2) {
-              ctx.fillStyle = 'rgba(180, 150, 100, 0.4)';
-              ctx.fillRect(px, py, cellSize, cellSize);
-              ctx.fillStyle = 'rgba(200, 180, 140, 0.25)';
-              ctx.beginPath(); ctx.arc(px + cellSize / 2, py + cellSize / 2, cellSize * 0.35, 0, Math.PI * 2); ctx.fill();
-            } else if (tv === 3) {
-              ctx.fillStyle = 'rgba(59, 130, 246, 0.3)';
-              ctx.fillRect(px, py, cellSize, cellSize);
-            }
-            if (terrainTtl && (tv === 1 || tv === 2)) {
-              const ttl = terrainTtl[idx] ?? 0;
-              if (ttl > 0 && ttl < 200) {
-                const ratio = 1 - ttl / 200;
-                ctx.save(); ctx.globalAlpha = ratio * 0.4;
-                ctx.strokeStyle = '#666'; ctx.lineWidth = 0.5;
-                ctx.beginPath(); ctx.moveTo(px + 3, py + 3); ctx.lineTo(px + cellSize / 2, py + cellSize / 2);
-                ctx.moveTo(px + cellSize - 3, py + 3); ctx.lineTo(px + cellSize / 2, py + cellSize / 2);
-                ctx.moveTo(px + cellSize / 2, py + cellSize / 2); ctx.lineTo(px + cellSize / 2, py + cellSize - 3);
-                ctx.stroke(); ctx.restore();
-              }
-            }
+            const h = heightMap[gy * gridW + gx]!;
+            const v = h / 255;
+            ctx.fillStyle = `rgba(${Math.round(v * 255)},${Math.round(v * 255)},${Math.round(v * 255)},0.15)`;
+            ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
           }
         }
       }
@@ -437,30 +395,26 @@ export const WorldMap = memo(function WorldMap({
         ];
         for (const agent of agents) {
           if (!agent.is_alive) continue;
-          const ttype = (terrain?.[agent.y * gridW + agent.x]) ?? 0;
-          const inPit = ttype === 1, onMound = ttype === 2;
+          const agentHeight = heightMap ? (heightMap[agent.y * gridW + agent.x] ?? 128) / 255 : 0.5;
           const R = 3, D = 7, fd = agent.facing_direction;
           for (let dy = -R; dy <= R; dy++) {
             for (let dx = -R; dx <= R; dx++) {
-              if (inPit) { if (Math.max(Math.abs(dx), Math.abs(dy)) > 1) continue; }
-              else if (!onMound) {
-                let rdx: number, rdy: number;
-                if (fd === 0) { rdx = dx; rdy = dy; }
-                else if (fd === 1) { rdx = -dx; rdy = -dy; }
-                else if (fd === 2) { rdx = -dy; rdy = dx; }
-                else { rdx = dy; rdy = -dx; }
-                const mc = rdx + R, mr = rdy + R;
-                if (mc < 0 || mc >= D || mr < 0 || mr >= D) continue;
-                if (!baseMask[mr]![mc]) continue;
+              let rdx: number, rdy: number;
+              if (fd === 0) { rdx = dx; rdy = dy; }
+              else if (fd === 1) { rdx = -dx; rdy = -dy; }
+              else if (fd === 2) { rdx = -dy; rdy = dx; }
+              else { rdx = dy; rdy = -dx; }
+              const mc = rdx + R, mr = rdy + R;
+              if (mc < 0 || mc >= D || mr < 0 || mr >= D) continue;
+              if (!baseMask[mr]![mc]) {
+                const rowDepth = mr / (D - 1);
+                const visReq = rowDepth * 1.5;
+                if (agentHeight < visReq - 0.1) continue;
               }
               const gx = agent.x + dx, gy = agent.y + dy;
               if (gx < 0 || gx >= gridW || gy < 0 || gy >= gridH) continue;
               const dist = Math.abs(dx) + Math.abs(dy);
-              ctx.fillStyle = inPit
-                ? `rgba(180, 140, 100, ${0.04 + (dist <= 2 ? 0.02 : 0)})`
-                : onMound
-                ? `rgba(255, 215, 100, ${0.04 + (dist <= 2 ? 0.02 : 0)})`
-                : `rgba(255, 255, 255, ${dist === 0 ? 0.08 : dist <= 2 ? 0.04 : 0.02})`;
+              ctx.fillStyle = `rgba(255, 255, 255, ${dist === 0 ? 0.08 : dist <= 2 ? 0.04 : 0.02})`;
               ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
             }
           }
@@ -593,7 +547,7 @@ export const WorldMap = memo(function WorldMap({
         setTrackedAgent(null);
       } else {
         // Inline tooltip computation from drawDataRef
-        const { agents, food, corpses, river, terrain, terrainTtl, temperatureGrid, surfaceWater, groundwater, nutrient } = drawDataRef.current;
+        const { agents, food, corpses, river, heightMap, slope, temperatureGrid, surfaceWater, groundwater, nutrient } = drawDataRef.current;
         const cam = camRef.current;
         const cellSize = cam.zoom * (rect.width / gridW);
         const gx = Math.floor((cam.x + mx) / cellSize);
@@ -623,12 +577,10 @@ export const WorldMap = memo(function WorldMap({
             `${t('map.energy')}: ${foodHere.energy.toFixed(1)} / ${foodHere.max_energy.toFixed(0)}`,
           );
         }
-        if (showTerrain && terrain && terrain.length > 0) {
-          const tv = terrain[gy * gridW + gx];
-          const ttl = terrainTtl?.[gy * gridW + gx] ?? 0;
-          if (tv === 1) { lines.push(t('map.pit'), t('map.pitDesc')); if (ttl > 0) lines.push(`${t('map.ttl')}: ${ttl}t`); }
-          else if (tv === 2) { lines.push(t('map.mound'), t('map.moundDesc')); if (ttl > 0) lines.push(`${t('map.ttl')}: ${ttl}t`); }
-          else if (tv === 3) { lines.push(t('map.floodWater'), t('map.floodPermanent')); }
+        if (showTerrain && heightMap && heightMap.length > 0) {
+          const h = heightMap[gy * gridW + gx]!;
+          const s = slope?.[gy * gridW + gx] ?? 0;
+          lines.push(`${t('map.height')}: ${h}`, `${t('map.slope')}: ${s.toFixed(1)}`);
         }
         const corpseHere = corpses.find(c => c.x === gx && c.y === gy);
         if (corpseHere) { lines.push(t('map.corpse'), `${t('map.energy')}: ${corpseHere.energy.toFixed(1)}`); }

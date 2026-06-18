@@ -36,7 +36,7 @@ function tempColor(t: number): string {
 }
 
 export function WorldDashboard({ worldName, onStop }: Props) {
-  const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, chemicalField, terrain, terrainTtl, riverFlow, surfaceWater, groundwater, nutrient, waterCycle, plantCount, stats, connected } = useWebSocket();
+  const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, chemicalField, heightMap, slope, riverFlow, surfaceWater, groundwater, nutrient, waterCycle, plantCount, stats, connected } = useWebSocket();
   const { logs, events, clearEvents } = useLogSocket();
   const { stats: dbStats, loading } = useStats();
   const { history, record } = useEcoHistory();
@@ -69,13 +69,13 @@ export function WorldDashboard({ worldName, onStop }: Props) {
 
   const drawDataRef = useRef<DrawData>({
     agents: [], food: [], corpses: [], river: [], scent: [], foodScent: [],
-    chemicalField: [], temperatureGrid: [], terrain: [], terrainTtl: [], riverFlow: [],
+    chemicalField: [], temperatureGrid: [], heightMap: [], slope: [], riverFlow: [],
     surfaceWater: [], groundwater: [], nutrient: [],
     events: [], timeOfDay: 12, trackedAgent: null,
   });
   drawDataRef.current = {
     agents, food, corpses, river, scent, foodScent, chemicalField,
-    temperatureGrid, terrain, terrainTtl, riverFlow, surfaceWater, groundwater, nutrient,
+    temperatureGrid, heightMap, slope, riverFlow, surfaceWater, groundwater, nutrient,
     events,
     timeOfDay, trackedAgent,
   };
@@ -317,7 +317,6 @@ export function WorldDashboard({ worldName, onStop }: Props) {
               agents={agents}
               trackedId={trackedAgent}
               onTrack={setTrackedAgent}
-              terrain={terrain}
               gridW={gridW}
             />
           </div>

@@ -73,8 +73,8 @@ export interface CosmosState {
   food_scent: number[]
   temperature_grid: number[]
   chemical_field: number[]
-  terrain: number[]
-  terrain_ttl: number[]
+  height_map: number[]
+  slope: number[]
   river_flow: number[]
   surface_water: number[]
   groundwater: number[]
@@ -82,7 +82,7 @@ export interface CosmosState {
   water_cycle: WaterCycleData
 }
 
-export type WorldEventType = 'eat' | 'attack' | 'death' | 'reproduce' | 'signal' | 'respawn' | 'flood' | 'weather' | 'dam_built'
+export type WorldEventType = 'eat' | 'attack' | 'death' | 'reproduce' | 'signal' | 'respawn'
 
 export interface WorldEvent {
   type: WorldEventType

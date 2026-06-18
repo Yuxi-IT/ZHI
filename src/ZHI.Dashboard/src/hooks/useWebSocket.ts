@@ -22,8 +22,8 @@ interface WsState {
   foodScent: number[];
   temperatureGrid: number[];
   chemicalField: number[];
-  terrain: number[];
-  terrainTtl: number[];
+  heightMap: number[];
+  slope: number[];
   riverFlow: number[];
   surfaceWater: number[];
   groundwater: number[];
@@ -50,8 +50,8 @@ const INIT: WsState = {
   foodScent: [],
   temperatureGrid: [],
   chemicalField: [],
-  terrain: [],
-  terrainTtl: [],
+  heightMap: [],
+  slope: [],
   riverFlow: [],
   surfaceWater: [],
   groundwater: [],
@@ -86,8 +86,8 @@ function reducer(state: WsState, action: Action): WsState {
         foodScent: (d.food_scent as number[]) ?? state.foodScent,
         temperatureGrid: (d.temperature_grid as number[]) ?? state.temperatureGrid,
         chemicalField: (d.chemical_field as number[]) ?? state.chemicalField,
-        terrain: (d.terrain as number[]) ?? state.terrain,
-        terrainTtl: (d.terrain_ttl as number[]) ?? state.terrainTtl,
+        heightMap: (d.height_map as number[]) ?? state.heightMap,
+        slope: (d.slope as number[]) ?? state.slope,
         riverFlow: (d.river_flow as number[]) ?? state.riverFlow,
         surfaceWater: (d.surface_water as number[]) ?? state.surfaceWater,
         groundwater: (d.groundwater as number[]) ?? state.groundwater,
@@ -158,8 +158,8 @@ export function useWebSocket() {
     foodScent: state.foodScent,
     temperatureGrid: state.temperatureGrid,
     chemicalField: state.chemicalField,
-    terrain: state.terrain,
-    terrainTtl: state.terrainTtl,
+    heightMap: state.heightMap,
+    slope: state.slope,
     riverFlow: state.riverFlow,
     surfaceWater: state.surfaceWater,
     groundwater: state.groundwater,

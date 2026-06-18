@@ -218,15 +218,12 @@ function StatPair({ label, value, warn, warnColor }: {
 
 function actionLabel(
   agent: AgentSnapshot,
-  terrain: number[] | undefined,
-  gridW: number | undefined,
+  _terrain: number[] | undefined,
+  _gridW: number | undefined,
   t: (key: string, params?: Record<string, string | number>) => string,
 ): string {
-  const ttype = terrain && gridW ? terrain[agent.y * gridW + agent.x] : 0;
   const badges: string[] = [];
   if (agent.is_stationary) badges.push('💤');
-  if (ttype === 1) badges.push('🕳️');
-  if (ttype === 2) badges.push('🗼');
   if (agent.is_eating) badges.push('🍖');
   const prefix = badges.length ? badges.join(' ') + ' ' : '';
   return prefix + (agent.last_action || t('agents.none'));
