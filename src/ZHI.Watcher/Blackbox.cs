@@ -168,7 +168,7 @@ public class Blackbox : IDisposable
         cmd.Parameters.AddWithValue("@py", record.PosY);
         cmd.Parameters.AddWithValue("@atk", record.AttackCount);
         cmd.Parameters.AddWithValue("@eat", record.EatCount);
-        cmd.Parameters.AddWithValue("@sig", record.SignalCount);
+        cmd.Parameters.AddWithValue("@sig", record.EmitCount);
         cmd.Parameters.AddWithValue("@resp", record.RespawnCount);
         cmd.Parameters.AddWithValue("@states", record.PreDeathStatesJson);
         cmd.Parameters.AddWithValue("@time", record.DeathTime.ToString("O"));
@@ -336,7 +336,7 @@ public class Blackbox : IDisposable
             PosY = reader.GetInt32(10),
             AttackCount = reader.GetInt32(11),
             EatCount = reader.GetInt32(12),
-            SignalCount = reader.GetInt32(13),
+            EmitCount = reader.GetInt32(13),
             RespawnCount = reader.GetInt32(14),
             PreDeathStatesJson = reader.GetString(15),
             DeathTime = DateTime.Parse(reader.GetString(16)),
@@ -376,7 +376,7 @@ public class Blackbox : IDisposable
         result.AvgTemperatureAtDeath = all.Average(d => d.Temperature);
         result.AvgAttacksPerLife = all.Average(d => d.AttackCount);
         result.AvgEatsPerLife = all.Average(d => d.EatCount);
-        result.AvgSignalsPerLife = all.Average(d => d.SignalCount);
+        result.AvgEmitsPerLife = all.Average(d => d.EmitCount);
 
         // Night death rate (time 0-6 or 20-24 = night)
         var nightDeaths = all.Count(d => d.TimeOfDay < 6f || d.TimeOfDay >= 20f);

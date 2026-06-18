@@ -14,10 +14,6 @@ public partial class WebServer
         var agents = new List<object>(n);
         for (int i = 0; i < n; i++)
         {
-            var sigMem = new float[ToolDefinitions.SignalValues];
-            for (int ch = 0; ch < ToolDefinitions.SignalValues; ch++)
-                sigMem[ch] = v.SignalMemory[i, ch];
-
             agents.Add(new
             {
                 id = i,
@@ -33,7 +29,7 @@ public partial class WebServer
                 status = v.StatusMirror[i],
                 last_action = v.LastActionNameMirror[i],
                 last_signal = v.LastSignalReceived[i],
-                signal_memory = sigMem,
+                chemical_memory = v.ChemicalMemory[i],
                 alive_seconds = v.Alive[i]
                     ? (DateTime.UtcNow - v.BirthTimes[i]).TotalSeconds : 0,
                 tick_count = v.TickCount[i],
@@ -42,13 +38,11 @@ public partial class WebServer
                 food_eat_count = v.FoodEatCount[i],
                 bigfood_eat_count = v.BigFoodEatCount[i],
                 corpse_eat_count = v.CorpseEatCount[i],
-                signal_count = v.SignalCount[i],
+                emit_count = v.EmitCount[i],
                 facing_direction = v.FacingDirection[i],
                 respawn_count = v.RespawnCount[i],
                 stamina = v.Stamina[i],
-                is_stationary = v.IsStationary[i],
-                push_count = v.PushCount[i],
-                terraform_count = v.TerraformCount[i]
+                is_stationary = v.IsStationary[i]
             });
         }
 
@@ -89,15 +83,10 @@ public partial class WebServer
             for (int ty = 0; ty < gh; ty++)
                 tempGrid[ty * gw + tx] = v.TemperatureGrid[tx, ty];
 
-        var signalField = new float[gw * gh];
+        var chemicalField = new float[gw * gh];
         for (int sx = 0; sx < gw; sx++)
             for (int sy = 0; sy < gh; sy++)
-            {
-                float maxSig = 0f;
-                for (int ch = 0; ch < 4; ch++)
-                    maxSig = Math.Max(maxSig, v.SignalField[sx, sy, ch]);
-                signalField[sy * gw + sx] = maxSig;
-            }
+                chemicalField[sy * gw + sx] = v.ChemicalField[sx, sy];
 
         var terrain = new int[gw * gh];
         for (int tx = 0; tx < gw; tx++)
@@ -150,7 +139,7 @@ public partial class WebServer
             scent,
             food_scent = foodScent,
             temperature_grid = tempGrid,
-            signal_field = signalField,
+            chemical_field = chemicalField,
             terrain,
             terrain_ttl = terrainTtl,
             river_flow = riverFlow,

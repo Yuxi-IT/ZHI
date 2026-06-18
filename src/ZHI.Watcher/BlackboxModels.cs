@@ -15,7 +15,7 @@ public class DeathRecord
     public int PosY { get; set; }
     public int AttackCount { get; set; }
     public int EatCount { get; set; }
-    public int SignalCount { get; set; }
+    public int EmitCount { get; set; }
     public int RespawnCount { get; set; }
     public string PreDeathStatesJson { get; set; } = "[]";
     public DateTime DeathTime { get; set; }
@@ -51,7 +51,7 @@ public class StatsResult
     public double AvgTemperatureAtDeath { get; set; }
     public double AvgAttacksPerLife { get; set; }
     public double AvgEatsPerLife { get; set; }
-    public double AvgSignalsPerLife { get; set; }
+    public double AvgEmitsPerLife { get; set; }
     public float NightDeathRate { get; set; }
     public Dictionary<string, int> CauseDistribution { get; set; } = new();
     public List<GenerationStat> Generations { get; set; } = new();
