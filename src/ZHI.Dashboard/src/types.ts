@@ -40,6 +40,7 @@ export interface FoodTile {
   x: number
   y: number
   energy: number
+  stage: number  // 0=Seed, 1=Sprout, 2=Adult, 3=Decay
   max_energy: number
 }
 

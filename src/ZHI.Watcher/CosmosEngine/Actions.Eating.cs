@@ -16,25 +16,34 @@ public partial class CosmosEngine
 
         lock (_v.LockObj)
         {
-            for (int f = _v.FoodTiles.Count - 1; f >= 0; f--)
+            for (int f = _v.Plants.Count - 1; f >= 0; f--)
             {
-                var ft = _v.FoodTiles[f];
-                if (ft.X != px || ft.Y != py) continue;
+                var plant = _v.Plants[f];
+                if (plant.X != px || plant.Y != py) continue;
 
-                int eaters = CountEatersOnFood(ft, i);
+                var stage = (PlantStage)plant.Stage;
+                if (stage == PlantStage.Seed) continue; // seeds not edible
+
+                int eaters = CountEatersOnFood(plant, i);
                 float efficiency = 1f / MathF.Sqrt(eaters);
-                float perTick = _config.Grid.FoodPerTickEnergy * efficiency;
-                extracted = MathF.Min(perTick, ft.Energy);
-                ft.Energy -= extracted;
-                foodType = "Food";
+                float stageEff = _v.GetPlantEatEfficiency(px, py);
+                float perTick = _config.Grid.FoodPerTickEnergy * efficiency * stageEff;
+                extracted = MathF.Min(perTick, plant.Energy);
+                plant.Energy -= extracted;
+                foodType = stage switch
+                {
+                    PlantStage.Decay => "DecayPlant",
+                    PlantStage.Sprout => "Sprout",
+                    _ => "Food"
+                };
 
-                if (ft.Energy <= 0.001f)
+                if (plant.Energy <= 0.001f)
                 {
                     depletedFood.Add(f);
                     _genFoodEaten++;
                 }
                 else
-                    _v.FoodTiles[f] = ft;
+                    _v.Plants[f] = plant;
 
                 break;
             }
@@ -88,7 +97,7 @@ public partial class CosmosEngine
         return true;
     }
 
-    private int CountEatersOnFood(FoodTile ft, int excludeIdx)
+    private int CountEatersOnFood(PlantTile ft, int excludeIdx)
     {
         int count = 1;
         for (int j = 0; j < _v.N; j++)

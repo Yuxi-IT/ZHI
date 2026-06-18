@@ -189,6 +189,20 @@ public sealed class PlantConfig
     public float WaterConsumption { get; set; } = 0.05f;
     public int InitialPlants { get; set; } = 50;
     public float InitialPlantEnergy { get; set; } = 10f;
+
+    // Lifecycle stage thresholds
+    public float SeedGermNutrientMin { get; set; } = 0.4f;
+    public float SeedGermWaterMin { get; set; } = 0.25f;
+    public int SeedGermDelay { get; set; } = 30;       // min ticks as seed before germination
+    public float SproutAdultEnergy { get; set; } = 5f;  // energy threshold to become adult
+    public float SproutGrowthMult { get; set; } = 1.8f; // faster growth than adult
+    public float SproutHealthLoss { get; set; } = 0.02f; // health lost per tick under stress
+    public int AdultMaxAge { get; set; } = 4000;        // ticks before forced entry to decay
+    public float DecayRate { get; set; } = 0.03f;       // energy loss per tick in decay
+    public float DecayNutrientReturn { get; set; } = 0.6f; // fraction of energy returned as nutrients
+    public float SeedInitialEnergy { get; set; } = 1f;  // energy for new seeds
+    public float SproutInitialHealth { get; set; } = 0.8f;
+    public float AdultSeedCost { get; set; } = 2f;      // energy cost to produce a seed
 }
 
 public sealed class WaterCycleConfig

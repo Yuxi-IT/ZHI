@@ -145,7 +145,7 @@ public partial class CosmosEngine
                 _agentWeights.Add(_gruBrain.SaveWeights());
         }
 
-        Log($"[Cosmos] Gen {_generation} initialized: {n} agents, {_v.FoodTiles.Count} food");
+        Log($"[Cosmos] Gen {_generation} initialized: {n} agents, {_v.Plants.Count} food");
     }
 
     private void ResizeTickBuffers(int n)

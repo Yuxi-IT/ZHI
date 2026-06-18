@@ -43,16 +43,16 @@ public partial class WebServer
             });
         }
 
-        FoodTile[] foodSnap;
+        PlantTile[] foodSnap;
         CorpseTile[] corpseSnap;
         lock (v.LockObj)
         {
-            foodSnap = v.FoodTiles.ToArray();
+            foodSnap = v.Plants.ToArray();
             corpseSnap = v.CorpseTiles.ToArray();
         }
         var food = new List<object>(foodSnap.Length);
         foreach (var f in foodSnap)
-            food.Add(new { x = f.X, y = f.Y, energy = f.Energy, max_energy = _engine.CurrentConfig.Plant.MaxPlantEnergy });
+            food.Add(new { x = f.X, y = f.Y, energy = f.Energy, stage = f.Stage, max_energy = _engine.CurrentConfig.Plant.MaxPlantEnergy });
 
         var corpses = new List<object>(corpseSnap.Length);
         foreach (var c in corpseSnap)

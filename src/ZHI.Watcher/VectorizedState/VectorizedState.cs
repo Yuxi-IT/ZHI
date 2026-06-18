@@ -4,11 +4,22 @@ using static TorchSharp.torch;
 
 namespace ZHI.Watcher;
 
-public struct FoodTile
+public enum PlantStage : byte
+{
+    Seed = 0,
+    Sprout = 1,
+    Adult = 2,
+    Decay = 3
+}
+
+public struct PlantTile
 {
     public int X;
     public int Y;
     public float Energy;
+    public byte Stage;   // PlantStage cast
+    public int Age;      // ticks since creation
+    public float Health; // 0-1, tracks environmental fitness
 }
 
 public struct CorpseTile
@@ -62,7 +73,7 @@ public partial class VectorizedState : IDisposable
     public float[] BodyColdResist;
 
     // Grid state
-    public List<FoodTile> FoodTiles;
+    public List<PlantTile> Plants;
     public List<CorpseTile> CorpseTiles;
     public float[,] ScentGrid;
     public float[,] FoodScentGrid;
@@ -87,8 +98,9 @@ public partial class VectorizedState : IDisposable
 
     // Spatial query grids
     private int[] _agentGrid;
-    private float[] _foodGrid; // plant energy per cell, 0 = no plant
-    public float PlantMaxEnergy = 20f; // set by CosmosEngine before BuildStateMatrix
+    private float[] _plantGrid; // plant energy per cell, 0 = no plant; Also check _plantStage for Decay
+    private byte[] _plantStageGrid; // per-cell plant stage
+    public float PlantMaxEnergy = 20f;
     private bool[] _corpseGrid;
     public short[] CellOccupancy; // live agent count per cell, updated during movement
 
@@ -144,7 +156,7 @@ public partial class VectorizedState : IDisposable
             BodyWater[i] = 100f; BodyTemperature[i] = 20f;
         }
 
-        FoodTiles = new List<FoodTile>();
+        Plants = new List<PlantTile>();
         CorpseTiles = new List<CorpseTile>();
         ScentGrid = new float[W, H];
         FoodScentGrid = new float[W, H];
@@ -169,7 +181,8 @@ public partial class VectorizedState : IDisposable
 
         int gridSize = W * H;
         _agentGrid = new int[gridSize];
-        _foodGrid = new float[gridSize];
+        _plantGrid = new float[gridSize];
+        _plantStageGrid = new byte[gridSize];
         _corpseGrid = new bool[gridSize];
         CellOccupancy = new short[gridSize];
 
@@ -201,7 +214,7 @@ public partial class VectorizedState : IDisposable
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
         if (x < 0 || x >= W || y < 0 || y >= H) return false;
-        return _foodGrid[x * H + y] > 0f;
+        return _plantGrid[x * H + y] > 0f && _plantStageGrid[x * H + y] != (byte)PlantStage.Seed;
     }
 
     public float GetPlantEnergyAt(int x, int y)
@@ -209,7 +222,32 @@ public partial class VectorizedState : IDisposable
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
         if (x < 0 || x >= W || y < 0 || y >= H) return 0f;
-        return _foodGrid[x * H + y];
+        return _plantGrid[x * H + y];
+    }
+
+    public PlantStage GetPlantStageAt(int x, int y)
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        if (x < 0 || x >= W || y < 0 || y >= H) return PlantStage.Seed;
+        return (PlantStage)_plantStageGrid[x * H + y];
+    }
+
+    public bool IsPlantEdible(int x, int y)
+    {
+        var stage = GetPlantStageAt(x, y);
+        return stage is PlantStage.Sprout or PlantStage.Adult or PlantStage.Decay;
+    }
+
+    public float GetPlantEatEfficiency(int x, int y)
+    {
+        return GetPlantStageAt(x, y) switch
+        {
+            PlantStage.Sprout => 0.6f,
+            PlantStage.Adult => 1.0f,
+            PlantStage.Decay => 0.3f,
+            _ => 0f
+        };
     }
 
     public bool IsShallowWater(int x, int y)
@@ -524,6 +562,16 @@ public partial class VectorizedState : IDisposable
         int H = ToolDefinitions.GridHeight;
         if (x < 0 || x >= W || y < 0 || y >= H) return false;
         return _corpseGrid[x * H + y];
+    }
+
+    public void UpdatePlantCell(int x, int y, float energy, byte stage)
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        if (x < 0 || x >= W || y < 0 || y >= H) return;
+        int idx = x * H + y;
+        _plantGrid[idx] = energy;
+        _plantStageGrid[idx] = stage;
     }
 
     public bool HasOtherAgentAt(int excludeIdx, int x, int y)

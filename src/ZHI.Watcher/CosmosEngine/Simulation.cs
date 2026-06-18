@@ -306,25 +306,6 @@ public partial class CosmosEngine
 
         lock (_v.LockObj)
         {
-            float foodDecay = _config.Grid.FoodDecayPerTick;
-            for (int f = _v.FoodTiles.Count - 1; f >= 0; f--)
-            {
-                var food = _v.FoodTiles[f];
-                float decay = MathF.Min(foodDecay, food.Energy);
-                food.Energy -= decay;
-                if (food.Energy <= 0)
-                {
-                    float foodCellMax = _config.Nutrient.MaxNutrient * (1f - _v.HeightMap[food.X, food.Y] / 255f * _config.Nutrient.HeightRetentionFactor);
-                    _v.NutrientGrid[food.X, food.Y] = MathF.Min(foodCellMax,
-                        _v.NutrientGrid[food.X, food.Y] + decay * _config.Nutrient.PlantToNutrientRatio);
-                    _v.FoodTiles.RemoveAt(f);
-                }
-                else
-                {
-                    _v.FoodTiles[f] = food;
-                }
-            }
-
             for (int c = _v.CorpseTiles.Count - 1; c >= 0; c--)
             {
                 var corpse = _v.CorpseTiles[c];

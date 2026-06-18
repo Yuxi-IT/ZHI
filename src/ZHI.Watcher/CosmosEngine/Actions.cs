@@ -78,7 +78,7 @@ public partial class CosmosEngine : IDisposable
             {
                 var sortedFood = _depletedFoodSet.OrderByDescending(x => x).ToList();
                 foreach (int idx in sortedFood)
-                    _v.FoodTiles.RemoveAt(idx);
+                    _v.Plants.RemoveAt(idx);
 
                 var sortedCorpses = _depletedCorpsesSet.OrderByDescending(x => x).ToList();
                 foreach (int idx in sortedCorpses)
@@ -129,9 +129,9 @@ public partial class CosmosEngine : IDisposable
     {
         lock (_v.LockObj)
         {
-            foreach (var ft in _v.FoodTiles)
+            foreach (var p in _v.Plants)
             {
-                if (ft.X == px && ft.Y == py)
+                if (p.X == px && p.Y == py && (PlantStage)p.Stage != PlantStage.Seed)
                     return true;
             }
             foreach (var ct in _v.CorpseTiles)

@@ -215,7 +215,7 @@ public partial class CosmosEngine
         int H = ToolDefinitions.GridHeight;
         if (x < 0 || x >= W || y < 0 || y >= H) return false;
         if (_v.RiverGrid[x, y] > 0) return false;
-        foreach (var ft in _v.FoodTiles)
+        foreach (var ft in _v.Plants)
             if (ft.X == x && ft.Y == y) return false;
         return true;
     }
@@ -235,8 +235,30 @@ public partial class CosmosEngine
                 int x = _rng.Next(W);
                 int y = _rng.Next(H);
                 if (!IsValidFoodPlacement(x, y)) continue;
+
+                // Mix of stages: 60% adult, 30% sprout, 10% seed
+                var stage = i switch
+                {
+                    _ when i < plantCount * 0.6f => PlantStage.Adult,
+                    _ when i < plantCount * 0.9f => PlantStage.Sprout,
+                    _ => PlantStage.Seed
+                };
+                float energy = stage switch
+                {
+                    PlantStage.Adult => plantEnergy,
+                    PlantStage.Sprout => plantEnergy * 0.4f,
+                    _ => _config.Plant.SeedInitialEnergy
+                };
+
                 lock (_v.LockObj)
-                    _v.FoodTiles.Add(new FoodTile { X = x, Y = y, Energy = plantEnergy });
+                    _v.Plants.Add(new PlantTile
+                    {
+                        X = x, Y = y,
+                        Energy = energy,
+                        Stage = (byte)stage,
+                        Age = stage == PlantStage.Adult ? _rng.Next(1000) : 0,
+                        Health = 0.8f
+                    });
                 placed = true;
                 break;
             }

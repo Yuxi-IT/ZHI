@@ -417,7 +417,7 @@ public partial class CosmosEngine : IDisposable
         _totalEnergyInWorld = 0f;
         lock (_v.LockObj)
         {
-            foreach (var f in _v.FoodTiles) _totalEnergyInWorld += f.Energy;
+            foreach (var f in _v.Plants) _totalEnergyInWorld += f.Energy;
             foreach (var c in _v.CorpseTiles) _totalEnergyInWorld += c.Energy;
         }
         for (int i = 0; i < n; i++)

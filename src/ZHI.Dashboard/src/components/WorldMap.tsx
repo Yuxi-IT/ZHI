@@ -490,13 +490,25 @@ export const WorldMap = memo(function WorldMap({
         ctx.closePath(); ctx.fill();
       }
 
-      // Plants (formerly Food)
-      const foodSz = Math.max(cellSize * 0.7, 2);
+      // Plants — lifecycle stage visual
+      const stageColors: Record<number, [number, number, number]> = {
+        0: [139, 90, 43],   // Seed: brown
+        1: [144, 238, 144], // Sprout: light green
+        2: [34, 197, 94],   // Adult: rich green
+        3: [128, 128, 128], // Decay: gray
+      };
       for (const f of food) {
+        const stage: number = (f as any).stage ?? 2;
+        const rgb = stageColors[stage] ?? stageColors[2]!;
+        const [cr, cg, cb] = rgb;
         const energyRatio = f.max_energy > 0 ? f.energy / f.max_energy : 1;
-        const alpha = Math.max(0.2, energyRatio);
-        ctx.fillStyle = `rgba(34, 197, 94, ${alpha})`;
-        ctx.fillRect(f.x * cellSize + (cellSize - foodSz) / 2, f.y * cellSize + (cellSize - foodSz) / 2, foodSz, foodSz);
+        let sz = Math.max(cellSize * 0.7, 2);
+        if (stage === 0) sz = Math.max(cellSize * 0.35, 1.5); // seeds are small
+        else if (stage === 1) sz = Math.max(cellSize * 0.55, 1.8);
+        else if (stage === 3) sz = Math.max(cellSize * 0.8, 2.2); // decayed plants remain full size
+        const alpha = stage === 0 ? 0.4 : stage === 3 ? Math.max(0.15, energyRatio * 0.5) : Math.max(0.25, energyRatio);
+        ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha})`;
+        ctx.fillRect(f.x * cellSize + (cellSize - sz) / 2, f.y * cellSize + (cellSize - sz) / 2, sz, sz);
       }
 
       // Vision
@@ -689,8 +701,10 @@ export const WorldMap = memo(function WorldMap({
         }
         const foodHere = food.find(f => f.x === gx && f.y === gy);
         if (foodHere) {
+          const stageNames = ['Seed', 'Sprout', 'Adult', 'Decay'];
+          const stageLabel = stageNames[(foodHere as any).stage] ?? '';
           lines.push(
-            t('map.food'),
+            `${t('map.food')}${stageLabel ? ` [${stageLabel}]` : ''}`,
             `${t('map.energy')}: ${foodHere.energy.toFixed(1)} / ${foodHere.max_energy.toFixed(0)}`,
           );
         }

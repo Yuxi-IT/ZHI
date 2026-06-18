@@ -23,7 +23,8 @@ public partial class VectorizedState
         int gridSize = W * H;
 
         for (int i = 0; i < gridSize; i++) _agentGrid[i] = -1;
-        Array.Clear(_foodGrid);
+        Array.Clear(_plantGrid);
+        Array.Clear(_plantStageGrid);
         Array.Clear(_corpseGrid);
 
         for (int i = 0; i < N; i++)
@@ -33,12 +34,15 @@ public partial class VectorizedState
             _agentGrid[key] = i;
         }
 
-        for (int f = 0; f < FoodTiles.Count; f++)
+        for (int f = 0; f < Plants.Count; f++)
         {
-            var ft = FoodTiles[f];
-            int idx = ft.X * H + ft.Y;
-            if (ft.X >= 0 && ft.X < W && ft.Y >= 0 && ft.Y < H)
-                _foodGrid[idx] = ft.Energy;
+            var p = Plants[f];
+            int idx = p.X * H + p.Y;
+            if (p.X >= 0 && p.X < W && p.Y >= 0 && p.Y < H)
+            {
+                _plantGrid[idx] = p.Energy;
+                _plantStageGrid[idx] = p.Stage;
+            }
         }
 
         for (int c = 0; c < CorpseTiles.Count; c++)
@@ -166,7 +170,7 @@ public partial class VectorizedState
                     int gx = cx + dx, gy = cy + dy;
                     if (gx < 0 || gx >= W || gy < 0 || gy >= H) continue;
                     int key = gx * H + gy;
-                    if (_foodGrid[key] > 0 || _corpseGrid[key]) foodVisible++;
+                    if ((_plantGrid[key] > 0 && _plantStageGrid[key] != (byte)PlantStage.Seed) || _corpseGrid[key]) foodVisible++;
                     if (dx == 0 && dy == 0) continue;
                     int agentIdx = _agentGrid[key];
                     if (agentIdx >= 0 && agentIdx != i) agentVisible++;
