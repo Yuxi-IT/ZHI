@@ -59,10 +59,12 @@ public partial class CosmosEngine
 
     private void ProcessSignal(int signaler, int signalValue)
     {
-        int R = ToolDefinitions.VisionRadius;
-        int sx = _v.PosX[signaler], sy = _v.PosY[signaler];
+        // Stamina check: cannot signal if exhausted
+        float stamina = _v.Stamina[signaler];
+        float cost = _config.Stamina.SignalCost;
+        if (stamina < cost) return;
 
-        _v.Stamina[signaler] = MathF.Max(0f, _v.Stamina[signaler] - _config.Stamina.SignalCost);
+        _v.Stamina[signaler] = MathF.Max(0f, stamina - cost);
         _v.SignalCount[signaler]++;
 
         _tickEvents.Add(new WorldEvent
@@ -71,6 +73,28 @@ public partial class CosmosEngine
             SignalValue = signalValue, Tick = _globalTick
         });
 
+        int sx = _v.PosX[signaler], sy = _v.PosY[signaler];
+        int R = _config.Signal.WaveRadius;
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+
+        // Wave-like spatial diffusion: Chebyshev radius R with linear falloff
+        for (int dx = -R; dx <= R; dx++)
+        {
+            int cx = sx + dx;
+            if (cx < 0 || cx >= W) continue;
+            for (int dy = -R; dy <= R; dy++)
+            {
+                int cy = sy + dy;
+                if (cy < 0 || cy >= H) continue;
+                int dist = Math.Max(Math.Abs(dx), Math.Abs(dy));
+                float intensity = (float)(R - dist + 1) / (R + 1);
+                _v.SignalField[cx, cy, signalValue] = MathF.Min(1.0f,
+                    _v.SignalField[cx, cy, signalValue] + intensity);
+            }
+        }
+
+        // Agent-to-agent broadcast within wave radius
         for (int j = 0; j < _v.N; j++)
         {
             if (j == signaler || !_v.Alive[j]) continue;
@@ -83,12 +107,6 @@ public partial class CosmosEngine
                 _v.SignalAge[j] = 0;
             }
         }
-
-        int W = ToolDefinitions.GridWidth;
-        int H = ToolDefinitions.GridHeight;
-        if (sx >= 0 && sx < W && sy >= 0 && sy < H && signalValue >= 0 && signalValue < 4)
-            _v.SignalField[sx, sy, signalValue] = MathF.Min(1.0f,
-                _v.SignalField[sx, sy, signalValue] + 0.5f);
     }
 
     private void ProcessPush(int i, float[] rewards)

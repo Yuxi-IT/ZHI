@@ -24,6 +24,7 @@ public static class ToolDefinitions
     public static int GridWidth = 64;
     public static int GridHeight = 64;
     public const int VisionRadius = 3; // 7×7 window = radius 3
+    public const int SignalWaveRadius = 4; // 9×9 wave pattern
 
     // Terrain types
     public const byte TerrainFlat = 0;

@@ -67,6 +67,7 @@ public sealed class SignalConfig
 {
     public float Cost { get; set; } = 0.25f;
     public int NumValues { get; set; } = 4;
+    public int WaveRadius { get; set; } = 4;
 }
 
 public sealed class ScentConfig
