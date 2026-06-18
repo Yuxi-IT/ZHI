@@ -166,4 +166,4 @@ public partial class WebServer
     }
 }
 
-internal record SpeedPayload(int Multiplier);
+internal record SpeedPayload([property: System.Text.Json.Serialization.JsonPropertyName("multiplier")] int Multiplier);
