@@ -67,6 +67,7 @@ public partial class VectorizedState : IDisposable
     public int[] PregnancyTicks;
     public int[] ParentId; // agent idx of biological parent, or -1
     public float[,] RecentMemory; // [N, 4] — saw_food, was_attacked, ate, drank (decaying)
+    public byte[] Niche; // [N] — 0=Omnivore, 1=Herbivore, 2=Carnivore, 3=Scavenger
 
     // Body parameters (derived from Genome, heritable)
     public Genome[] Genomes;
@@ -161,6 +162,7 @@ public partial class VectorizedState : IDisposable
         ParentId = new int[n];
         Array.Fill(ParentId, -1);
         RecentMemory = new float[n, 4];
+        Niche = new byte[n];
 
         Genomes = new Genome[n];
         BodySize = new float[n];
@@ -646,6 +648,7 @@ public partial class VectorizedState : IDisposable
         BodyTemperature[i] = 20f;
         TicksSinceLastMove[i] = 0;
         IsStationary[i] = false;
+        Niche[i] = 0;
         RespawnCount[i]++;
     }
 
@@ -698,6 +701,10 @@ public partial class VectorizedState : IDisposable
         for (int i = 0; i < Math.Min(oldMem.GetLength(0), newN); i++)
             for (int j = 0; j < 4; j++)
                 RecentMemory[i, j] = oldMem[i, j];
+
+        var oldNiche = Niche;
+        Niche = new byte[newN];
+        Array.Copy(oldNiche, Niche, Math.Min(oldNiche.Length, newN));
 
         StateMatrix.Dispose();
         StateMatrix = torch.zeros(newN, ToolDefinitions.StateSize, device: Device);

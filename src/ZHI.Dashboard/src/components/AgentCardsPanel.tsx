@@ -152,6 +152,7 @@ function AgentCard({
               {pinned ? <PinFill className="size-2.5" /> : <Pin className="size-2.5" />}
             </Button>
             <span className="text-zhi-text font-medium">#{agent.id}</span>
+            <span className={`text-[10px] ${nicheColor(agent.niche)}`}>{nicheLabel(agent.niche, t)}</span>
             {agent.respawn_count > 0 && (
               <span className="text-zhi-muted">G{agent.respawn_count}</span>
             )}
@@ -231,4 +232,22 @@ function actionLabel(
   if (agent.is_eating) badges.push('🍖');
   const prefix = badges.length ? badges.join(' ') + ' ' : '';
   return prefix + (agent.last_action || t('agents.none'));
+}
+
+function nicheLabel(niche: number, t: (key: string) => string): string {
+  switch (niche) {
+    case 1: return t('agents.nicheHerbivore');
+    case 2: return t('agents.nicheCarnivore');
+    case 3: return t('agents.nicheScavenger');
+    default: return t('agents.nicheOmnivore');
+  }
+}
+
+function nicheColor(niche: number): string {
+  switch (niche) {
+    case 1: return 'text-green-400';
+    case 2: return 'text-red-400';
+    case 3: return 'text-yellow-400';
+    default: return 'text-zhi-muted';
+  }
 }

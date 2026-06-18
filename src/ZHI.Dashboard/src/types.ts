@@ -45,6 +45,7 @@ export interface AgentSnapshot {
   pregnancy_ticks: number
   is_juvenile: boolean
   parent_id: number
+  niche: number  // 0=Omnivore, 1=Herbivore, 2=Carnivore, 3=Scavenger
 }
 
 export interface FoodTile {

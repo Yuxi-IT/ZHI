@@ -341,7 +341,10 @@ public partial class CosmosEngine : IDisposable
         if (_stateForPpoBuf.Length < nn * stateSize) _stateForPpoBuf = new float[nn * stateSize];
         Array.Copy(_v.GetStateBuffer(), _stateForPpoBuf, nn * stateSize);
 
-        // 11b. Rebuild spatial grids + build next observation (s_{t+1}) for GRU
+        // 11b. Compute ecological niches periodically
+        ComputeNiches();
+
+        // 11c. Rebuild spatial grids + build next observation (s_{t+1}) for GRU
         _v.PlantMaxEnergy = _config.Plant.MaxPlantEnergy;
         _v.JuvenileVisionMult = _config.AgeDeath.JuvenileVisionMult;
         _v.JuvenileAgeThreshold = _config.AgeDeath.JuvenileAge;

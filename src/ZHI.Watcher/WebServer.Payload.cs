@@ -50,7 +50,8 @@ public partial class WebServer
                 is_pregnant = v.IsPregnant[i],
                 pregnancy_ticks = v.PregnancyTicks[i],
                 is_juvenile = v.Alive[i] && v.TickCount[i] < _engine.CurrentConfig.AgeDeath.JuvenileAge,
-                parent_id = v.ParentId[i]
+                parent_id = v.ParentId[i],
+                niche = v.Niche[i]
             });
         }
 
