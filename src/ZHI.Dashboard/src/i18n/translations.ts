@@ -24,7 +24,7 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     // Header tooltips
     'header.dayTip': '世界天数。每昼夜循环 +1 天。',
-    'header.timeTip': '游戏内时间。☀ 06-20 白昼 🌙 20-06 黑夜，影响温度与行为。',
+    'header.timeTip': '世界时间。☀ 06-20 白昼 🌙 20-06 黑夜，影响温度与行为。',
     'header.tempTip': '环境温度 °C。昼夜正弦波动，受河流冷却、海拔等因素影响。',
     'header.atkRateTip': '攻击频率：每 tick 发生攻击的概率 = 总攻击 ÷ 总tick。',
     'header.avgLifeTip': '均寿：最近 10 代 Agent 的平均存活秒数。',
@@ -348,7 +348,7 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     // Header tooltips
     'header.dayTip': 'World day. +1 per day/night cycle.',
-    'header.timeTip': 'In-game time. ☀ 06-20 day 🌙 20-06 night. Affects temperature & behavior.',
+    'header.timeTip': 'World time. ☀ 06-20 day 🌙 20-06 night. Affects temperature & behavior.',
     'header.tempTip': 'Ambient temp °C. Sinusoidal day/night cycle, modified by river cooling & elevation.',
     'header.atkRateTip': 'Attack rate: prob of attack per tick = total attacks ÷ total ticks.',
     'header.avgLifeTip': 'Average lifespan: mean alive seconds of last 10 generations.',

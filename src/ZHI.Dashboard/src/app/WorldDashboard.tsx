@@ -18,7 +18,7 @@ interface Props {
   onStop: () => void;
 }
 
-function formatGameTime(hours: number): string {
+function formatWorldTime(hours: number): string {
   const h = Math.floor(hours);
   const m = Math.floor((hours - h) * 60);
   const hh = h.toString().padStart(2, '0');
@@ -35,7 +35,7 @@ function tempColor(t: number): string {
   return '#ef4444';
 }
 
-export function GameDashboard({ worldName, onStop }: Props) {
+export function WorldDashboard({ worldName, onStop }: Props) {
   const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, chemicalField, terrain, terrainTtl, riverFlow, stats, connected } = useWebSocket();
   const { logs, events, clearEvents } = useLogSocket();
   const { stats: dbStats, loading } = useStats();
@@ -196,7 +196,7 @@ export function GameDashboard({ worldName, onStop }: Props) {
             </MetricTip>
             <Separator orientation="vertical" className="h-3" />
             <MetricTip tip={t('header.timeTip')}>
-              <span className="text-zhi-text text-[11px]">{formatGameTime(timeOfDay)}</span>
+              <span className="text-zhi-text text-[11px]">{formatWorldTime(timeOfDay)}</span>
             </MetricTip>
             <MetricTip tip={t('header.tempTip')}>
               <span className="text-[11px] font-semibold cursor-help" style={{ color: tempColor(temperature) }}>{temperature.toFixed(1)}°C</span>

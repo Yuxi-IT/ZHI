@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '@heroui/react';
 import { LaunchPage } from './LaunchPage';
-import { GameDashboard } from './GameDashboard';
+import { WorldDashboard } from './WorldDashboard';
 import { useT } from '../i18n/I18nContext';
 
 function ThemeInit() {
@@ -53,7 +53,7 @@ export function App() {
   return (
     <>
       <ThemeInit />
-      <GameDashboard worldName={activeWorld} onStop={handleWorldStop} />
+      <WorldDashboard worldName={activeWorld} onStop={handleWorldStop} />
     </>
   );
 }
