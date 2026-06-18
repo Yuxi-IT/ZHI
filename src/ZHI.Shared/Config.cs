@@ -148,9 +148,9 @@ public sealed class TemperatureConfig
 {
     public float MaxTemp { get; set; } = 35f;       // peak @ 14:00
     public float MinTemp { get; set; } = 5f;        // trough @ 04:00
-    public float ColdThreshold { get; set; } = 15f;  // below this → cold HP decay
-    public float MaxColdDecay { get; set; } = 0.15f; // extra HP/tick at coldest
-    public float HotThreshold { get; set; } = 30f;   // above this → water decay accelerates
+    public float ColdThreshold { get; set; } = 22f;  // below this body temp → cold metabolism extra decay
+    public float MaxColdDecay { get; set; } = 0.08f; // extra Energy/tick at coldest
+    public float HotThreshold { get; set; } = 30f;   // above this body temp → water decay accelerates
     [System.Text.Json.Serialization.JsonPropertyName("max_water_decay_mult")]
     public float MaxWaterDecayMult { get; set; } = 1.5f; // water decay multiplier at hottest
     public float HuddleRange { get; set; } = 2f;     // Manhattan distance for warmth sharing
@@ -160,17 +160,17 @@ public sealed class TemperatureConfig
     public float RiverCooling { get; set; } = 5f;
     [Obsolete("Replaced by thermal diffusion + distance field in v4.3")]
     public int RiverCoolingRange { get; set; } = 2;
-    public float LandLerpRate { get; set; } = 0.25f;     // land temp convergence rate to ambient per tick
+    public float LandLerpRate { get; set; } = 0.2f;      // land temp convergence rate to ambient per tick
     public float WaterHeatCapacity { get; set; } = 4.0f;  // water temp change multiplier (higher = slower)
     public float ThermalDiffusionRate { get; set; } = 0.12f; // heat spread rate to 4 neighbors per tick
     public int RiverLandInfluence { get; set; } = 8;      // max Chebyshev distance river affects land lerp rate
-    public float HypothermiaThreshold { get; set; } = 33f;   // below this body temp → HP decay
-    public float HypothermiaMaxDamage { get; set; } = 0.08f; // max HP/tick at body temp 26°C
-    public float WaterCoolingMult { get; set; } = 2f;       // body temp lerp multiplier in water
-    public float DeepWaterExtraCold { get; set; } = 3f;     // extra °C penalty in deep water cells
-    public float WaterCoolingOffset { get; set; } = 14f;   // water cells target below ambient air
+    public float HypothermiaThreshold { get; set; } = 28f;   // below this body temp → Energy damage
+    public float HypothermiaMaxDamage { get; set; } = 0.03f; // max Energy/tick at body temp floor
+    public float WaterCoolingMult { get; set; } = 1.5f;      // body temp lerp multiplier in water
+    public float DeepWaterExtraCold { get; set; } = 2f;      // extra °C penalty in deep water cells
+    public float WaterCoolingOffset { get; set; } = 6f;     // water cells target below ambient air
     public float HeightLapseRate { get; set; } = 0.04f;     // °C per height unit (height 0..255, centered at 128 → ±5°C)
-    public float MinBodyTemp { get; set; } = 26f;           // body temp hard floor
+    public float MinBodyTemp { get; set; } = 20f;           // body temp hard floor
 }
 
 public sealed class PlantConfig
@@ -238,7 +238,7 @@ public sealed class MetabolismConfig
 {
     public float EnergyInitial { get; set; } = 100f;
     public float EnergyDecayBase { get; set; } = 0.1f;
-    public float ColdEnergyDecayMax { get; set; } = 0.15f;
+    public float ColdEnergyDecayMax { get; set; } = 0.08f;
     public float WaterInitial { get; set; } = 100f;
     public float WaterDecayRate { get; set; } = 0.1f;
     public float DrinkRestore { get; set; } = 40f;
