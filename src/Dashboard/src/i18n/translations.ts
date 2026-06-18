@@ -2,6 +2,9 @@ export type Lang = 'zh' | 'en'
 
 export const translations: Record<Lang, Record<string, string>> = {
   zh: {
+    // App
+    'app.loading': '加载中...',
+
     // Header
     'header.subtitle': '栀 · Cosmos v{version}',
     'header.gen': '代',
@@ -17,6 +20,42 @@ export const translations: Record<Lang, Record<string, string>> = {
     'header.live': '在线',
     'header.off': '离线',
     'header.day': '日',
+    'header.atkRate': 'ATK:{rate}/t',
+
+    // Control bar
+    'control.resume': '继续',
+    'control.pause': '暂停',
+    'control.stopping': '停止中...',
+    'control.stop': '停止',
+    'control.gen': '代 {n}',
+    'control.deaths': '死亡 {n}',
+    'control.alive': '存活 {n}/{total}',
+    'control.live': '在线',
+    'control.off': '离线',
+
+    // Launch page
+    'launch.subtitle': 'Zero-Hypothesis Intelligence Ecosystem',
+    'launch.newWorld': '新建世界',
+    'launch.loading': '加载世界中...',
+    'launch.noWorlds': '暂无世界',
+    'launch.noWorldsDesc': '创建一个新世界来开始模拟。',
+    'launch.createWorld': '创建世界',
+    'launch.gen': '世代',
+    'launch.deaths': '死亡',
+    'launch.seed': '种子',
+    'launch.deleteAria': '删除 {name}',
+    'launch.startAria': '启动 {name}',
+    'launch.createTitle': '新建世界',
+    'launch.name': '名称',
+    'launch.namePlaceholder': 'my-world',
+    'launch.seedLabel': '种子 (留空 = 随机)',
+    'launch.seedPlaceholder': '42',
+    'launch.desc': '描述',
+    'launch.descPlaceholder': '测试失温...',
+    'launch.cancel': '取消',
+    'launch.creating': '创建中...',
+    'launch.createAndStart': '创建并启动',
+    'launch.deleteConfirm': '确定删除世界 "{name}"? 此操作不可撤销。',
 
     // Toggle bar
     'toggle.display': '显示:',
@@ -57,10 +96,18 @@ export const translations: Record<Lang, Record<string, string>> = {
     'agents.pos': '位置',
     'agents.none': '无',
     'agents.stamina': '力气',
+    'agents.btemp': '体温',
     'agents.pinToTop': '置顶',
     'agents.unpin': '取消置顶',
     'agents.trackOnMap': '地图追踪',
     'agents.stopTracking': '停止追踪',
+    'agents.food': '食物',
+    'agents.bigfood': '大食物',
+    'agents.corpse': '尸体',
+    'agents.attacks': '攻击',
+    'agents.signals': '信号',
+    'agents.push': '推挤',
+    'agents.terraform': '地形',
 
     // Event monitor
     'events.title': '事件',
@@ -89,6 +136,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     'events.flooded': '坑被河水淹没',
     'events.weathered': '{type} 风化了',
     'events.damBuilt': '#{id} 在水上填土造坝',
+    'events.energyF': 'F:{pct}%',
+    'events.energyB': 'B:{pct}%',
+    'events.energyC': 'C:{pct}%',
 
     // Settings
     'settings.loading': '加载配置...',
@@ -176,10 +226,24 @@ export const translations: Record<Lang, Record<string, string>> = {
     'map.floodWater': '水坑（被淹没的坑）',
     'map.dryIn': '将在',
     'map.floodPermanent': '永久浅水（已连通河流）',
+    'map.zzz': 'zzz',
+    'map.hudTracking': '{zoom}% | 追踪 #{id} | 存活 {alive}/{total}',
+    'map.hudNormal': '{zoom}% | 存活 {alive}/{total}',
+    'map.tooltipAgent': 'Agent #{id}',
+    'map.tooltipGen': '(第{gen}代)',
+    'map.tooltipHP': 'HP',
+    'map.tooltipBTemp': 'BTemp',
+    'map.tooltipEats': '进食',
+    'map.tooltipAttacks': '攻击',
+    'map.tooltipSignals': '信号',
+    'map.untrack': '取消追踪',
 
   },
 
   en: {
+    // App
+    'app.loading': 'Loading...',
+
     // Header
     'header.subtitle': 'ZHI · Cosmos v{version}',
     'header.gen': 'Gen',
@@ -195,6 +259,42 @@ export const translations: Record<Lang, Record<string, string>> = {
     'header.live': 'live',
     'header.off': 'off',
     'header.day': 'Day',
+    'header.atkRate': 'ATK:{rate}/t',
+
+    // Control bar
+    'control.resume': 'Resume',
+    'control.pause': 'Pause',
+    'control.stopping': 'Stopping...',
+    'control.stop': 'Stop',
+    'control.gen': 'Gen {n}',
+    'control.deaths': 'Deaths {n}',
+    'control.alive': 'Alive {n}/{total}',
+    'control.live': 'live',
+    'control.off': 'off',
+
+    // Launch page
+    'launch.subtitle': 'Zero-Hypothesis Intelligence Ecosystem',
+    'launch.newWorld': 'New World',
+    'launch.loading': 'Loading worlds...',
+    'launch.noWorlds': 'No worlds yet',
+    'launch.noWorldsDesc': 'Create a new world to begin the simulation.',
+    'launch.createWorld': 'Create World',
+    'launch.gen': 'Gen',
+    'launch.deaths': 'Deaths',
+    'launch.seed': 'Seed',
+    'launch.deleteAria': 'Delete {name}',
+    'launch.startAria': 'Start {name}',
+    'launch.createTitle': 'New World',
+    'launch.name': 'Name',
+    'launch.namePlaceholder': 'my-world',
+    'launch.seedLabel': 'Seed (empty = random)',
+    'launch.seedPlaceholder': '42',
+    'launch.desc': 'Description',
+    'launch.descPlaceholder': 'Testing hypothermia...',
+    'launch.cancel': 'Cancel',
+    'launch.creating': 'Creating...',
+    'launch.createAndStart': 'Create & Start',
+    'launch.deleteConfirm': 'Delete world "{name}"? This cannot be undone.',
 
     // Toggle bar
     'toggle.display': 'Show:',
@@ -235,10 +335,18 @@ export const translations: Record<Lang, Record<string, string>> = {
     'agents.pos': 'Pos',
     'agents.none': 'none',
     'agents.stamina': 'Stamina',
+    'agents.btemp': 'BTemp',
     'agents.pinToTop': 'Pin to top',
     'agents.unpin': 'Unpin',
     'agents.trackOnMap': 'Track on map',
     'agents.stopTracking': 'Stop tracking',
+    'agents.food': 'Food',
+    'agents.bigfood': 'BigFood',
+    'agents.corpse': 'Corpse',
+    'agents.attacks': 'Attacks',
+    'agents.signals': 'Signals',
+    'agents.push': 'Push',
+    'agents.terraform': 'Terraform',
 
     // Event monitor
     'events.title': 'events',
@@ -267,6 +375,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     'events.flooded': 'Pit flooded by river',
     'events.weathered': '{type} weathered away',
     'events.damBuilt': '#{id} built a dam over water',
+    'events.energyF': 'F:{pct}%',
+    'events.energyB': 'B:{pct}%',
+    'events.energyC': 'C:{pct}%',
 
     // Settings
     'settings.loading': 'Loading config...',
@@ -354,6 +465,17 @@ export const translations: Record<Lang, Record<string, string>> = {
     'map.floodWater': 'Flooded pit',
     'map.dryIn': 'Dries in',
     'map.floodPermanent': 'Permanent shallow (connected to river)',
+    'map.zzz': 'zzz',
+    'map.hudTracking': '{zoom}% | tracking #{id} | alive {alive}/{total}',
+    'map.hudNormal': '{zoom}% | alive {alive}/{total}',
+    'map.tooltipAgent': 'Agent #{id}',
+    'map.tooltipGen': '(Gen {gen})',
+    'map.tooltipHP': 'HP',
+    'map.tooltipBTemp': 'BTemp',
+    'map.tooltipEats': 'Eats',
+    'map.tooltipAttacks': 'Attacks',
+    'map.tooltipSignals': 'Signals',
+    'map.untrack': 'untrack',
   },
 }
 

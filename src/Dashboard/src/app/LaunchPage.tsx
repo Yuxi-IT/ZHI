@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button, Modal, useOverlayState, Card, TextField, Label, Input, Form, Spinner } from '@heroui/react';
 import { EmptyState } from '../components/empty-state';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
+import { LangSwitcher } from '../components/LangSwitcher';
 import { ConfigFormFields, DEFAULT_CONFIG, type ZhiConfig } from '../components/ConfigSections';
 import { Plus, TrashBin, CircleCheckFill, CircleXmarkFill, CircleFill, Play } from '@gravity-ui/icons';
 import type { WorldMeta } from '../types';
+import { useT } from '../i18n/I18nContext';
 
 interface Props {
   onWorldStart: (name: string) => void;
@@ -18,6 +20,7 @@ export function LaunchPage({ onWorldStart }: Props) {
   const [createDesc, setCreateDesc] = useState('');
   const [createConfig, setCreateConfig] = useState<ZhiConfig>({ ...DEFAULT_CONFIG });
   const [creating, setCreating] = useState(false);
+  const { t } = useT();
 
   const createModal = useOverlayState({ defaultOpen: false });
 
@@ -81,7 +84,7 @@ export function LaunchPage({ onWorldStart }: Props) {
   };
 
   const handleDelete = async (name: string) => {
-    if (!confirm(`Delete world "${name}"? This cannot be undone.`)) return;
+    if (!confirm(t('launch.deleteConfirm', { name }))) return;
     try {
       await fetch('/api/world/delete', {
         method: 'POST',
@@ -102,9 +105,10 @@ export function LaunchPage({ onWorldStart }: Props) {
           <div className="flex items-center gap-4">
             <div>
               <h1 className="text-lg font-semibold text-zhi-text tracking-wide">ZHI</h1>
-              <p className="text-xs text-zhi-muted mt-0.5">Zero-Hypothesis Intelligence Ecosystem</p>
+              <p className="text-xs text-zhi-muted mt-0.5">{t('launch.subtitle')}</p>
             </div>
             <ThemeSwitcher />
+            <LangSwitcher />
           </div>
           <Button
             variant="primary"
@@ -113,7 +117,7 @@ export function LaunchPage({ onWorldStart }: Props) {
             onPress={() => { setCreateConfig({ ...DEFAULT_CONFIG }); createModal.open(); }}
           >
             <Plus className="size-3.5" />
-            New World
+            {t('launch.newWorld')}
           </Button>
         </div>
       </header>
@@ -123,17 +127,17 @@ export function LaunchPage({ onWorldStart }: Props) {
         {loading ? (
           <div className="flex items-center justify-center py-16 gap-2">
             <Spinner size="sm" />
-            <span className="text-zhi-muted text-xs animate-pulse">Loading worlds...</span>
+            <span className="text-zhi-muted text-xs animate-pulse">{t('launch.loading')}</span>
           </div>
         ) : worlds.length === 0 ? (
           <div className="flex items-center justify-center py-16">
             <EmptyState>
-              <EmptyState.Title>No worlds yet</EmptyState.Title>
-              <EmptyState.Description>Create a new world to begin the simulation.</EmptyState.Description>
+              <EmptyState.Title>{t('launch.noWorlds')}</EmptyState.Title>
+              <EmptyState.Description>{t('launch.noWorldsDesc')}</EmptyState.Description>
               <EmptyState.Content>
                 <Button variant="outline" size="sm" onPress={() => { setCreateConfig({ ...DEFAULT_CONFIG }); createModal.open(); }}>
                   <Plus className="size-3.5" />
-                  Create World
+                  {t('launch.createWorld')}
                 </Button>
               </EmptyState.Content>
             </EmptyState>
@@ -160,9 +164,9 @@ export function LaunchPage({ onWorldStart }: Props) {
 
                 <Card.Content>
                   <div className="text-[14px] text-zhi-muted space-y-1">
-                    <Row label="Gen" value={w.total_generations} />
-                    <Row label="Deaths" value={w.total_deaths} />
-                    {w.seed != null && <Row label="Seed" value={w.seed} mono />}
+                    <Row label={t('launch.gen')} value={w.total_generations} />
+                    <Row label={t('launch.deaths')} value={w.total_deaths} />
+                    {w.seed != null && <Row label={t('launch.seed')} value={w.seed} mono />}
                   </div>
                 </Card.Content>
 
@@ -177,8 +181,8 @@ export function LaunchPage({ onWorldStart }: Props) {
                         isIconOnly
                         variant="ghost"
                         className="text-blue-400 hover:text-blue-300 min-w-0 w-5 h-5"
-                        aria-label={`Delete ${w.name}`}
-                        onPress={() => w.status !== 'running' && handleStart(w.name)}
+                        aria-label={t('launch.startAria', { name: w.name })}
+                        onPress={() => handleStart(w.name)}
                       >
                         <Play className="size-4" />
                       </Button>
@@ -187,7 +191,7 @@ export function LaunchPage({ onWorldStart }: Props) {
                         isIconOnly
                         variant="ghost"
                         className="text-red-400 hover:text-red-300 min-w-0 w-5 h-5"
-                        aria-label={`Delete ${w.name}`}
+                        aria-label={t('launch.deleteAria', { name: w.name })}
                         onPress={() => { handleDelete(w.name); }}
                       >
                         <TrashBin className="size-4" />
@@ -216,15 +220,15 @@ export function LaunchPage({ onWorldStart }: Props) {
             <Modal.Dialog className="max-h-[85vh]">
               <Modal.CloseTrigger />
               <Modal.Header>
-                <Modal.Heading className="text-zhi-text text-sm">New World</Modal.Heading>
+                <Modal.Heading className="text-zhi-text text-sm">{t('launch.createTitle')}</Modal.Heading>
               </Modal.Header>
               <Modal.Body className="overflow-y-auto">
                 <Form className="space-y-3" onSubmit={(e: React.FormEvent) => { e.preventDefault(); handleCreate(); }}>
                   <TextField isRequired>
-                    <Label className="text-[10px] text-zhi-muted">Name</Label>
+                    <Label className="text-[10px] text-zhi-muted">{t('launch.name')}</Label>
                     <Input
                       className="bg-zhi-bg border border-zhi-border px-2.5 py-1.5 text-xs text-zhi-text"
-                      placeholder="my-world"
+                      placeholder={t('launch.namePlaceholder')}
                       value={createName}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCreateName(e.target.value)}
                       autoFocus
@@ -233,20 +237,20 @@ export function LaunchPage({ onWorldStart }: Props) {
 
                   <div className="flex gap-3">
                     <TextField className="flex-1">
-                      <Label className="text-[10px] text-zhi-muted">Seed (empty = random)</Label>
+                      <Label className="text-[10px] text-zhi-muted">{t('launch.seedLabel')}</Label>
                       <Input
                         type="number"
                         className="bg-zhi-bg border border-zhi-border px-2.5 py-1.5 text-xs text-zhi-text font-mono"
-                        placeholder="42"
+                        placeholder={t('launch.seedPlaceholder')}
                         value={createSeed}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCreateSeed(e.target.value)}
                       />
                     </TextField>
                     <TextField className="flex-1">
-                      <Label className="text-[10px] text-zhi-muted">Description</Label>
+                      <Label className="text-[10px] text-zhi-muted">{t('launch.desc')}</Label>
                       <Input
                         className="bg-zhi-bg border border-zhi-border px-2.5 py-1.5 text-xs text-zhi-text"
-                        placeholder="Testing hypothermia..."
+                        placeholder={t('launch.descPlaceholder')}
                         value={createDesc}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCreateDesc(e.target.value)}
                       />
@@ -265,7 +269,7 @@ export function LaunchPage({ onWorldStart }: Props) {
                   className="text-zhi-muted"
                   onPress={() => createModal.close()}
                 >
-                  Cancel
+                  {t('launch.cancel')}
                 </Button>
                 <Button
                   variant="primary"
@@ -274,7 +278,7 @@ export function LaunchPage({ onWorldStart }: Props) {
                   isDisabled={!createName.trim() || creating}
                   onPress={handleCreate}
                 >
-                  {creating ? 'Creating...' : 'Create & Start'}
+                  {creating ? t('launch.creating') : t('launch.createAndStart')}
                 </Button>
               </Modal.Footer>
             </Modal.Dialog>

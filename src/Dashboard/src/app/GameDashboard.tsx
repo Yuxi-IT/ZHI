@@ -146,7 +146,7 @@ export function GameDashboard({ worldName, onStop }: Props) {
             {stats && (
               <>
                 <Separator orientation="vertical" className="h-3" />
-                <span className="text-zhi-muted text-[11px]">ATK:{stats.attack_rate.toFixed(2)}/t</span>
+                <span className="text-zhi-muted text-[11px]">{t('header.atkRate', { rate: stats.attack_rate.toFixed(2) })}</span>
               </>
             )}
             {!loading && dbStats && (

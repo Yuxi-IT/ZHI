@@ -180,7 +180,7 @@ function AgentCard({
             <StatPair label={t('agents.hunger')} value={agent.hunger.toFixed(1)} warn={warnHunger} warnColor="orange" />
             <StatPair label={t('agents.thirst')} value={agent.thirst.toFixed(1)} warn={warnThirst} warnColor="cyan" />
             <StatPair label={t('agents.stamina')} value={agent.stamina.toFixed(1)} warn={warnStamina} warnColor="yellow" />
-            <StatPair label="BTemp" value={`${agent.body_temperature.toFixed(1)}°C`} warn={warnCold || warnHot} warnColor={warnHot ? 'red' : 'blue'} />
+            <StatPair label={t('agents.btemp')} value={`${agent.body_temperature.toFixed(1)}°C`} warn={warnCold || warnHot} warnColor={warnHot ? 'red' : 'blue'} />
             <StatPair label={t('agents.age')} value={`${agent.tick_count}t`} />
             <StatPair label={t('agents.action')} value={actionLabel(agent, terrain, gridW, t)} />
           </div>
@@ -188,13 +188,13 @@ function AgentCard({
             <span>{t('agents.pos')} ({agent.x},{agent.y})</span>
           </div>
           <div className="flex gap-2 mt-0.5 text-zhi-muted">
-            <span title="Food">F:{agent.food_eat_count}</span>
-            <span title="BigFood">B:{agent.bigfood_eat_count}</span>
-            <span title="Corpse">C:{agent.corpse_eat_count}</span>
-            <span title="Attacks">A:{agent.attack_count}</span>
-            <span title="Signals">S:{agent.signal_count}</span>
-            <span title="Push">P:{agent.push_count}</span>
-            <span title="Terraform">T:{agent.terraform_count}</span>
+            <span title={t('agents.food')}>F:{agent.food_eat_count}</span>
+            <span title={t('agents.bigfood')}>B:{agent.bigfood_eat_count}</span>
+            <span title={t('agents.corpse')}>C:{agent.corpse_eat_count}</span>
+            <span title={t('agents.attacks')}>A:{agent.attack_count}</span>
+            <span title={t('agents.signals')}>S:{agent.signal_count}</span>
+            <span title={t('agents.push')}>P:{agent.push_count}</span>
+            <span title={t('agents.terraform')}>T:{agent.terraform_count}</span>
           </div>
         </div>
       </Card.Content>

@@ -532,7 +532,7 @@ export function WorldMap({
         ctx.font = `${Math.max(8, cellSize * 0.25)}px monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
-        ctx.fillText('zzz', cx, cy - r - 3);
+        ctx.fillText(t('map.zzz'), cx, cy - r - 3);
       }
 
       if (agent.id === trackedAgent) {
@@ -581,10 +581,10 @@ export function WorldMap({
     const zoomPct = Math.round(cam.zoom * 100);
     const aliveCount = agents.filter(a => a.is_alive).length;
     const hudText = trackedAgent !== null
-      ? `${zoomPct}% | tracking #${trackedAgent} | alive ${aliveCount}/${agents.length}`
-      : `${zoomPct}% | alive ${aliveCount}/${agents.length}`;
+      ? t('map.hudTracking', { zoom: zoomPct, id: trackedAgent, alive: aliveCount, total: agents.length })
+      : t('map.hudNormal', { zoom: zoomPct, alive: aliveCount, total: agents.length });
     ctx.fillText(hudText, 8, 8);
-  }, [agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, terrain, terrainTtl, showTemp, showTerrain, showFlow, riverFlow, gridW, gridH, timeOfDay, trackedAgent, showScent, showFoodScent, showDirection, showVision, showSignal]);
+  }, [agents, food, corpses, river, scent, foodScent, signalField, temperatureGrid, terrain, terrainTtl, showTemp, showTerrain, showFlow, riverFlow, gridW, gridH, timeOfDay, trackedAgent, showScent, showFoodScent, showDirection, showVision, showSignal, t]);
 
   useEffect(() => {
     let animating = true;
@@ -618,12 +618,12 @@ export function WorldMap({
     const agent = agents.find(a => a.is_alive && a.x === gx && a.y === gy);
     if (agent) {
       lines.push(
-        `Agent #${agent.id}${agent.respawn_count > 0 ? ` (Gen ${agent.respawn_count})` : ''}`,
-        `HP: ${agent.existence.toFixed(1)}  ${t('agents.stress')}: ${agent.stress.toFixed(2)}`,
+        t('map.tooltipAgent', { id: agent.id }) + (agent.respawn_count > 0 ? ` ${t('map.tooltipGen', { gen: agent.respawn_count })}` : ''),
+        `${t('map.tooltipHP')}: ${agent.existence.toFixed(1)}  ${t('agents.stress')}: ${agent.stress.toFixed(2)}`,
         `${t('agents.hunger')}: ${agent.hunger.toFixed(1)}  ${t('agents.thirst')}: ${agent.thirst.toFixed(1)}`,
-        `BTemp: ${agent.body_temperature.toFixed(1)}°C  ${t('agents.age')}: ${agent.tick_count}`,
+        `${t('map.tooltipBTemp')}: ${agent.body_temperature.toFixed(1)}°C  ${t('agents.age')}: ${agent.tick_count}`,
         `${t('agents.action')}: ${agent.is_eating ? '🍖 ' : ''}${agent.last_action || t('agents.none')}`,
-        `Eats: ${agent.eat_count}  Attacks: ${agent.attack_count}  Signals: ${agent.signal_count}`
+        `${t('map.tooltipEats')}: ${agent.eat_count}  ${t('map.tooltipAttacks')}: ${agent.attack_count}  ${t('map.tooltipSignals')}: ${agent.signal_count}`
       );
     }
 
@@ -790,7 +790,7 @@ export function WorldMap({
           className="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded bg-zhi-panel border border-zhi-border text-zhi-muted hover:text-zhi-text z-10"
           onClick={() => setTrackedAgent(null)}
         >
-          untrack
+          {t('map.untrack')}
         </button>
       )}
       {tooltip && (

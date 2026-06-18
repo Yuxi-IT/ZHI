@@ -159,9 +159,9 @@ export function EventMonitor({ events, energySource, onClear }: Props) {
         </div>
         {energySource && (
           <div className="text-[9px] text-zhi-muted mt-0.5 flex gap-2">
-            <span>F:{energySource.food_pct.toFixed(0)}%</span>
-            <span>B:{energySource.bigfood_pct.toFixed(0)}%</span>
-            <span>C:{energySource.corpse_pct.toFixed(0)}%</span>
+            <span>{t('events.energyF', { pct: energySource.food_pct.toFixed(0) })}</span>
+            <span>{t('events.energyB', { pct: energySource.bigfood_pct.toFixed(0) })}</span>
+            <span>{t('events.energyC', { pct: energySource.corpse_pct.toFixed(0) })}</span>
           </div>
         )}
       </div>

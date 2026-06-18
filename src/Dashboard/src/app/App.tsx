@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '@heroui/react';
 import { LaunchPage } from './LaunchPage';
 import { GameDashboard } from './GameDashboard';
+import { useT } from '../i18n/I18nContext';
 
 function ThemeInit() {
   const { resolvedTheme } = useTheme('system');
@@ -11,6 +12,7 @@ function ThemeInit() {
 export function App() {
   const [activeWorld, setActiveWorld] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const { t } = useT();
 
   useEffect(() => {
     fetch('/api/worlds')
@@ -34,7 +36,7 @@ export function App() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-foreground-400 text-sm animate-pulse">Loading...</p>
+        <p className="text-foreground-400 text-sm animate-pulse">{t('app.loading')}</p>
       </div>
     );
   }
