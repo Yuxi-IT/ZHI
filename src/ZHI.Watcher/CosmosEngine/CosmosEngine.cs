@@ -332,6 +332,7 @@ public partial class CosmosEngine : IDisposable
         // 11b. Rebuild spatial grids + build next observation (s_{t+1}) for GRU
         _v.PlantMaxEnergy = _config.Plant.MaxPlantEnergy;
         _v.RebuildSpatialGrids();
+        _v.ComputeVisibilityBlock();
         _v.BuildStateMatrix();
 
         // 11c. Store in PPO buffer (s_t, a_t, r_t, v_t)

@@ -159,6 +159,12 @@ public partial class CosmosEngine
                 _agentWeights.Add(_gruBrain.SaveWeights());
         }
 
+        // Build initial state matrix so first Tick sees the world (visibility-aware)
+        _v.PlantMaxEnergy = _config.Plant.MaxPlantEnergy;
+        _v.RebuildSpatialGrids();
+        _v.ComputeVisibilityBlock();
+        _v.BuildStateMatrix();
+
         Log($"[Cosmos] Gen {_generation} initialized: {n} agents, {_v.Plants.Count} food");
     }
 

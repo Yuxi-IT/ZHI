@@ -270,6 +270,9 @@ public sealed class PlantConfig
     public float AdultSeedCost { get; set; } = 2f;
     public int MaxPlants { get; set; } = 2000;
 
+    public float VisibilityBlockMax { get; set; } = 0.8f;    // max occlusion per cell
+    public int VisibilityBlockDistance { get; set; } = 3;     // Chebyshev distance affected by occlusion
+
     public PlantSpeciesConfig Species { get; set; } = new();
 }
 

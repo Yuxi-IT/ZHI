@@ -96,6 +96,7 @@ public partial class VectorizedState : IDisposable
     public float[,] WindY;           // [W, H] — wind vector Y component
     public float[,] Sunlight;        // [W, H] — direct sunlight intensity (0-1)
     public byte[,] Biome;            // [W, H] — biome classification
+    public float[,] VisibilityBlock; // [W, H] — 0=clear, 1=fully blocked
 
     // Spatial query grids
     private int[] _agentGrid;
@@ -179,6 +180,7 @@ public partial class VectorizedState : IDisposable
         WindY = new float[W, H];
         Sunlight = new float[W, H];
         Biome = new byte[W, H];
+        VisibilityBlock = new float[W, H];
 
         int gridSize = W * H;
         _agentGrid = new int[gridSize];

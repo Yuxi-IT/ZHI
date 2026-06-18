@@ -53,6 +53,88 @@ public partial class VectorizedState
         }
     }
 
+    private float[] ComputeAgentVisibility(int cx, int cy, int R, int fd, float heightNorm, float blockMax, int blockDist)
+    {
+        int D = R * 2 + 1;
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        var vis = new float[D * D]; // row-major: [(dy+R)*D + (dx+R)]
+
+        for (int dy = -R; dy <= R; dy++)
+        {
+            for (int dx = -R; dx <= R; dx++)
+            {
+                int cellIdx = (dy + R) * D + (dx + R);
+
+                // Directional mask check
+                int rdx, rdy;
+                switch (fd)
+                {
+                    case 0: rdx = dx; rdy = dy; break;
+                    case 1: rdx = -dx; rdy = -dy; break;
+                    case 2: rdx = -dy; rdy = dx; break;
+                    default: rdx = dy; rdy = -dx; break;
+                }
+                int maskCol = rdx + R, maskRow = rdy + R;
+                if (maskCol < 0 || maskCol >= D || maskRow < 0 || maskRow >= D) continue;
+                if (!BaseVisionMask[maskRow, maskCol])
+                {
+                    float rowDepth = maskRow / (float)(D - 1);
+                    float visibilityReq = rowDepth * 1.5f;
+                    if (heightNorm < visibilityReq - 0.1f) continue;
+                }
+
+                int gx = cx + dx, gy = cy + dy;
+                if (gx < 0 || gx >= W || gy < 0 || gy >= H) continue;
+
+                int dist = Math.Max(Math.Abs(dx), Math.Abs(dy));
+                if (dist <= 1)
+                {
+                    vis[cellIdx] = 1f;
+                    continue;
+                }
+
+                // Ray-cast occlusion: accumulate VisibilityBlock along ray from agent to cell
+                float accumulated = 0f;
+                for (int t = 1; t < dist; t++)
+                {
+                    int ix = (int)MathF.Round(dx * t / (float)dist);
+                    int iy = (int)MathF.Round(dy * t / (float)dist);
+                    int igx = cx + ix, igy = cy + iy;
+                    if (igx >= 0 && igx < W && igy >= 0 && igy < H)
+                        accumulated += VisibilityBlock[igx, igy];
+                }
+                vis[cellIdx] = MathF.Max(0f, 1f - accumulated);
+            }
+        }
+
+        return vis;
+    }
+
+    public void ComputeVisibilityBlock()
+    {
+        int W = ToolDefinitions.GridWidth, H = ToolDefinitions.GridHeight;
+        Array.Clear(VisibilityBlock);
+        foreach (var plant in Plants)
+        {
+            float block = plant.Species switch
+            {
+                (byte)PlantSpecies.Grass => 0f,
+                (byte)PlantSpecies.Bush => plant.Stage >= (byte)PlantStage.Adult ? 0.3f : 0f,
+                (byte)PlantSpecies.Tree => plant.Stage switch
+                {
+                    (byte)PlantStage.Sprout => 0.2f,
+                    (byte)PlantStage.Adult => 0.8f,
+                    (byte)PlantStage.Decay => 0.6f,
+                    _ => 0f
+                },
+                _ => 0f
+            };
+            if (block > 0)
+                VisibilityBlock[plant.X, plant.Y] = MathF.Max(VisibilityBlock[plant.X, plant.Y], block);
+        }
+    }
+
     public void BuildStateMatrix()
     {
         int S = ToolDefinitions.StateSize; // 340
@@ -63,6 +145,8 @@ public partial class VectorizedState
         const int GridCh = 6; // plant_energy, groundwater, corpse, agent, self, terrain
 
         Array.Clear(_stateAssemblyBuffer);
+        float blockMax = PlantMaxEnergy > 0 ? 0.8f : 0; // will be set from config; default 0.8f
+        int blockDist = 3;
 
         for (int i = 0; i < N; i++)
         {
@@ -76,34 +160,18 @@ public partial class VectorizedState
             int fd = FacingDirection[i];
             float heightNorm = HeightMap[cx, cy] / 255f;
 
+            // Precompute per-agent visibility
+            float[] cellVis = ComputeAgentVisibility(cx, cy, R, fd, heightNorm, blockMax, blockDist);
+
             // [0-293] 7x7 grid x 6 channels
             for (int dy = -R; dy <= R; dy++)
             {
                 for (int dx = -R; dx <= R; dx++)
                 {
                     int cellIdx = ((dy + R) * D + (dx + R)) * GridCh;
-
-                    // Directional vision mask (relaxed on high ground — height increases rear visibility)
-                    {
-                        int rdx, rdy;
-                        switch (fd)
-                        {
-                            case 0: rdx = dx; rdy = dy; break;
-                            case 1: rdx = -dx; rdy = -dy; break;
-                            case 2: rdx = -dy; rdy = dx; break;
-                            default: rdx = dy; rdy = -dx; break;
-                        }
-                        int maskCol = rdx + R, maskRow = rdy + R;
-                        if (maskCol < 0 || maskCol >= D || maskRow < 0 || maskRow >= D)
-                            continue;
-                        if (!BaseVisionMask[maskRow, maskCol])
-                        {
-                            // Height relaxes mask: deeper rows require more height to become visible
-                            float rowDepth = maskRow / (float)(D - 1); // 0=front, 1=rear
-                            float visibilityReq = rowDepth * 1.5f; // 0 front → 1.5 rear
-                            if (heightNorm < visibilityReq - 0.1f) continue;
-                        }
-                    }
+                    int visIdx = (dy + R) * D + (dx + R);
+                    float vis = cellVis[visIdx];
+                    if (vis < 0.05f) continue; // fully occluded
 
                     int gx = cx + dx, gy = cy + dy;
                     if (gx < 0 || gx >= W || gy < 0 || gy >= H) continue;
@@ -113,12 +181,12 @@ public partial class VectorizedState
                     bool isSelf = (dx == 0 && dy == 0);
                     float cellHeightNorm = HeightMap[gx, gy] / 255f;
 
-                    _stateAssemblyBuffer[gridBase + cellIdx + 0] = GetPlantEnergyAt(gx, gy) / PlantMaxEnergy;
-                    _stateAssemblyBuffer[gridBase + cellIdx + 1] = GroundwaterGrid[gx, gy];
-                    _stateAssemblyBuffer[gridBase + cellIdx + 2] = hasCorpse ? 1f : 0f;
-                    _stateAssemblyBuffer[gridBase + cellIdx + 3] = (hasAgent && !isSelf) ? 1f : 0f;
+                    _stateAssemblyBuffer[gridBase + cellIdx + 0] = GetPlantEnergyAt(gx, gy) / PlantMaxEnergy * vis;
+                    _stateAssemblyBuffer[gridBase + cellIdx + 1] = GroundwaterGrid[gx, gy] * vis;
+                    _stateAssemblyBuffer[gridBase + cellIdx + 2] = (hasCorpse ? 1f : 0f) * vis;
+                    _stateAssemblyBuffer[gridBase + cellIdx + 3] = ((hasAgent && !isSelf) ? 1f : 0f) * vis;
                     _stateAssemblyBuffer[gridBase + cellIdx + 4] = isSelf ? 1f : 0f;
-                    _stateAssemblyBuffer[gridBase + cellIdx + 5] = cellHeightNorm;
+                    _stateAssemblyBuffer[gridBase + cellIdx + 5] = cellHeightNorm * vis;
                 }
             }
 
@@ -141,32 +209,16 @@ public partial class VectorizedState
             _stateAssemblyBuffer[baseIdx + 302] = (cx < W - 1) ? ScentGrid[cx + 1, cy] - scentHere : 0f;
             _stateAssemblyBuffer[baseIdx + 303] = (cx > 0) ? ScentGrid[cx - 1, cy] - scentHere : 0f;
 
-            // [304-306] local stats (same vision mask as grid obs)
+            // [304-306] local stats (same occlusion as grid obs)
             int foodVisible = 0;
             int agentVisible = 0;
             for (int dy = -R; dy <= R; dy++)
             {
                 for (int dx = -R; dx <= R; dx++)
                 {
-                    // Apply same height-relaxed directional mask
-                    {
-                        int rdx2, rdy2;
-                        switch (fd)
-                        {
-                            case 0: rdx2 = dx; rdy2 = dy; break;
-                            case 1: rdx2 = -dx; rdy2 = -dy; break;
-                            case 2: rdx2 = -dy; rdy2 = dx; break;
-                            default: rdx2 = dy; rdy2 = -dx; break;
-                        }
-                        int mc = rdx2 + R, mr = rdy2 + R;
-                        if (mc < 0 || mc >= D || mr < 0 || mr >= D) continue;
-                        if (!BaseVisionMask[mr, mc])
-                        {
-                            float rowDepth = mr / (float)(D - 1);
-                            float visibilityReq = rowDepth * 1.5f;
-                            if (heightNorm < visibilityReq - 0.1f) continue;
-                        }
-                    }
+                    int visIdx = (dy + R) * D + (dx + R);
+                    float vis = cellVis[visIdx];
+                    if (vis < 0.05f) continue;
                     int gx = cx + dx, gy = cy + dy;
                     if (gx < 0 || gx >= W || gy < 0 || gy >= H) continue;
                     int key = gx * H + gy;
