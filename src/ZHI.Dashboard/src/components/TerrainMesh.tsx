@@ -12,8 +12,19 @@ const BIOME_COLORS: [number, number, number][] = [
   [0.4, 0.6, 0.2],   // Valley
 ];
 
+/** Map 0-255 height to a topographic color (green→yellow→brown→grey→white) */
+function heightColor(h: number): [number, number, number] {
+  const t = h / 255;
+  if (t < 0.2) return [0.15, 0.35 + t * 1.5, 0.15];       // deep green
+  if (t < 0.4) return [0.25 + (t - 0.2) * 1.5, 0.55 + (t - 0.2) * 0.5, 0.12]; // green→yellow-green
+  if (t < 0.6) return [0.55 + (t - 0.4) * 1.25, 0.65 - (t - 0.4) * 0.5, 0.08 + (t - 0.4) * 0.3]; // →brown
+  if (t < 0.8) return [0.8, 0.55 + (t - 0.6) * 1.25, 0.14 + (t - 0.6) * 1.5];  // brown→grey
+  return [0.8 + (t - 0.8) * 1, 0.8 + (t - 0.8) * 1, 0.44 + (t - 0.8) * 2.8];  // grey→white
+}
+
 interface Props {
   heightMap: number[];
+  slope: number[];
   biome: number[];
   gridW: number;
   gridH: number;
@@ -21,7 +32,7 @@ interface Props {
   showBiome: boolean;
 }
 
-export function TerrainMesh({ heightMap, biome, gridW, gridH, heightScale, showBiome }: Props) {
+export function TerrainMesh({ heightMap, slope, biome, gridW, gridH, heightScale, showBiome }: Props) {
   const meshRef = useRef<THREE.Mesh>(null);
 
   const geometry = useMemo(() => {
@@ -45,23 +56,27 @@ export function TerrainMesh({ heightMap, biome, gridW, gridH, heightScale, showB
       const h = hRaw / 255;
       positions[i * 3 + 1] = h * heightScale;
 
+      // Base color: biome or height-based topographic
+      let r: number, g: number, b: number;
       if (showBiome && idx >= 0 && idx < biome.length) {
-        const b = Math.min(biome[idx] ?? 0, BIOME_COLORS.length - 1);
-        colors[i * 3] = BIOME_COLORS[b]![0];
-        colors[i * 3 + 1] = BIOME_COLORS[b]![1];
-        colors[i * 3 + 2] = BIOME_COLORS[b]![2];
+        const biomeIdx = Math.min(biome[idx] ?? 0, BIOME_COLORS.length - 1);
+        [r, g, b] = BIOME_COLORS[biomeIdx]!;
       } else {
-        const c = 0.25 + h * 0.4;
-        colors[i * 3] = c;
-        colors[i * 3 + 1] = c;
-        colors[i * 3 + 2] = c;
+        [r, g, b] = heightColor(hRaw);
       }
+
+      // Slope shading: darken steep areas for relief
+      const s = slope[idx] ?? 0;
+      const slopeDim = 1 - Math.min(s * 0.6, 0.35);
+      colors[i * 3] = r * slopeDim;
+      colors[i * 3 + 1] = g * slopeDim;
+      colors[i * 3 + 2] = b * slopeDim;
     }
 
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geo.computeVertexNormals();
     return geo;
-  }, [heightMap, biome, gridW, gridH, heightScale, showBiome]);
+  }, [heightMap, slope, biome, gridW, gridH, heightScale, showBiome]);
 
   return (
     <mesh ref={meshRef} geometry={geometry} receiveShadow>

@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { DrawData } from './WorldMap';
 import { TerrainMesh } from './TerrainMesh';
-import { WaterPlane } from './WaterPlane';
+import { RiverSurface } from './RiverSurface';
 import { AgentMarkers } from './AgentMarkers';
 import { PlantMarkers } from './PlantMarkers';
 import { CorpseMarkers } from './CorpseMarkers';
@@ -22,7 +22,7 @@ export function WorldMap3D({ drawDataRef, gridW, gridH, trackedAgent, showBiome 
   const { t } = useT();
   const data = drawDataRef.current;
 
-  const heightScale = 5;
+  const heightScale = 8;
   const timeOfDay = data?.timeOfDay ?? 12;
 
   // Sun position based on time of day (0-24)
@@ -80,6 +80,7 @@ export function WorldMap3D({ drawDataRef, gridW, gridH, trackedAgent, showBiome 
 
         <TerrainMesh
           heightMap={data.heightMap}
+          slope={data.slope}
           biome={data.biome}
           gridW={gridW}
           gridH={gridH}
@@ -87,9 +88,9 @@ export function WorldMap3D({ drawDataRef, gridW, gridH, trackedAgent, showBiome 
           showBiome={showBiome}
         />
 
-        <WaterPlane
+        <RiverSurface
           river={data.river}
-          surfaceWater={data.surfaceWater}
+          riverFlow={data.riverFlow}
           gridW={gridW}
           gridH={gridH}
           heightMap={data.heightMap}
