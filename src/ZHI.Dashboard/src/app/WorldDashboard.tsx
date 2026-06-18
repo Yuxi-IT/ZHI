@@ -36,7 +36,7 @@ function tempColor(t: number): string {
 }
 
 export function WorldDashboard({ worldName, onStop }: Props) {
-  const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, chemicalField, heightMap, slope, riverFlow, surfaceWater, groundwater, nutrient, waterCycle, plantCount, stats, connected } = useWebSocket();
+  const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, chemicalField, heightMap, slope, riverFlow, surfaceWater, groundwater, nutrient, permeability, waterCycle, plantCount, stats, connected } = useWebSocket();
   const { logs, events, clearEvents } = useLogSocket();
   const { stats: dbStats, loading } = useStats();
   const { history, record } = useEcoHistory();
@@ -64,18 +64,19 @@ export function WorldDashboard({ worldName, onStop }: Props) {
   const [showGroundwater, setShowGroundwater] = useState(false);
   const [showSurfaceWater, setShowSurfaceWater] = useState(false);
   const [showNutrient, setShowNutrient] = useState(false);
+  const [showPermeability, setShowPermeability] = useState(false);
 
   const aliveCount = agents.filter(a => a.is_alive).length;
 
   const drawDataRef = useRef<DrawData>({
     agents: [], food: [], corpses: [], river: [], scent: [], foodScent: [],
     chemicalField: [], temperatureGrid: [], heightMap: [], slope: [], riverFlow: [],
-    surfaceWater: [], groundwater: [], nutrient: [],
+    surfaceWater: [], groundwater: [], nutrient: [], permeability: [],
     events: [], timeOfDay: 12, trackedAgent: null,
   });
   drawDataRef.current = {
     agents, food, corpses, river, scent, foodScent, chemicalField,
-    temperatureGrid, heightMap, slope, riverFlow, surfaceWater, groundwater, nutrient,
+    temperatureGrid, heightMap, slope, riverFlow, surfaceWater, groundwater, nutrient, permeability,
     events,
     timeOfDay, trackedAgent,
   };
@@ -259,6 +260,7 @@ export function WorldDashboard({ worldName, onStop }: Props) {
             showGroundwater={showGroundwater} setShowGroundwater={setShowGroundwater}
             showSurfaceWater={showSurfaceWater} setShowSurfaceWater={setShowSurfaceWater}
             showNutrient={showNutrient} setShowNutrient={setShowNutrient}
+            showPermeability={showPermeability} setShowPermeability={setShowPermeability}
             trackNextGen={trackNextGen} setTrackNextGen={setTrackNextGen}
           />
 
@@ -280,6 +282,7 @@ export function WorldDashboard({ worldName, onStop }: Props) {
               showGroundwater={showGroundwater}
               showSurfaceWater={showSurfaceWater}
               showNutrient={showNutrient}
+              showPermeability={showPermeability}
             />
           </div>
 
@@ -349,6 +352,7 @@ type ToggleKeys = {
   showGroundwater: boolean; setShowGroundwater: (v: boolean) => void;
   showSurfaceWater: boolean; setShowSurfaceWater: (v: boolean) => void;
   showNutrient: boolean; setShowNutrient: (v: boolean) => void;
+  showPermeability: boolean; setShowPermeability: (v: boolean) => void;
   trackNextGen: boolean; setTrackNextGen: (v: boolean) => void;
 };
 
@@ -366,6 +370,7 @@ const DisplayToggles = memo(function DisplayToggles(p: ToggleKeys) {
     [p.showGroundwater, p.setShowGroundwater, t('toggle.groundwater'), 'border-blue-600 text-blue-400 bg-blue-900/20'],
     [p.showSurfaceWater, p.setShowSurfaceWater, t('toggle.surfaceWater'), 'border-cyan-600 text-cyan-400 bg-cyan-900/20'],
     [p.showNutrient, p.setShowNutrient, t('toggle.nutrient'), 'border-amber-600 text-amber-400 bg-amber-900/20'],
+    [p.showPermeability, p.setShowPermeability, t('toggle.permeability'), 'border-teal-600 text-teal-400 bg-teal-900/20'],
     [p.trackNextGen, p.setTrackNextGen, t('toggle.trackRebirth'), 'border-cyan-600 text-cyan-400 bg-cyan-900/20'],
   ];
 

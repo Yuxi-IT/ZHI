@@ -75,6 +75,7 @@ public partial class CosmosEngine
     private void ApplySurfaceFlow(int W, int H)
     {
         float flowRate = _config.WaterCycle.SurfaceFlowRate;
+        float drainRate = _config.WaterCycle.RiverDrainRate;
         var newGrid = new float[W, H];
 
         for (int x = 0; x < W; x++)
@@ -82,6 +83,14 @@ public partial class CosmosEngine
             {
                 float water = _v.SurfaceWaterGrid[x, y];
                 if (water <= 0.01f) continue;
+
+                // River cells drain water downstream (removed from system)
+                if (_v.RiverGrid[x, y] > 0)
+                {
+                    float drained = water * drainRate * 2f; // faster drainage in river itself
+                    water = MathF.Max(0, water - drained);
+                    if (water <= 0.01f) continue;
+                }
 
                 float outflow = water * flowRate;
                 // Steep slopes accelerate surface runoff
@@ -98,8 +107,12 @@ public partial class CosmosEngine
                         int nx = x + dx, ny = y + dy;
                         if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
                         float nHeight = _v.HeightMap[nx, ny];
-                        if (nHeight < myHeight)
-                            lower.Add((nx, ny, myHeight - nHeight));
+                        // River cells act as stronger sinks — pull water toward them
+                        float effectiveDiff = myHeight - nHeight;
+                        if (_v.RiverGrid[nx, ny] > 0)
+                            effectiveDiff += 10f; // river is a strong attractor
+                        if (effectiveDiff > 0)
+                            lower.Add((nx, ny, effectiveDiff));
                     }
 
                 if (lower.Count == 0) { newGrid[x, y] += water; continue; }
@@ -108,6 +121,9 @@ public partial class CosmosEngine
                 foreach (var (nx, ny, diff) in lower)
                 {
                     float share = outflow * (diff / totalDiff);
+                    // Water flowing into rivers gets partially drained
+                    if (_v.RiverGrid[nx, ny] > 0)
+                        share *= (1f - drainRate);
                     newGrid[nx, ny] += share;
                     totalOutflow += share;
                 }
@@ -127,22 +143,24 @@ public partial class CosmosEngine
     {
         float absRate = _config.WaterCycle.AbsorptionRate;
         float maxGround = _config.WaterCycle.MaxGroundwater;
+        float permBase = _config.WaterCycle.PermeabilityBase;
 
         for (int x = 0; x < W; x++)
             for (int y = 0; y < H; y++)
             {
                 float surface = _v.SurfaceWaterGrid[x, y];
                 float ground = _v.GroundwaterGrid[x, y];
+                float perm = _v.Permeability[x, y] * permBase;
 
                 if (surface > 0 && ground < maxGround)
                 {
-                    float absorb = MathF.Min(absRate * surface, maxGround - ground);
+                    float absorb = MathF.Min(absRate * surface * perm, maxGround - ground);
                     _v.SurfaceWaterGrid[x, y] -= absorb;
                     _v.GroundwaterGrid[x, y] += absorb / maxGround;
                 }
                 else if (surface < 0.01f && ground > 0.01f)
                 {
-                    float seep = absRate * 0.1f * ground;
+                    float seep = absRate * 0.1f * ground * perm;
                     _v.GroundwaterGrid[x, y] -= seep;
                     _v.SurfaceWaterGrid[x, y] += seep * maxGround;
                 }

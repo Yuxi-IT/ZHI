@@ -79,6 +79,7 @@ export interface CosmosState {
   surface_water: number[]
   groundwater: number[]
   nutrient: number[]
+  permeability: number[]
   water_cycle: WaterCycleData
 }
 

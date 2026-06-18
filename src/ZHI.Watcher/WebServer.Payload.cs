@@ -115,6 +115,11 @@ public partial class WebServer
             for (int ny = 0; ny < gh; ny++)
                 nutrient[ny * gw + nx] = v.NutrientGrid[nx, ny];
 
+        var permeability = new float[gw * gh];
+        for (int px = 0; px < gw; px++)
+            for (int py = 0; py < gh; py++)
+                permeability[py * gw + px] = v.Permeability[px, py];
+
         float totalEnergySrc = _engine.GenFoodEnergy + _engine.GenCorpseEnergy;
         float foodPct = totalEnergySrc > 0 ? _engine.GenFoodEnergy / totalEnergySrc * 100f : 0;
         float corpsePct = totalEnergySrc > 0 ? _engine.GenCorpseEnergy / totalEnergySrc * 100f : 0;
@@ -156,6 +161,7 @@ public partial class WebServer
             surface_water = surfaceWater,
             groundwater,
             nutrient,
+            permeability,
             water_cycle = new
             {
                 humidity = _engine.Humidity,

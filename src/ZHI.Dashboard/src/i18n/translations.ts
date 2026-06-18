@@ -90,6 +90,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'toggle.groundwater': '地下水',
     'toggle.surfaceWater': '地表水',
     'toggle.nutrient': '养分',
+    'toggle.permeability': '渗透率',
     'toggle.trackRebirth': '追踪轮回',
     'toggle.trackRebirthTitle': '追踪的agent死亡后自动追踪其下一世',
 
@@ -237,6 +238,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     'settings.heightLapseRate': '高度气温递减率',
     'settings.waterCoolingOffset': '水体降温偏移',
     'settings.slopeRunoffMult': '坡度径流加速',
+    'settings.riverDrainRate': '河流排水率',
+    'settings.permeabilityBase': '基础渗透率',
     'settings.attackCost': '攻击HP消耗',
     'settings.riverCount': '数量',
     'settings.riverWidth': '宽度',
@@ -334,6 +337,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'map.surfaceWater': '地表水',
     'map.groundwater': '地下水',
     'map.nutrient': '养分',
+    'map.permeability': '渗透率',
     'map.untrack': '取消追踪',
 
   },
@@ -427,6 +431,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'toggle.groundwater': 'Groundwater',
     'toggle.surfaceWater': 'Surface Water',
     'toggle.nutrient': 'Nutrient',
+    'toggle.permeability': 'Permeability',
     'toggle.trackRebirth': 'Rebirth Track',
     'toggle.trackRebirthTitle': 'Auto-track next life when tracked agent dies',
 
@@ -574,6 +579,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     'settings.heightLapseRate': 'Height Lapse Rate',
     'settings.waterCoolingOffset': 'Water Cooling Offset',
     'settings.slopeRunoffMult': 'Slope Runoff Mult',
+    'settings.riverDrainRate': 'River Drain Rate',
+    'settings.permeabilityBase': 'Permeability Base',
     'settings.attackCost': 'Attack HP Cost',
     'settings.riverCount': 'Count',
     'settings.riverWidth': 'Width',
@@ -674,6 +681,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'map.surfaceWater': 'Surface',
     'map.groundwater': 'Groundwater',
     'map.nutrient': 'Nutrient',
+    'map.permeability': 'Permeability',
     'map.untrack': 'untrack',
   },
 }

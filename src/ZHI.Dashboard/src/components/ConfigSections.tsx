@@ -18,7 +18,7 @@ export interface ZhiConfig {
   corpse: { energy: number; decay_per_tick: number; scent_amount: number };
   plant: { base_growth_rate: number; max_plant_energy: number; spread_chance: number; spread_radius: number; min_temp: number; optimal_temp: number; max_temp: number; death_temp: number; water_need: number; nutrient_need: number; nutrient_consumption: number; water_consumption: number; initial_plants: number; initial_plant_energy: number };
   nutrient: { corpse_to_nutrient_ratio: number; plant_to_nutrient_ratio: number; diffusion_rate: number; max_nutrient: number; initial_nutrient: number; river_bank_nutrient_boost: number; river_bank_distance: number; height_retention_factor: number };
-  water_cycle: { surface_water_max_depth: number; surface_flow_rate: number; evaporation_rate: number; max_groundwater: number; absorption_rate: number; groundwater_diffusion_rate: number; rain_amount: number; rain_interval_min: number; rain_interval_max: number; rain_radius: number; slope_runoff_mult: number };
+  water_cycle: { surface_water_max_depth: number; surface_flow_rate: number; evaporation_rate: number; max_groundwater: number; absorption_rate: number; groundwater_diffusion_rate: number; rain_amount: number; rain_interval_min: number; rain_interval_max: number; rain_radius: number; slope_runoff_mult: number; river_drain_rate: number; permeability_base: number };
 }
 
 export const DEFAULT_CONFIG: ZhiConfig = {
@@ -37,7 +37,7 @@ export const DEFAULT_CONFIG: ZhiConfig = {
   corpse: { energy: 20, decay_per_tick: 0.067, scent_amount: 0.5 },
   plant: { base_growth_rate: 0.05, max_plant_energy: 20, spread_chance: 0.02, spread_radius: 2, min_temp: 0, optimal_temp: 25, max_temp: 45, death_temp: -2, water_need: 0.2, nutrient_need: 0.5, nutrient_consumption: 0.1, water_consumption: 0.05, initial_plants: 50, initial_plant_energy: 10 },
   nutrient: { corpse_to_nutrient_ratio: 0.5, plant_to_nutrient_ratio: 0.3, diffusion_rate: 0.02, max_nutrient: 10, initial_nutrient: 2, river_bank_nutrient_boost: 3, river_bank_distance: 3, height_retention_factor: 0.5 },
-  water_cycle: { surface_water_max_depth: 3, surface_flow_rate: 0.3, evaporation_rate: 0.05, max_groundwater: 1, absorption_rate: 0.1, groundwater_diffusion_rate: 0.01, rain_amount: 0.5, rain_interval_min: 200, rain_interval_max: 600, rain_radius: 10, slope_runoff_mult: 2.0 },
+  water_cycle: { surface_water_max_depth: 3, surface_flow_rate: 0.3, evaporation_rate: 0.05, max_groundwater: 1, absorption_rate: 0.1, groundwater_diffusion_rate: 0.01, rain_amount: 0.5, rain_interval_min: 200, rain_interval_max: 600, rain_radius: 10, slope_runoff_mult: 2.0, river_drain_rate: 0.3, permeability_base: 1.0 },
 };
 
 export function NumberField({ label, value, onChange, min, max, step }: {
@@ -233,6 +233,8 @@ export function ConfigFormFields({ config, update }: {
         <NumberField label={t('settings.rainIntervalMax')} value={config.water_cycle.rain_interval_max} onChange={v => update('water_cycle', 'rain_interval_max', v)} min={100} max={10000} />
         <NumberField label={t('settings.rainRadius')} value={config.water_cycle.rain_radius} onChange={v => update('water_cycle', 'rain_radius', v)} min={2} max={50} />
         <NumberField label={t('settings.slopeRunoffMult')} value={config.water_cycle.slope_runoff_mult} onChange={v => update('water_cycle', 'slope_runoff_mult', v)} min={0} max={10} step={0.5} />
+        <NumberField label={t('settings.riverDrainRate')} value={config.water_cycle.river_drain_rate} onChange={v => update('water_cycle', 'river_drain_rate', v)} min={0} max={1} step={0.05} />
+        <NumberField label={t('settings.permeabilityBase')} value={config.water_cycle.permeability_base} onChange={v => update('water_cycle', 'permeability_base', v)} min={0.1} max={5} step={0.1} />
       </ConfigSection>
     </div>
   );
@@ -409,6 +411,8 @@ export function ConfigReadOnly({ config }: { config: ZhiConfig }) {
         <ReadOnlyField label={t('settings.rainIntervalMax')} value={config.water_cycle.rain_interval_max} />
         <ReadOnlyField label={t('settings.rainRadius')} value={config.water_cycle.rain_radius} />
         <ReadOnlyField label={t('settings.slopeRunoffMult')} value={config.water_cycle.slope_runoff_mult} />
+        <ReadOnlyField label={t('settings.riverDrainRate')} value={config.water_cycle.river_drain_rate} />
+        <ReadOnlyField label={t('settings.permeabilityBase')} value={config.water_cycle.permeability_base} />
       </ConfigSection>
     </div>
   );

@@ -78,6 +78,7 @@ public partial class VectorizedState : IDisposable
     public float[,] NutrientGrid;    // [W, H] — soil nutrients (0 to MaxNutrient)
     public float[,] SurfaceWaterGrid; // [W, H] — surface water depth (0 to SurfaceWaterMaxDepth)
     public float[,] GroundwaterGrid;  // [W, H] — groundwater saturation (0 to 1)
+    public float[,] Permeability;    // [W, H] — soil infiltration multiplier derived from terrain
 
     // Spatial query grids
     private int[] _agentGrid;
@@ -154,6 +155,7 @@ public partial class VectorizedState : IDisposable
         NutrientGrid = new float[W, H];
         SurfaceWaterGrid = new float[W, H];
         GroundwaterGrid = new float[W, H];
+        Permeability = new float[W, H];
 
         int gridSize = W * H;
         _agentGrid = new int[gridSize];
@@ -296,6 +298,31 @@ public partial class VectorizedState : IDisposable
                     Aspect[x, y] = QuantizeAspect(dx, dy);
             }
         }
+    }
+
+    public void ComputePermeability()
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        // Derive soil permeability from natural terrain properties:
+        // - Near rivers: alluvial deposits → high permeability
+        // - High elevation: thin/rocky soil → low permeability
+        // - Steep slopes: thin soil → low permeability
+        for (int x = 0; x < W; x++)
+            for (int y = 0; y < H; y++)
+            {
+                float perm = 1.0f;
+                // River proximity bonus: +100% at river, tapering to 0 at distance 8
+                int dist = DistanceToRiver[x, y];
+                if (dist <= 8)
+                    perm += 1.0f * (1f - dist / 8f);
+                // Height penalty: high ground loses up to 50% permeability
+                perm -= (HeightMap[x, y] / 255f) * 0.5f;
+                // Slope penalty: steep ground loses up to 40% permeability
+                float slopeNorm = MathF.Min(Slope[x, y] / 30f, 1f);
+                perm -= slopeNorm * 0.4f;
+                Permeability[x, y] = Math.Clamp(perm, 0.2f, 2.0f);
+            }
     }
 
     private static byte QuantizeAspect(float dx, float dy)

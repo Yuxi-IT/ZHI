@@ -201,6 +201,8 @@ public sealed class WaterCycleConfig
     public int RainIntervalMax { get; set; } = 600;
     public int RainRadius { get; set; } = 10;
     public float SlopeRunoffMult { get; set; } = 2.0f;  // surface flow *= 1 + slope * k on steep terrain
+    public float RiverDrainRate { get; set; } = 0.3f;   // fraction of surface water drained by adjacent river per tick
+    public float PermeabilityBase { get; set; } = 1.0f;  // baseline soil permeability multiplier for infiltration
 }
 
 public sealed class NutrientConfig

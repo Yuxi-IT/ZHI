@@ -28,6 +28,7 @@ interface WsState {
   surfaceWater: number[];
   groundwater: number[];
   nutrient: number[];
+  permeability: number[];
   waterCycle: WaterCycleData | null;
   plantCount: number;
   stats: CosmosStats | null;
@@ -56,6 +57,7 @@ const INIT: WsState = {
   surfaceWater: [],
   groundwater: [],
   nutrient: [],
+  permeability: [],
   waterCycle: null,
   plantCount: 0,
   stats: null,
@@ -92,6 +94,7 @@ function reducer(state: WsState, action: Action): WsState {
         surfaceWater: (d.surface_water as number[]) ?? state.surfaceWater,
         groundwater: (d.groundwater as number[]) ?? state.groundwater,
         nutrient: (d.nutrient as number[]) ?? state.nutrient,
+        permeability: (d.permeability as number[]) ?? state.permeability,
         waterCycle: (d.water_cycle as WaterCycleData) ?? state.waterCycle,
         plantCount: (d.plant_count as number) ?? state.plantCount,
         stats: (d.stats as CosmosStats) ?? state.stats,
@@ -164,6 +167,7 @@ export function useWebSocket() {
     surfaceWater: state.surfaceWater,
     groundwater: state.groundwater,
     nutrient: state.nutrient,
+    permeability: state.permeability,
     waterCycle: state.waterCycle,
     plantCount: state.plantCount,
     stats: state.stats,
