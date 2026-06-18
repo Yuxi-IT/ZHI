@@ -96,6 +96,8 @@ ZHI 是一个**最小数字生态系统**，试图用最简单的规则观察最
 
 技术栈很简单：.NET + TorchSharp 做推理与训练，React + Canvas 做可视化，WebSocket 推送实时状态。
 
+**GPU 优先内存架构**（v4.3）：PPO 经验缓冲直接存储于 GPU 显存（预分配张量），每步增量写入而非大批量 PCIe 传输；StateMatrix 复用 GPU 张量避免每 tick 分配/释放；每 tick 临时数组池化复用减少 GC 压力。推理/训练全程在 GPU 上进行，世界模拟保留在 CPU。
+
 ---
 
 ## 观察与调试
