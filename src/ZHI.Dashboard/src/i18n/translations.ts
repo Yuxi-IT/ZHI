@@ -22,6 +22,17 @@ export const translations: Record<Lang, Record<string, string>> = {
     'header.day': '日',
     'header.atkRate': 'ATK:{rate}/t',
 
+    // Header tooltips
+    'header.dayTip': '世界天数。每昼夜循环 +1 天。',
+    'header.timeTip': '游戏内时间。☀ 06-20 白昼 🌙 20-06 黑夜，影响温度与行为。',
+    'header.tempTip': '环境温度 °C。昼夜正弦波动，受河流冷却、海拔等因素影响。',
+    'header.atkRateTip': '攻击频率：每 tick 发生攻击的概率 = 总攻击 ÷ 总tick。',
+    'header.avgLifeTip': '均寿：最近 10 代 Agent 的平均存活秒数。',
+    'header.nightTip': '夜间死亡率：发生在夜间的死亡占比。',
+    'header.atkTip': '攻：每只 Agent 终生的平均攻击次数。',
+    'header.eatTip': '食：每只 Agent 终生的平均进食次数。',
+    'header.sigTip': '信：每只 Agent 终生的平均信号发送次数。',
+
     // Control bar
     'control.resume': '继续',
     'control.pause': '暂停',
@@ -266,6 +277,17 @@ export const translations: Record<Lang, Record<string, string>> = {
     'header.off': 'off',
     'header.day': 'Day',
     'header.atkRate': 'ATK:{rate}/t',
+
+    // Header tooltips
+    'header.dayTip': 'World day. +1 per day/night cycle.',
+    'header.timeTip': 'In-game time. ☀ 06-20 day 🌙 20-06 night. Affects temperature & behavior.',
+    'header.tempTip': 'Ambient temp °C. Sinusoidal day/night cycle, modified by river cooling & elevation.',
+    'header.atkRateTip': 'Attack rate: prob of attack per tick = total attacks ÷ total ticks.',
+    'header.avgLifeTip': 'Average lifespan: mean alive seconds of last 10 generations.',
+    'header.nightTip': 'Night death rate: fraction of deaths occurring at night.',
+    'header.atkTip': 'Atk: average attacks per agent over its lifetime.',
+    'header.eatTip': 'Eat: average eat actions per agent over its lifetime.',
+    'header.sigTip': 'Sig: average signals sent per agent over its lifetime.',
 
     // Control bar
     'control.resume': 'Resume',

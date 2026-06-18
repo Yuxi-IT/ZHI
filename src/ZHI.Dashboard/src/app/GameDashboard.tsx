@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { Button, Separator } from '@heroui/react';
+import { Button, Separator, Tooltip } from '@heroui/react';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useLogSocket } from '../hooks/useLogSocket';
 import { useStats } from '../hooks/useStats';
@@ -191,26 +191,44 @@ export function GameDashboard({ worldName, onStop }: Props) {
         <div className="flex-1 flex flex-col min-h-0 min-w-0">
           {/* Info bar — dynamic data */}
           <div className="flex items-center gap-1.5 px-3 py-1 border-b border-zhi-border shrink-0 flex-wrap">
-            <span className="text-zhi-muted text-[11px]">{t('header.day')} {worldDay}</span>
+            <MetricTip tip={t('header.dayTip')}>
+              <span className="text-zhi-muted text-[11px]">{t('header.day')} {worldDay}</span>
+            </MetricTip>
             <Separator orientation="vertical" className="h-3" />
-            <span className="text-zhi-text text-[11px]">{formatGameTime(timeOfDay)}</span>
-            <span className="text-[11px] font-semibold" style={{ color: tempColor(temperature) }}>{temperature.toFixed(1)}°C</span>
+            <MetricTip tip={t('header.timeTip')}>
+              <span className="text-zhi-text text-[11px]">{formatGameTime(timeOfDay)}</span>
+            </MetricTip>
+            <MetricTip tip={t('header.tempTip')}>
+              <span className="text-[11px] font-semibold cursor-help" style={{ color: tempColor(temperature) }}>{temperature.toFixed(1)}°C</span>
+            </MetricTip>
             <Separator orientation="vertical" className="h-3" />
             <span className="text-zhi-muted text-[11px]">{t('toggle.display')}</span>
             {stats && (
               <>
                 <Separator orientation="vertical" className="h-3" />
-                <span className="text-zhi-muted text-[11px]">{t('header.atkRate', { rate: stats.attack_rate.toFixed(2) })}</span>
+                <MetricTip tip={t('header.atkRateTip')}>
+                  <span className="text-zhi-muted text-[11px]">{t('header.atkRate', { rate: stats.attack_rate.toFixed(2) })}</span>
+                </MetricTip>
               </>
             )}
             {!loading && dbStats && (
               <>
                 <Separator orientation="vertical" className="h-3" />
-                <span className="text-[11px] text-zhi-muted">{t('header.avgLife')} {dbStats.avg_alive_seconds_recent_10.toFixed(0)}s</span>
-                <span className="text-[11px] text-zhi-muted">{t('header.night')} {((dbStats.night_death_rate ?? 0) * 100).toFixed(0)}%</span>
-                <span className="text-[11px] text-zhi-muted">{t('header.atk')} {dbStats.avg_attacks_per_life?.toFixed(1) ?? '0'}</span>
-                <span className="text-[11px] text-zhi-muted">{t('header.eat')} {dbStats.avg_eats_per_life?.toFixed(1) ?? '0'}</span>
-                <span className="text-[11px] text-zhi-muted">{t('header.sig')} {dbStats.avg_signals_per_life?.toFixed(1) ?? '0'}</span>
+                <MetricTip tip={t('header.avgLifeTip')}>
+                  <span className="text-[11px] text-zhi-muted">{t('header.avgLife')} {dbStats.avg_alive_seconds_recent_10.toFixed(0)}s</span>
+                </MetricTip>
+                <MetricTip tip={t('header.nightTip')}>
+                  <span className="text-[11px] text-zhi-muted">{t('header.night')} {((dbStats.night_death_rate ?? 0) * 100).toFixed(0)}%</span>
+                </MetricTip>
+                <MetricTip tip={t('header.atkTip')}>
+                  <span className="text-[11px] text-zhi-muted">{t('header.atk')} {dbStats.avg_attacks_per_life?.toFixed(1) ?? '0'}</span>
+                </MetricTip>
+                <MetricTip tip={t('header.eatTip')}>
+                  <span className="text-[11px] text-zhi-muted">{t('header.eat')} {dbStats.avg_eats_per_life?.toFixed(1) ?? '0'}</span>
+                </MetricTip>
+                <MetricTip tip={t('header.sigTip')}>
+                  <span className="text-[11px] text-zhi-muted">{t('header.sig')} {dbStats.avg_signals_per_life?.toFixed(1) ?? '0'}</span>
+                </MetricTip>
               </>
             )}
           </div>
@@ -287,6 +305,17 @@ export function GameDashboard({ worldName, onStop }: Props) {
         </aside>
       </div>
     </div>
+  );
+}
+
+function MetricTip({ tip, children }: { tip: string; children: React.ReactNode }) {
+  return (
+    <Tooltip delay={300}>
+      {children}
+      <Tooltip.Content>
+        <p className="text-xs max-w-52">{tip}</p>
+      </Tooltip.Content>
+    </Tooltip>
   );
 }
 
