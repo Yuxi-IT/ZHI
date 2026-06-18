@@ -18,6 +18,8 @@ public partial class CosmosEngine
         float diffRate = _config.Temperature.ThermalDiffusionRate;
         int influence = _config.Temperature.RiverLandInfluence;
         float deepOffset = _config.Temperature.DeepWaterExtraCold;
+        float waterCooling = _config.Temperature.WaterCoolingOffset;
+        float lapseRate = _config.Temperature.HeightLapseRate;
 
         // Pre-compute per-cell lerp rate based on distance to nearest water
         var lerpRates = new float[W, H];
@@ -51,9 +53,16 @@ public partial class CosmosEngine
                 float oldTemp = _v.TemperatureGrid[x, y];
                 float target = ambientTarget;
 
+                // Water cells have a fixed cooling offset below ambient air
+                if (_v.DistanceToRiver[x, y] == 0 || _v.SurfaceWaterGrid[x, y] > 0f)
+                    target -= waterCooling;
+
                 // Deep water is slightly colder than surface water
                 if (_v.DistanceToRiver[x, y] == 0 && _v.RiverGrid[x, y] == 2)
                     target -= deepOffset;
+
+                // Height-based temperature variation: higher = cooler, lower = warmer
+                target -= _v.HeightMap[x, y] * lapseRate;
 
                 // Ambient convergence
                 float newTemp = oldTemp + (target - oldTemp) * lerpRates[x, y];

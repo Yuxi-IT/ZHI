@@ -235,7 +235,8 @@ public partial class CosmosEngine : IDisposable
         using (var cpuLp = logProbs.cpu()) cpuLp.data<float>().CopyTo(_logProbsBuf);
         using (var cpuVals = values.cpu()) cpuVals.data<float>().CopyTo(_valuesBuf);
 
-        // 8. Process actions
+        // 8. Process actions (rebuild occupancy before moves for capacity check)
+        _v.RebuildCellOccupancy();
         Array.Clear(_rewardBuf, 0, n);
         ProcessActions(_actionsBuf, _signalBuf, _rewardBuf);
 

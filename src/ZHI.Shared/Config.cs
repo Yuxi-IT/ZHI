@@ -190,6 +190,8 @@ public sealed class TemperatureConfig
     public float HypothermiaMaxDamage { get; set; } = 0.08f; // max HP/tick at body temp 26°C
     public float WaterCoolingMult { get; set; } = 2f;       // body temp lerp multiplier in water
     public float DeepWaterExtraCold { get; set; } = 3f;     // extra °C penalty in deep water cells
+    public float WaterCoolingOffset { get; set; } = 14f;   // water cells target below ambient air
+    public float HeightLapseRate { get; set; } = 0.5f;     // °C per height unit (height range -10..10 → ±5°C)
     public float MinBodyTemp { get; set; } = 26f;           // body temp hard floor
 }
 

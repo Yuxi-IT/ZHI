@@ -86,6 +86,7 @@ public partial class VectorizedState : IDisposable
     private float[] _foodGrid; // plant energy per cell, 0 = no plant
     public float PlantMaxEnergy = 20f; // set by CosmosEngine before BuildStateMatrix
     private bool[] _corpseGrid;
+    public short[] CellOccupancy; // live agent count per cell, updated during movement
 
     // GPU tensor for batch inference
     public Tensor StateMatrix;
@@ -162,6 +163,7 @@ public partial class VectorizedState : IDisposable
         _agentGrid = new int[gridSize];
         _foodGrid = new float[gridSize];
         _corpseGrid = new bool[gridSize];
+        CellOccupancy = new short[gridSize];
 
         StateMatrix = torch.zeros(n, ToolDefinitions.StateSize, device: device);
         _stateAssemblyBuffer = new float[n * ToolDefinitions.StateSize];
@@ -298,6 +300,35 @@ public partial class VectorizedState : IDisposable
         }
     }
 
+    public int GetCellOccupancy(int x, int y)
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        if (x < 0 || x >= W || y < 0 || y >= H) return 0;
+        return CellOccupancy[x * H + y];
+    }
+
+    public void MoveAgentCell(int fromX, int fromY, int toX, int toY)
+    {
+        int W = ToolDefinitions.GridWidth, H = ToolDefinitions.GridHeight;
+        if (fromX >= 0 && fromX < W && fromY >= 0 && fromY < H)
+            CellOccupancy[fromX * H + fromY]--;
+        if (toX >= 0 && toX < W && toY >= 0 && toY < H)
+            CellOccupancy[toX * H + toY]++;
+    }
+
+    public void RebuildCellOccupancy()
+    {
+        int gridSize = ToolDefinitions.GridWidth * ToolDefinitions.GridHeight;
+        Array.Clear(CellOccupancy);
+        for (int i = 0; i < N; i++)
+        {
+            if (!Alive[i]) continue;
+            int key = PosX[i] * ToolDefinitions.GridHeight + PosY[i];
+            CellOccupancy[key]++;
+        }
+    }
+
     public bool HasAnyAgentAt(int x, int y)
     {
         int W = ToolDefinitions.GridWidth;
@@ -334,7 +365,10 @@ public partial class VectorizedState : IDisposable
             PosX[i] = rng.Next(W);
             PosY[i] = rng.Next(H);
             attempts++;
-        } while ((IsDeepWater(PosX[i], PosY[i]) || TerrainType[PosX[i], PosY[i]] == ToolDefinitions.TerrainDynamicWater) && attempts < 50);
+        } while ((IsDeepWater(PosX[i], PosY[i])
+                   || TerrainType[PosX[i], PosY[i]] == ToolDefinitions.TerrainDynamicWater
+                   || GetCellOccupancy(PosX[i], PosY[i]) >= 2)
+                  && attempts < 50);
 
         Existence[i] = 100f;
         Stress[i] = 0f;

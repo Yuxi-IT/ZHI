@@ -90,13 +90,16 @@ public partial class CosmosEngine : IDisposable
     private void ProcessMove(int i, int dx, int dy, int facingDir)
     {
         int W = ToolDefinitions.GridWidth, H = ToolDefinitions.GridHeight;
-        int tx = _v.PosX[i] + dx, ty = _v.PosY[i] + dy;
+        int fromX = _v.PosX[i], fromY = _v.PosY[i];
+        int tx = fromX + dx, ty = fromY + dy;
 
         _v.IsEating[i] = false;
         if (tx >= 0 && tx < W && ty >= 0 && ty < H
             && !_v.IsMoundAt(tx, ty)
+            && _v.GetCellOccupancy(tx, ty) < 2
             && (_v.Stamina[i] >= _config.Stamina.LowStaminaThreshold || _rng.NextDouble() > 0.5))
         {
+            _v.MoveAgentCell(fromX, fromY, tx, ty);
             _v.PosX[i] = tx;
             _v.PosY[i] = ty;
             float moveCost = _config.Stamina.MoveCost * _v.BodySpeed[i];
@@ -108,7 +111,6 @@ public partial class CosmosEngine : IDisposable
             else if (_v.IsDeepWater(tx, ty))
                 moveCost += _config.Stamina.DeepWaterMoveExtra;
 
-            int fromX = tx - dx, fromY = ty - dy;
             if (_v.IsDeepWater(fromX, fromY) && !_v.IsDeepWater(tx, ty) && !_v.IsShallowWater(tx, ty))
                 moveCost += _config.Stamina.DeepWaterClimbExtra;
 

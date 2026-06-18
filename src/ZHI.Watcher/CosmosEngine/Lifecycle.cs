@@ -137,15 +137,10 @@ public partial class CosmosEngine
             if (dx == 0 && dy == 0) continue;
             int nx = px + dx;
             int ny = py + dy;
-            if (nx >= 0 && nx < W && ny >= 0 && ny < H)
+            if (nx >= 0 && nx < W && ny >= 0 && ny < H
+                && _v.GetCellOccupancy(nx, ny) < 2)
             {
-                bool occupied = false;
-                for (int a = 0; a < _v.N; a++)
-                {
-                    if (_v.Alive[a] && _v.PosX[a] == nx && _v.PosY[a] == ny)
-                    { occupied = true; break; }
-                }
-                if (!occupied) { cx = nx; cy = ny; found = true; break; }
+                cx = nx; cy = ny; found = true; break;
             }
         }
 
