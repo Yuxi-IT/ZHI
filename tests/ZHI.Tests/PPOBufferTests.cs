@@ -15,7 +15,7 @@ public class PPOBufferTests
         int s = ToolDefinitions.StateSize;
         var states = new float[2 * s];
         var actions = new long[] { 0, 1 };
-        var signals = new long[] { 0, 0 };
+        var signals = new float[] { 0, 0 };
         var logProbs = new float[] { -0.5f, -0.3f };
         var rewards = new float[] { 0.1f, -0.2f };
         var dones = new float[] { 0f, 0f };
@@ -39,7 +39,7 @@ public class PPOBufferTests
         for (int t = 0; t < T; t++)
         {
             var states = new float[N * s];
-            buffer.Store(states, new long[N], new long[N],
+            buffer.Store(states, new long[N], new float[N],
                 new float[N], new float[N], new float[N], new float[N]);
         }
 
@@ -85,7 +85,7 @@ public class PPOBufferTests
         var buffer = new PPOBuffer(maxSteps: 4, numAgents: 2, device);
 
         int s = ToolDefinitions.StateSize;
-        buffer.Store(new float[2 * s], new long[2], new long[2],
+        buffer.Store(new float[2 * s], new long[2], new float[2],
             new float[2], new float[2], new float[2], new float[2]);
         Assert.Equal(1, buffer.Count);
 

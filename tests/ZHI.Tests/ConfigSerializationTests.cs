@@ -71,8 +71,8 @@ public class ConfigSerializationTests
         Assert.Equal(original.AgeDeath.MaxAge, deserialized.AgeDeath.MaxAge);
         Assert.Equal(original.AgeDeath.Stage1Age, deserialized.AgeDeath.Stage1Age);
         Assert.Equal(original.AgeDeath.Stage2Decay, deserialized.AgeDeath.Stage2Decay);
-        Assert.Equal(original.Signal.NumValues, deserialized.Signal.NumValues);
-        Assert.Equal(original.Signal.WaveRadius, deserialized.Signal.WaveRadius);
+        Assert.Equal(original.Chemical.EmissionCost, deserialized.Chemical.EmissionCost);
+        Assert.Equal(original.Chemical.WaveRadius, deserialized.Chemical.WaveRadius);
 
         Assert.Equal(original.Stamina.MaxStamina, deserialized.Stamina.MaxStamina);
         Assert.Equal(original.Stamina.AttackCost, deserialized.Stamina.AttackCost);
@@ -86,7 +86,7 @@ public class ConfigSerializationTests
     [Fact]
     public void Deserialize_CustomFoodEnergy_OverridesDefault()
     {
-        var json = """{"grid":{"food_energy":42},"cosmos":{},"temperature":{},"combat":{},"hunger":{},"thirst":{},"river":{},"existence":{},"reproduce":{},"age_death":{},"signal":{},"scent":{},"food_scent":{},"network":{},"corpse":{},"stamina":{}}""";
+        var json = """{"grid":{"food_energy":42},"cosmos":{},"temperature":{},"combat":{},"hunger":{},"thirst":{},"river":{},"existence":{},"reproduce":{},"age_death":{},"chemical":{},"scent":{},"food_scent":{},"network":{},"corpse":{},"stamina":{}}""";
         var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
         var config = JsonSerializer.Deserialize<ZhiConfig>(json, options)!;
 

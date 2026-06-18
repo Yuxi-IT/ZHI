@@ -74,10 +74,9 @@ public class SeedDeterminismTests
         int nonGrid = ToolDefinitions.StateSize - gridFlat;
 
         Assert.Equal(294, gridFlat);
-        Assert.Equal(40, nonGrid);
-        Assert.Equal(334, ToolDefinitions.StateSize);
-        Assert.Equal(12, ToolDefinitions.ActionCount);
-        Assert.Equal(4, ToolDefinitions.SignalValues);
+        Assert.Equal(46, nonGrid);
+        Assert.Equal(340, ToolDefinitions.StateSize);
+        Assert.Equal(8, ToolDefinitions.ActionCount);
     }
 
     [Fact]
