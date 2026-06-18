@@ -1,13 +1,11 @@
 using TorchSharp;
-using ZHI.Core;
 using ZHI.Shared;
 using static TorchSharp.torch;
 
 namespace ZHI.Watcher;
 
 /// <summary>
-/// PPO Rollout Buffer — stores T timesteps of N-agent experience on CPU.
-/// Periodically flushes to GPU for batch PPO update.
+/// PPO Rollout Buffer — stores T timesteps of N-agent experience on GPU.
 /// </summary>
 public class PPOBuffer : IDisposable
 {
@@ -16,18 +14,16 @@ public class PPOBuffer : IDisposable
     private readonly int _stateSize;
     private readonly torch.Device _device;
 
-    // CPU storage
-    private readonly float[] _states;      // [maxSteps * N * stateSize]
-    private readonly long[] _actions;      // [maxSteps * N]
-    private readonly long[] _signalValues; // [maxSteps * N]
-    private readonly float[] _logProbs;    // [maxSteps * N]
-    private readonly float[] _rewards;     // [maxSteps * N]
-    private readonly float[] _dones;       // [maxSteps * N] (1=terminal, 0=ongoing)
-    private readonly float[] _values;      // [maxSteps * N]
+    // GPU tensor storage (pre-allocated, shape [T, N, ...])
+    private Tensor _gpuStates;       // [T, N, S]
+    private Tensor _gpuActions;      // [T, N] int64
+    private Tensor _gpuSignals;      // [T, N] int64
+    private Tensor _gpuLogProbs;     // [T, N]
+    private Tensor _gpuRewards;      // [T, N]
+    private Tensor _gpuDones;        // [T, N]
+    private Tensor _gpuValues;       // [T, N]
 
     public int Count { get; private set; }
-    public int MaxSteps => _maxSteps;
-    public int NumAgents => _numAgents;
     public bool IsFull => Count >= _maxSteps;
 
     public PPOBuffer(int maxSteps, int numAgents, torch.Device device)
@@ -37,18 +33,19 @@ public class PPOBuffer : IDisposable
         _stateSize = ToolDefinitions.StateSize;
         _device = device;
 
-        int size = maxSteps * numAgents;
-        _states = new float[size * _stateSize];
-        _actions = new long[size];
-        _signalValues = new long[size];
-        _logProbs = new float[size];
-        _rewards = new float[size];
-        _dones = new float[size];
-        _values = new float[size];
+        int T = maxSteps;
+        int N = numAgents;
+        _gpuStates = zeros([T, N, _stateSize], device: device);
+        _gpuActions = zeros([T, N], dtype: int64, device: device);
+        _gpuSignals = zeros([T, N], dtype: int64, device: device);
+        _gpuLogProbs = zeros([T, N], device: device);
+        _gpuRewards = zeros([T, N], device: device);
+        _gpuDones = zeros([T, N], device: device);
+        _gpuValues = zeros([T, N], device: device);
     }
 
     /// <summary>
-    /// Store one timestep of experience from all agents.
+    /// Store one timestep of experience from all agents. Data copied from CPU to GPU slice.
     /// </summary>
     public void Store(
         float[] states,       // [N * stateSize]
@@ -61,27 +58,43 @@ public class PPOBuffer : IDisposable
     {
         if (Count >= _maxSteps) return;
 
-        int offset = Count * _numAgents;
-        int stateOffset = offset * _stateSize;
+        int t = Count;
+        using var scope = NewDisposeScope();
 
-        Array.Copy(states, 0, _states, stateOffset, _numAgents * _stateSize);
-        Array.Copy(actions, 0, _actions, offset, _numAgents);
-        Array.Copy(signalValues, 0, _signalValues, offset, _numAgents);
-        Array.Copy(logProbs, 0, _logProbs, offset, _numAgents);
-        Array.Copy(rewards, 0, _rewards, offset, _numAgents);
-        Array.Copy(dones, 0, _dones, offset, _numAgents);
-        Array.Copy(values, 0, _values, offset, _numAgents);
+        using var cpuS = tensor(states, [_numAgents, _stateSize]);
+        using var cpuA = tensor(actions, [_numAgents], dtype: int64);
+        using var cpuSig = tensor(signalValues, [_numAgents], dtype: int64);
+        using var cpuLp = tensor(logProbs, [_numAgents]);
+        using var cpuR = tensor(rewards, [_numAgents]);
+        using var cpuD = tensor(dones, [_numAgents]);
+        using var cpuV = tensor(values, [_numAgents]);
+
+        _gpuStates[t].copy_(cpuS);
+        _gpuActions[t].copy_(cpuA);
+        _gpuSignals[t].copy_(cpuSig);
+        _gpuLogProbs[t].copy_(cpuLp);
+        _gpuRewards[t].copy_(cpuR);
+        _gpuDones[t].copy_(cpuD);
+        _gpuValues[t].copy_(cpuV);
 
         Count++;
     }
 
     /// <summary>
-    /// Compute GAE advantages and returns.
-    /// Returns (advantages[T*N], returns[T*N]) as flat CPU arrays ready for GPU transfer.
+    /// Compute GAE advantages and returns. Downloads small arrays from GPU, computes on CPU.
     /// </summary>
     public (float[] advantages, float[] returns) ComputeGAE(float gamma, float lambda)
     {
         int total = Count * _numAgents;
+
+        // Download rewards / values / dones from GPU to CPU (each ~16 KB for T=64 N=64)
+        var rews = new float[total];
+        var vals = new float[total];
+        var dones = new float[total];
+        using (var cpuR = _gpuRewards.cpu()) cpuR.data<float>().CopyTo(rews);
+        using (var cpuV = _gpuValues.cpu()) cpuV.data<float>().CopyTo(vals);
+        using (var cpuD = _gpuDones.cpu()) cpuD.data<float>().CopyTo(dones);
+
         var advantages = new float[total];
         var returnsArr = new float[total];
 
@@ -93,13 +106,13 @@ public class PPOBuffer : IDisposable
                 int idx = t * _numAgents + a;
                 int nextIdx = (t + 1) * _numAgents + a;
 
-                float nextValue = (t < Count - 1) ? _values[nextIdx] : 0f;
-                float done = _dones[idx];
+                float nextValue = (t < Count - 1) ? vals[nextIdx] : 0f;
+                float done = dones[idx];
 
-                float delta = _rewards[idx] + gamma * nextValue * (1f - done) - _values[idx];
+                float delta = rews[idx] + gamma * nextValue * (1f - done) - vals[idx];
                 gae = delta + gamma * lambda * (1f - done) * gae;
                 advantages[idx] = gae;
-                returnsArr[idx] = gae + _values[idx];
+                returnsArr[idx] = gae + vals[idx];
             }
         }
 
@@ -108,6 +121,7 @@ public class PPOBuffer : IDisposable
 
     /// <summary>
     /// Convert stored experience to GPU tensors for training. Returns null if empty.
+    /// Uploads advantages/returns (computed by CPU-side GAE) to GPU.
     /// </summary>
     public (Tensor states, Tensor actions, Tensor signalValues, Tensor oldLogProbs, Tensor advantages, Tensor returns)?
         ToTensors(float[] advantages, float[] returnsArr)
@@ -117,37 +131,30 @@ public class PPOBuffer : IDisposable
         int T = Count;
         int N = _numAgents;
 
-        var statesTensor = tensor(_states, [T, N, _stateSize], device: _device);
-        var actionsTensor = tensor(_actions, [T, N], dtype: int64, device: _device);
-        var signalTensor = tensor(_signalValues, [T, N], dtype: int64, device: _device);
-        var oldLP = tensor(_logProbs, [T, N], device: _device);
-        var adv = tensor(advantages, [T, N], device: _device);
-        var ret = tensor(returnsArr, [T, N], device: _device);
-
+        // Clone GPU-stored tensors (GPU-to-GPU copy, no PCIe transfer) + upload advantages/returns
         return (
-            statesTensor.MoveToOuterDisposeScope(),
-            actionsTensor.MoveToOuterDisposeScope(),
-            signalTensor.MoveToOuterDisposeScope(),
-            oldLP.MoveToOuterDisposeScope(),
-            adv.MoveToOuterDisposeScope(),
-            ret.MoveToOuterDisposeScope()
+            _gpuStates.narrow(0, 0, T).clone(),
+            _gpuActions.narrow(0, 0, T).clone(),
+            _gpuSignals.narrow(0, 0, T).clone(),
+            _gpuLogProbs.narrow(0, 0, T).clone(),
+            tensor(advantages, [T, N], device: _device),
+            tensor(returnsArr, [T, N], device: _device)
         );
     }
 
     public void Clear()
     {
         Count = 0;
-        Array.Clear(_states);
-        Array.Clear(_actions);
-        Array.Clear(_signalValues);
-        Array.Clear(_logProbs);
-        Array.Clear(_rewards);
-        Array.Clear(_dones);
-        Array.Clear(_values);
     }
 
     public void Dispose()
     {
-        Clear();
+        _gpuStates?.Dispose();
+        _gpuActions?.Dispose();
+        _gpuSignals?.Dispose();
+        _gpuLogProbs?.Dispose();
+        _gpuRewards?.Dispose();
+        _gpuDones?.Dispose();
+        _gpuValues?.Dispose();
     }
 }
