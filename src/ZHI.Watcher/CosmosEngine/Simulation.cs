@@ -149,7 +149,7 @@ public partial class CosmosEngine
                     int dist = Math.Max(Math.Abs(ct.X - ax), Math.Abs(ct.Y - ay));
                     if (dist <= 2)
                     {
-                        pollutionDecay += (3f - dist) * 0.02f;
+                        pollutionDecay += (3f - dist) * 0.01f;
                     }
                 }
             }
