@@ -94,6 +94,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'toggle.pressure': '气压',
     'toggle.wind': '风',
     'toggle.biome': '生态区',
+    'toggle.3d': '3D',
     'toggle.trackRebirth': '追踪轮回',
     'toggle.trackRebirthTitle': '追踪的agent死亡后自动追踪其下一世',
 
@@ -348,6 +349,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'log.title': '事件日志',
 
     // WorldMap
+    'map.loading': '加载中…',
     'map.energy': '能量',
     'map.food': '食物',
     'map.corpse': '尸体',
@@ -481,6 +483,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'toggle.pressure': 'Pressure',
     'toggle.wind': 'Wind',
     'toggle.biome': 'Biome',
+    'toggle.3d': '3D',
     'toggle.trackRebirth': 'Rebirth Track',
     'toggle.trackRebirthTitle': 'Auto-track next life when tracked agent dies',
 
@@ -738,6 +741,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'log.title': 'Event Log',
 
     // WorldMap
+    'map.loading': 'Loading…',
     'map.energy': 'Energy',
     'map.food': 'Food',
     'map.corpse': 'Corpse',

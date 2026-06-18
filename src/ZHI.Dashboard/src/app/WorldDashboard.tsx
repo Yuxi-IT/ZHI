@@ -6,6 +6,7 @@ import { useStats } from '../hooks/useStats';
 import { useEcoHistory } from '../hooks/useEcoHistory';
 import { WorldMap } from '../components/WorldMap';
 import type { DrawData } from '../components/WorldMap';
+import { WorldMap3D } from '../components/WorldMap3D';
 import { AgentCardsPanel } from '../components/AgentCardsPanel';
 import { LogPanel } from '../components/LogPanel';
 import { ChartsPanel } from '../components/ChartsPanel';
@@ -68,6 +69,7 @@ export function WorldDashboard({ worldName, onStop }: Props) {
   const [showPressure, setShowPressure] = useState(false);
   const [showWind, setShowWind] = useState(false);
   const [showBiome, setShowBiome] = useState(false);
+  const [use3D, setUse3D] = useState(false);
 
   const aliveCount = agents.filter(a => a.is_alive).length;
 
@@ -269,32 +271,43 @@ export function WorldDashboard({ worldName, onStop }: Props) {
             showPressure={showPressure} setShowPressure={setShowPressure}
             showWind={showWind} setShowWind={setShowWind}
             showBiome={showBiome} setShowBiome={setShowBiome}
+            use3D={use3D} setUse3D={setUse3D}
             trackNextGen={trackNextGen} setTrackNextGen={setTrackNextGen}
           />
 
           <div className="flex-1 min-h-0">
-            <WorldMap
-              drawDataRef={drawDataRef}
-              gridW={gridW}
-              gridH={gridH}
-              trackedAgent={trackedAgent}
-              onTrackChange={setTrackedAgent}
-              showScent={showScent}
-              showFoodScent={showFoodScent}
-              showDirection={showDirection}
-              showVision={showVision}
-              showChemical={showChemical}
-              showTemp={showTemp}
-              showTerrain={showTerrain}
-              showFlow={showFlow}
-              showGroundwater={showGroundwater}
-              showSurfaceWater={showSurfaceWater}
-              showNutrient={showNutrient}
-              showPermeability={showPermeability}
-              showPressure={showPressure}
-              showWind={showWind}
-              showBiome={showBiome}
-            />
+            {use3D ? (
+              <WorldMap3D
+                drawDataRef={drawDataRef}
+                gridW={gridW}
+                gridH={gridH}
+                trackedAgent={trackedAgent}
+                showBiome={showBiome}
+              />
+            ) : (
+              <WorldMap
+                drawDataRef={drawDataRef}
+                gridW={gridW}
+                gridH={gridH}
+                trackedAgent={trackedAgent}
+                onTrackChange={setTrackedAgent}
+                showScent={showScent}
+                showFoodScent={showFoodScent}
+                showDirection={showDirection}
+                showVision={showVision}
+                showChemical={showChemical}
+                showTemp={showTemp}
+                showTerrain={showTerrain}
+                showFlow={showFlow}
+                showGroundwater={showGroundwater}
+                showSurfaceWater={showSurfaceWater}
+                showNutrient={showNutrient}
+                showPermeability={showPermeability}
+                showPressure={showPressure}
+                showWind={showWind}
+                showBiome={showBiome}
+              />
+            )}
           </div>
 
           {/* Bottom panel */}
@@ -367,6 +380,7 @@ type ToggleKeys = {
   showPressure: boolean; setShowPressure: (v: boolean) => void;
   showWind: boolean; setShowWind: (v: boolean) => void;
   showBiome: boolean; setShowBiome: (v: boolean) => void;
+  use3D: boolean; setUse3D: (v: boolean) => void;
   trackNextGen: boolean; setTrackNextGen: (v: boolean) => void;
 };
 
@@ -388,6 +402,7 @@ const DisplayToggles = memo(function DisplayToggles(p: ToggleKeys) {
     [p.showPressure, p.setShowPressure, t('toggle.pressure'), 'border-red-600 text-red-400 bg-red-900/20'],
     [p.showWind, p.setShowWind, t('toggle.wind'), 'border-slate-400 text-slate-300 bg-slate-700/30'],
     [p.showBiome, p.setShowBiome, t('toggle.biome'), 'border-lime-600 text-lime-400 bg-lime-900/20'],
+    [p.use3D, p.setUse3D, t('toggle.3d'), 'border-indigo-500 text-indigo-300 bg-indigo-900/30'],
     [p.trackNextGen, p.setTrackNextGen, t('toggle.trackRebirth'), 'border-cyan-600 text-cyan-400 bg-cyan-900/20'],
   ];
 
