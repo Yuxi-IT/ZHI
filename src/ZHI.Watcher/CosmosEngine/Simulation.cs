@@ -322,25 +322,41 @@ public partial class CosmosEngine
     {
         int W = ToolDefinitions.GridWidth;
         int H = ToolDefinitions.GridHeight;
+        var cfg = _config.Corpse;
 
         lock (_v.LockObj)
         {
             for (int c = _v.CorpseTiles.Count - 1; c >= 0; c--)
             {
                 var corpse = _v.CorpseTiles[c];
-                float decay = MathF.Min(_config.Corpse.DecayPerTick, corpse.Energy);
+                int cx = corpse.X, cy = corpse.Y;
+
+                // Dynamic decay: temperature-driven + humidity-boosted
+                float cellTemp = _v.TemperatureGrid[cx, cy];
+                float tempFactor = MathF.Max(cfg.DecayTempMin,
+                    MathF.Min(cfg.DecayTempMax, cfg.DecayTempRate * (cellTemp - cfg.DecayTempBase)));
+                float humidityFactor = 1f + _humidity * cfg.DecayHumidityMult;
+                float decayRate = tempFactor * humidityFactor;
+                float decay = MathF.Min(decayRate, corpse.Energy);
                 corpse.Energy -= decay;
+
                 if (corpse.Energy <= 0)
                     _v.CorpseTiles.RemoveAt(c);
                 else
                 {
                     _v.CorpseTiles[c] = corpse;
-                    if (corpse.X < W && corpse.Y < H)
-                        _v.FoodScentGrid[corpse.X, corpse.Y] += _config.Corpse.ScentAmount;
+                    if (cx < W && cy < H)
+                        _v.FoodScentGrid[cx, cy] += cfg.ScentAmount;
                 }
-                float corpseCellMax = _config.Nutrient.MaxNutrient * (1f - _v.HeightMap[corpse.X, corpse.Y] / 255f * _config.Nutrient.HeightRetentionFactor);
-                _v.NutrientGrid[corpse.X, corpse.Y] = MathF.Min(corpseCellMax,
-                    _v.NutrientGrid[corpse.X, corpse.Y] + decay * _config.Nutrient.CorpseToNutrientRatio);
+
+                // Nutrient return: large corpses boost soil nutrients
+                float nutrientReturn = decay * _config.Nutrient.CorpseToNutrientRatio;
+                if (corpse.Energy > cfg.LargeCorpseThreshold)
+                    nutrientReturn *= cfg.LargeCorpseNutrientBoost;
+
+                float corpseCellMax = _config.Nutrient.MaxNutrient * (1f - _v.HeightMap[cx, cy] / 255f * _config.Nutrient.HeightRetentionFactor);
+                _v.NutrientGrid[cx, cy] = MathF.Min(corpseCellMax,
+                    _v.NutrientGrid[cx, cy] + nutrientReturn);
             }
         }
     }

@@ -107,8 +107,20 @@ public sealed class CosmosConfig
 public sealed class CorpseConfig
 {
     public float Energy { get; set; } = 20f;
-    public float DecayPerTick { get; set; } = 0.067f;  // natural decay (~300 ticks at 20 energy)
     public float ScentAmount { get; set; } = 0.5f;
+
+    // Temperature-driven decay
+    public float DecayTempBase { get; set; } = 15f;    // baseline temp in C
+    public float DecayTempRate { get; set; } = 0.003f; // decay acceleration per C above base
+    public float DecayTempMin { get; set; } = 0.01f;   // minimum decay rate (cold doesn't stop)
+    public float DecayTempMax { get; set; } = 0.2f;    // maximum decay rate
+
+    // Humidity-driven decay
+    public float DecayHumidityMult { get; set; } = 0.5f; // humidity multiplier on decay
+
+    // Large corpse nutrient boost
+    public float LargeCorpseThreshold { get; set; } = 50f; // Energy > this = large corpse
+    public float LargeCorpseNutrientBoost { get; set; } = 2f; // nutrient release multiplier
 }
 
 

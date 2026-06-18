@@ -73,7 +73,9 @@ public class ConfigSerializationTests
         Assert.Equal(original.Chemical.WaveRadius, deserialized.Chemical.WaveRadius);
 
         Assert.Equal(original.Corpse.Energy, deserialized.Corpse.Energy);
-        Assert.Equal(original.Corpse.DecayPerTick, deserialized.Corpse.DecayPerTick);
+        Assert.Equal(original.Corpse.DecayTempBase, deserialized.Corpse.DecayTempBase);
+        Assert.Equal(original.Corpse.DecayTempRate, deserialized.Corpse.DecayTempRate);
+        Assert.Equal(original.Corpse.LargeCorpseThreshold, deserialized.Corpse.LargeCorpseThreshold);
     }
 
     [Fact]
