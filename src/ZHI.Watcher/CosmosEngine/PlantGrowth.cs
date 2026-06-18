@@ -240,6 +240,8 @@ public partial class CosmosEngine
     private void TryProduceSeed(ref PlantTile parent, PlantConfig cfg,
         bool[,] plantGrid, List<PlantTile> newPlants)
     {
+        if (_v.Plants.Count + newPlants.Count >= _config.Plant.MaxPlants) return;
+
         int W = ToolDefinitions.GridWidth, H = ToolDefinitions.GridHeight;
         int radius = cfg.SpreadRadius;
 

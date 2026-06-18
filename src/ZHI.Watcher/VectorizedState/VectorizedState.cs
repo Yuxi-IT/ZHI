@@ -598,6 +598,7 @@ public partial class VectorizedState : IDisposable
             PosY[i] = rng.Next(H);
             attempts++;
         } while ((IsDeepWater(PosX[i], PosY[i])
+                   || IsShallowWater(PosX[i], PosY[i])
                    || GetCellOccupancy(PosX[i], PosY[i]) >= 2)
                   && attempts < 50);
 

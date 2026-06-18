@@ -110,7 +110,8 @@ public partial class CosmosEngine
         // Initialize agent bodies from random genomes
         for (int i = 0; i < n; i++)
         {
-            while (_v.IsDeepWater(_v.PosX[i], _v.PosY[i]))
+            while (_v.IsDeepWater(_v.PosX[i], _v.PosY[i])
+                   || _v.IsShallowWater(_v.PosX[i], _v.PosY[i]))
             {
                 _v.PosX[i] = _rng.Next(ToolDefinitions.GridWidth);
                 _v.PosY[i] = _rng.Next(ToolDefinitions.GridHeight);

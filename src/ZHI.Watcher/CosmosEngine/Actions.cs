@@ -103,9 +103,9 @@ public partial class CosmosEngine : IDisposable
             _v.PosY[i] = ty;
             float moveCost = _config.Metabolism.MoveCost * _v.BodySpeed[i];
 
-            // Slope penalty: exponential continuous cost, no hard threshold
+            // Slope penalty: exponential continuous cost, capped at 10x
             float slope = _v.Slope[tx, ty];
-            moveCost *= MathF.Exp(slope * _config.Metabolism.SlopeMoveExp);
+            moveCost *= MathF.Min(MathF.Exp(slope * _config.Metabolism.SlopeMoveExp), 10f);
 
             if (_v.IsShallowWater(tx, ty))
                 moveCost += _config.Metabolism.ShallowWaterMoveExtra;

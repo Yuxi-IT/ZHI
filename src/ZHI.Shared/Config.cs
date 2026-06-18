@@ -203,6 +203,7 @@ public sealed class PlantConfig
     public float SeedInitialEnergy { get; set; } = 1f;  // energy for new seeds
     public float SproutInitialHealth { get; set; } = 0.8f;
     public float AdultSeedCost { get; set; } = 2f;      // energy cost to produce a seed
+    public int MaxPlants { get; set; } = 2000;          // hard cap to prevent unbounded growth
 }
 
 public sealed class WaterCycleConfig
