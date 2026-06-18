@@ -65,6 +65,8 @@ public partial class WebServer
         }
     }
 
+    private int _broadcastCount;
+
     private async Task BroadcastLoop(CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
@@ -90,6 +92,21 @@ public partial class WebServer
                         data = events
                     }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
                     await BroadcastToLogClientsAsync(eventPayload);
+                }
+
+                // Periodic world.json stats sync (every 100 ticks ≈ 20s at 1x)
+                if (++_broadcastCount % 100 == 0 && _engine != null && _currentWorldName != null)
+                {
+                    try
+                    {
+                        var (_, meta, _) = _worldManager.LoadWorld(_currentWorldName);
+                        meta.TotalGenerations = _engine.Generation;
+                        meta.TotalDeaths = _engine.TotalDeaths;
+                        meta.LastRunAt = DateTime.UtcNow.ToString("O");
+                        meta.Status = "running";
+                        _worldManager.SaveWorldMeta(_currentWorldName, meta);
+                    }
+                    catch { /* non-critical */ }
                 }
             }
             catch (Exception ex)

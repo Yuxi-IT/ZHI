@@ -57,6 +57,11 @@ export const translations: Record<Lang, Record<string, string>> = {
     'launch.creating': '创建中...',
     'launch.createAndStart': '创建并启动',
     'launch.deleteConfirm': '确定删除世界 "{name}"? 此操作不可撤销。',
+    'launch.detailTitle': '世界详情',
+    'launch.stats': '统计数据',
+    'launch.config': '世界配置',
+    'launch.status': '状态',
+    'launch.lastRun': '最后运行',
 
     // Toggle bar
     'toggle.display': '显示:',
@@ -297,6 +302,11 @@ export const translations: Record<Lang, Record<string, string>> = {
     'launch.creating': 'Creating...',
     'launch.createAndStart': 'Create & Start',
     'launch.deleteConfirm': 'Delete world "{name}"? This cannot be undone.',
+    'launch.detailTitle': 'World Detail',
+    'launch.stats': 'Statistics',
+    'launch.config': 'Configuration',
+    'launch.status': 'Status',
+    'launch.lastRun': 'Last run',
 
     // Toggle bar
     'toggle.display': 'Show:',

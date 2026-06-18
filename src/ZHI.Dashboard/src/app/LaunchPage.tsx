@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Modal, useOverlayState, Card, TextField, Label, Input, Form, Spinner } from '@heroui/react';
+import { Button, Modal, useOverlayState, Card, TextField, Label, Input, Form, Spinner, Separator } from '@heroui/react';
 import { EmptyState } from '../components/empty-state';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
 import { LangSwitcher } from '../components/LangSwitcher';
-import { ConfigFormFields, DEFAULT_CONFIG, type ZhiConfig } from '../components/ConfigSections';
-import { Plus, TrashBin, CircleCheckFill, CircleXmarkFill, CircleFill, Play } from '@gravity-ui/icons';
+import { ConfigFormFields, ConfigReadOnly, ReadOnlyField, DEFAULT_CONFIG, type ZhiConfig } from '../components/ConfigSections';
+import { Plus, TrashBin, CircleCheckFill, CircleXmarkFill, CircleFill, Play, CircleInfo } from '@gravity-ui/icons';
 import type { WorldMeta } from '../types';
 import { useT } from '../i18n/I18nContext';
 
@@ -23,6 +23,7 @@ export function LaunchPage({ onWorldStart }: Props) {
   const { t } = useT();
 
   const createModal = useOverlayState({ defaultOpen: false });
+  const [detailWorld, setDetailWorld] = useState<WorldMeta | null>(null);
 
   const loadWorlds = useCallback(async () => {
     try {
@@ -153,7 +154,7 @@ export function LaunchPage({ onWorldStart }: Props) {
                   w.status === 'crashed' ? 'border-red-700/50' :
                   'border-zhi-border'
                 }`}
-                onClick={() => w.status !== 'running' && handleStart(w.name)}
+                onClick={() => setDetailWorld(w)}
               >
                 <Card.Header>
                   <div className="flex items-center justify-between w-full">
@@ -175,7 +176,16 @@ export function LaunchPage({ onWorldStart }: Props) {
                     <span className="text-[12px] text-zhi-muted">
                       {formatDate(w.created_at)}
                     </span>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                      <Button
+                        isIconOnly
+                        variant="ghost"
+                        className="text-zhi-muted hover:text-zhi-text min-w-0 w-5 h-5"
+                        aria-label={t('launch.detailTitle')}
+                        onPress={() => setDetailWorld(w)}
+                      >
+                        <CircleInfo className="size-4" />
+                      </Button>
                       {w.status !== 'running' && (
                       <Button
                         isIconOnly
@@ -192,7 +202,7 @@ export function LaunchPage({ onWorldStart }: Props) {
                         variant="ghost"
                         className="text-red-400 hover:text-red-300 min-w-0 w-5 h-5"
                         aria-label={t('launch.deleteAria', { name: w.name })}
-                        onPress={() => { handleDelete(w.name); }}
+                        onPress={() => handleDelete(w.name)}
                       >
                         <TrashBin className="size-4" />
                       </Button>
@@ -281,6 +291,60 @@ export function LaunchPage({ onWorldStart }: Props) {
                   {creating ? t('launch.creating') : t('launch.createAndStart')}
                 </Button>
               </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
+
+      {/* Detail Modal */}
+      <Modal>
+        <Modal.Backdrop
+          variant="opaque"
+          isDismissable
+          isOpen={detailWorld !== null}
+          onOpenChange={(open: boolean) => { if (!open) setDetailWorld(null); }}
+        >
+          <Modal.Container placement="center" size="lg">
+            <Modal.Dialog className="max-h-[85vh]">
+              <Modal.CloseTrigger />
+              {detailWorld && (
+                <>
+                  <Modal.Header>
+                    <Modal.Heading className="text-zhi-text text-sm">
+                      {t('launch.detailTitle')}: {detailWorld.name}
+                    </Modal.Heading>
+                  </Modal.Header>
+                  <Modal.Body className="overflow-y-auto">
+                    {/* Stats */}
+                    <div className="mb-4">
+                      <h3 className="text-xs text-zhi-text font-semibold mb-2">{t('launch.stats')}</h3>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        <ReadOnlyField label={t('launch.status')} value={detailWorld.status} />
+                        <ReadOnlyField label={t('launch.gen')} value={detailWorld.total_generations} />
+                        <ReadOnlyField label={t('launch.deaths')} value={detailWorld.total_deaths} />
+                        {detailWorld.seed != null && <ReadOnlyField label={t('launch.seed')} value={detailWorld.seed} />}
+                        <ReadOnlyField label={t('launch.desc')} value={detailWorld.description || '-'} />
+                        <ReadOnlyField label={t('launch.lastRun')} value={detailWorld.last_run_at ? formatDate(detailWorld.last_run_at) : '-'} />
+                      </div>
+                    </div>
+
+                    <Separator className="my-3" />
+
+                    {/* Read-only config */}
+                    {detailWorld.config && (
+                      <>
+                        <h3 className="text-xs text-zhi-text font-semibold mb-2">{t('launch.config')}</h3>
+                        <ConfigReadOnly config={detailWorld.config as unknown as ZhiConfig} />
+                      </>
+                    )}
+                  </Modal.Body>
+                  <Modal.Footer>
+                    <Button variant="ghost" size="sm" className="text-zhi-muted" onPress={() => setDetailWorld(null)}>
+                      {t('launch.cancel')}
+                    </Button>
+                  </Modal.Footer>
+                </>
+              )}
             </Modal.Dialog>
           </Modal.Container>
         </Modal.Backdrop>

@@ -47,6 +47,15 @@ export function NumberField({ label, value, onChange, min, max, step }: {
   );
 }
 
+export function ReadOnlyField({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="flex items-center justify-between gap-2 py-0.5">
+      <span className="text-[14px] text-zhi-muted">{label}</span>
+      <span className="text-[12px] text-zhi-text font-mono text-right">{value}</span>
+    </div>
+  );
+}
+
 export function ConfigSection({ title, defaultExpanded, children }: { title: string; defaultExpanded?: boolean; children: React.ReactNode }) {
   return (
     <Disclosure defaultExpanded={defaultExpanded}>
@@ -123,6 +132,70 @@ export function ConfigFormFields({ config, update }: {
         <NumberField label={t('settings.thirstDecay')} value={config.Thirst.DecayRate} onChange={v => update('Thirst', 'DecayRate', v)} min={0} max={1} step={0.01} />
         <NumberField label={t('settings.drinkRestore')} value={config.Thirst.DrinkRestore} onChange={v => update('Thirst', 'DrinkRestore', v)} min={1} max={100} />
         <NumberField label={t('settings.hpDecay')} value={config.Existence.DecayPerTick} onChange={v => update('Existence', 'DecayPerTick', v)} min={0} max={2} step={0.01} />
+      </ConfigSection>
+    </div>
+  );
+}
+
+export function ConfigReadOnly({ config }: { config: ZhiConfig }) {
+  const { t } = useT();
+  return (
+    <div className="space-y-0.5">
+      <ConfigSection title={t('settings.world')} defaultExpanded>
+        <ReadOnlyField label={t('settings.width')} value={config.Grid.Width} />
+        <ReadOnlyField label={t('settings.height')} value={config.Grid.Height} />
+        <ReadOnlyField label={t('settings.agentCount')} value={config.Cosmos.AgentCount} />
+        <ReadOnlyField label={t('settings.initialFood')} value={config.Grid.InitialFood} />
+        <ReadOnlyField label={t('settings.initialBigFood')} value={config.Grid.InitialBigFood} />
+        <ReadOnlyField label={t('settings.maxFood')} value={config.Grid.MaxFood} />
+        <ReadOnlyField label={t('settings.foodRespawnInterval')} value={config.Grid.FoodRespawnInterval} />
+      </ConfigSection>
+
+      <ConfigSection title={t('settings.foodEnergySection')}>
+        <ReadOnlyField label={t('settings.foodEnergy')} value={config.Grid.FoodEnergy} />
+        <ReadOnlyField label={t('settings.bigFoodEnergy')} value={config.Grid.BigFoodEnergy} />
+        <ReadOnlyField label={t('settings.foodDecay')} value={config.Grid.FoodDecayPerTick} />
+        <ReadOnlyField label={t('settings.bigFoodDecay')} value={config.Grid.BigFoodDecayPerTick} />
+      </ConfigSection>
+
+      <ConfigSection title={t('settings.eating')}>
+        <ReadOnlyField label={t('settings.foodPerTick')} value={config.Grid.FoodPerTickEnergy} />
+        <ReadOnlyField label={t('settings.bigFoodPerTick')} value={config.Grid.BigFoodPerTickEnergy} />
+        <ReadOnlyField label={t('settings.corpsePerTick')} value={config.Grid.CorpsePerTickEnergy} />
+      </ConfigSection>
+
+      <ConfigSection title={t('settings.temperature')}>
+        <ReadOnlyField label={t('settings.maxTemp')} value={config.Temperature.MaxTemp} />
+        <ReadOnlyField label={t('settings.minTemp')} value={config.Temperature.MinTemp} />
+        <ReadOnlyField label={t('settings.coldThreshold')} value={config.Temperature.ColdThreshold} />
+        <ReadOnlyField label={t('settings.maxColdDecay')} value={config.Temperature.MaxColdDecay} />
+        <ReadOnlyField label={t('settings.hotThreshold')} value={config.Temperature.HotThreshold} />
+        <ReadOnlyField label={t('settings.huddleRange')} value={config.Temperature.HuddleRange} />
+        <ReadOnlyField label={t('settings.huddleWarmth')} value={config.Temperature.HuddleWarmthPerAgent} />
+        <ReadOnlyField label={t('settings.agentBodyHeat')} value={config.Temperature.AgentBodyHeat} />
+        <ReadOnlyField label={t('settings.riverCooling')} value={config.Temperature.RiverCooling} />
+        <ReadOnlyField label={t('settings.coolingRange')} value={config.Temperature.RiverCoolingRange} />
+      </ConfigSection>
+
+      <ConfigSection title={t('settings.combat')}>
+        <ReadOnlyField label={t('settings.attackRange')} value={config.Combat.AttackRange} />
+        <ReadOnlyField label={t('settings.stressPerAttack')} value={config.Combat.StressPerAttack} />
+        <ReadOnlyField label={t('settings.stressDamage')} value={config.Combat.StressDamage} />
+        <ReadOnlyField label={t('settings.attackCost')} value={config.Combat.AttackCost} />
+      </ConfigSection>
+
+      <ConfigSection title={t('settings.river')}>
+        <ReadOnlyField label={t('settings.riverCount')} value={config.River.Count} />
+        <ReadOnlyField label={t('settings.riverWidth')} value={config.River.Width} />
+        <ReadOnlyField label={t('settings.riverDeepWidth')} value={config.River.DeepWidth} />
+        <ReadOnlyField label={t('settings.fordChance')} value={config.River.FordChance} />
+      </ConfigSection>
+
+      <ConfigSection title={t('settings.physiology')}>
+        <ReadOnlyField label={t('settings.hungerDecay')} value={config.Hunger.DecayRate} />
+        <ReadOnlyField label={t('settings.thirstDecay')} value={config.Thirst.DecayRate} />
+        <ReadOnlyField label={t('settings.drinkRestore')} value={config.Thirst.DrinkRestore} />
+        <ReadOnlyField label={t('settings.hpDecay')} value={config.Existence.DecayPerTick} />
       </ConfigSection>
     </div>
   );
