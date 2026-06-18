@@ -67,10 +67,10 @@ public partial class CosmosEngine
         if (extracted <= 0f)
             return false;
 
-        float hungerBefore = _v.Hunger[i];
-        _v.Hunger[i] = MathF.Min(100f, _v.Hunger[i] + extracted);
-        float hungerDelta = _v.Hunger[i] - hungerBefore;
-        if (hungerDelta > 0) rewards[i] += hungerDelta * 0.05f;
+        float energyBefore = _v.Energy[i];
+        _v.Energy[i] = MathF.Min(100f, _v.Energy[i] + extracted);
+        float energyDelta = _v.Energy[i] - energyBefore;
+        if (energyDelta > 0) rewards[i] += energyDelta * 0.05f;
 
         _v.EatCount[i]++;
         if (foodType == "Corpse")

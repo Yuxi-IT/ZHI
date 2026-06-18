@@ -29,19 +29,20 @@ public partial class CosmosEngine
         }
 
         _v.AttackCount[attacker]++;
-        _v.Stamina[attacker] = MathF.Max(0f, _v.Stamina[attacker] - _config.Stamina.AttackCost);
+        float attackCost = _config.Metabolism.AttackCostBase / _v.BodyStrength[attacker];
+        _v.Energy[attacker] = MathF.Max(0f, _v.Energy[attacker] - attackCost);
 
         if (bestTarget >= 0)
         {
-            float hpRatio = Math.Clamp(_v.Existence[attacker] / 100f, 0.2f, 1.5f);
+            float hpRatio = Math.Clamp(_v.Energy[attacker] / 100f, 0.2f, 1.5f);
             float damage = 20f * hpRatio * _v.BodyStrength[attacker];
             byte attackerTerrain = _v.TerrainType[ax, ay];
             if (attackerTerrain == ToolDefinitions.TerrainPit) damage *= 0.8f;
             else if (attackerTerrain == ToolDefinitions.TerrainMound) damage *= 1.1f;
             if (_v.IsEating[bestTarget]) damage *= 1.1f;
-            if (_v.IsStationary[bestTarget]) damage *= _config.Stamina.StationaryDamageMult;
+            if (_v.IsStationary[bestTarget]) damage *= _config.Metabolism.StationaryDamageMult;
             _v.Stress[bestTarget] += _config.Combat.StressPerAttack;
-            _v.Existence[bestTarget] -= damage;
+            _v.Energy[bestTarget] -= damage;
             _v.LastActionNameMirror[attacker] = $"attack#{bestTarget}";
             _lastAttackTick[attacker] = _globalTick;
             _tickEvents.Add(new WorldEvent
@@ -63,14 +64,14 @@ public partial class CosmosEngine
     /// </summary>
     private void ProcessEmitChemical(int emitter, float emissionValue)
     {
-        float stamina = _v.Stamina[emitter];
-        float cost = _config.Stamina.ChemicalEmitCost;
-        if (stamina < cost) return;
+        float energy = _v.Energy[emitter];
+        float cost = _config.Metabolism.EmitCost;
+        if (energy < cost) return;
 
         // Scale emission by agent's fat storage (more fat = stronger signal)
         float scaledEmission = Math.Clamp(emissionValue * (0.5f + _v.BodyFat[emitter] * 0.5f), 0f, 1f);
 
-        _v.Stamina[emitter] = MathF.Max(0f, stamina - cost);
+        _v.Energy[emitter] = MathF.Max(0f, energy - cost);
         _v.EmitCount[emitter]++;
 
         _tickEvents.Add(new WorldEvent

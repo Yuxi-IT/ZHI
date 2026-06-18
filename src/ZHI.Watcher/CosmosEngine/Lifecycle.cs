@@ -49,9 +49,8 @@ public partial class CosmosEngine
                 Generation = _generation,
                 Cause = _v.StatusMirror[i],
                 StressAtDeath = _v.Stress[i],
-                ExistenceAtDeath = _v.Existence[i],
-                HungerAtDeath = _v.Hunger[i],
-                ThirstAtDeath = _v.Thirst[i],
+                EnergyAtDeath = _v.Energy[i],
+                WaterAtDeath = _v.BodyWater[i],
                 Temperature = _temperature,
                 TimeOfDay = _gameTimeOfDay,
                 PosX = _v.PosX[i],
@@ -147,7 +146,7 @@ public partial class CosmosEngine
         if (!found) return -1; // No empty adjacent cell
 
         // Parent pays cost
-        _v.Existence[parentIdx] -= _config.Reproduce.ParentCost;
+        _v.Energy[parentIdx] -= _config.Reproduce.ParentCost;
 
         // Create child with mutated brain and genome
         int childIdx = _v.AddAgent(cx, cy, _config.Reproduce.ChildStart);

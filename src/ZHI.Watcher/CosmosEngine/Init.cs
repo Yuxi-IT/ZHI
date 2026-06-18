@@ -87,8 +87,7 @@ public partial class CosmosEngine
                 _v.PosX[i] = _rng.Next(ToolDefinitions.GridWidth);
                 _v.PosY[i] = _rng.Next(ToolDefinitions.GridHeight);
             }
-            _v.Thirst[i] = _config.Thirst.Initial;
-            _v.Hunger[i] = _config.Hunger.Initial;
+            _v.BodyWater[i] = _config.Metabolism.WaterInitial;
 
             var genome = Genome.Random(_rng, _config.Genome.MutationStd);
             _v.Genomes[i] = genome;

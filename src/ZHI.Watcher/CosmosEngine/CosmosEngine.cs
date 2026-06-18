@@ -240,12 +240,11 @@ public partial class CosmosEngine : IDisposable
         Array.Clear(_rewardBuf, 0, n);
         ProcessActions(_actionsBuf, _signalBuf, _rewardBuf);
 
-        // 8b. Stationary detection + Stamina recovery
+        // 8b. Stationary detection
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
 
-            // Stationary判定: Attack also resets counter
             long act = _actionsBuf[i];
             bool isMovingOrFighting = act >= 0 && act <= 3 || (int)ZhiAction.Attack == act || (int)ZhiAction.EmitChemical == act;
             if (isMovingOrFighting)
@@ -253,22 +252,7 @@ public partial class CosmosEngine : IDisposable
             else
                 _v.TicksSinceLastMove[i]++;
 
-            _v.IsStationary[i] = _v.TicksSinceLastMove[i] >= _config.Stamina.StationaryTicksRequired;
-
-            // Stamina recovery: well-fed + hydrated + healthy
-            if (_v.Hunger[i] > 60f && _v.Thirst[i] > 70f)
-            {
-                float recovery = _config.Stamina.BaseRecovery;
-                if (_v.IsStationary[i]) recovery *= _config.Stamina.StationaryRecoveryBonus;
-                _v.Stamina[i] = Math.Clamp(_v.Stamina[i] + recovery, 0f, _config.Stamina.MaxStamina);
-            }
-
-            // Stationary HP recovery bonus
-            if (_v.IsStationary[i])
-            {
-                _v.Existence[i] = MathF.Min(_v.Existence[i] + _config.Stamina.StationaryHpRecoveryBonus,
-                    _config.Existence.Initial);
-            }
+            _v.IsStationary[i] = _v.TicksSinceLastMove[i] >= _config.Metabolism.StationaryTicksRequired;
         }
 
         // 8c. Chemical field diffusion + decay
@@ -279,7 +263,7 @@ public partial class CosmosEngine : IDisposable
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
-            if (_v.Existence[i] <= 0f)
+            if (_v.Energy[i] <= 0f)
             {
                 _v.Alive[i] = false;
                 _v.StatusMirror[i] = "DEAD";
@@ -381,7 +365,7 @@ public partial class CosmosEngine : IDisposable
         for (int i = 0; i < preReproCount; i++)
         {
             if (!_v.Alive[i]) continue;
-            if (_v.Existence[i] >= _config.Reproduce.MinExistence
+            if (_v.Energy[i] >= _config.Reproduce.MinEnergy
                 && _v.TickCount[i] >= _config.Reproduce.MinAge
                 && _v.N < _config.Cosmos.AgentCount
                 && (_globalTick - _v.LastReproduceTick[i]) >= _config.Reproduce.Cooldown)
@@ -436,7 +420,7 @@ public partial class CosmosEngine : IDisposable
             foreach (var c in _v.CorpseTiles) _totalEnergyInWorld += c.Energy;
         }
         for (int i = 0; i < n; i++)
-            if (_v.Alive[i]) _totalEnergyInWorld += Math.Max(0, _v.Existence[i]);
+            if (_v.Alive[i]) _totalEnergyInWorld += Math.Max(0, _v.Energy[i]);
 
         // Cleanup
         actions.Dispose(); chemicalValues.Dispose();

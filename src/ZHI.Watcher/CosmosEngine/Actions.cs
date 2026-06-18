@@ -58,10 +58,10 @@ public partial class CosmosEngine : IDisposable
                     if (_v.IsAdjacentToWater(_v.PosX[i], _v.PosY[i])
                         || _v.IsShallowWater(_v.PosX[i], _v.PosY[i]))
                     {
-                        float thirstBefore = _v.Thirst[i];
-                        _v.Thirst[i] = MathF.Min(100f, _v.Thirst[i] + _config.Thirst.DrinkRestore);
-                        float thirstDelta = _v.Thirst[i] - thirstBefore;
-                        if (thirstDelta > 0) rewards[i] += thirstDelta * 0.05f;
+                        float waterBefore = _v.BodyWater[i];
+                        _v.BodyWater[i] = MathF.Min(100f, _v.BodyWater[i] + _config.Metabolism.DrinkRestore);
+                        float waterDelta = _v.BodyWater[i] - waterBefore;
+                        if (waterDelta > 0) rewards[i] += waterDelta * 0.05f;
                     }
                     else
                     {
@@ -97,28 +97,28 @@ public partial class CosmosEngine : IDisposable
         if (tx >= 0 && tx < W && ty >= 0 && ty < H
             && !_v.IsMoundAt(tx, ty)
             && _v.GetCellOccupancy(tx, ty) < 2
-            && (_v.Stamina[i] >= _config.Stamina.LowStaminaThreshold || _rng.NextDouble() > 0.5))
+            && (_v.Energy[i] >= _config.Metabolism.LowEnergyThreshold || _rng.NextDouble() > 0.5))
         {
             _v.MoveAgentCell(fromX, fromY, tx, ty);
             _v.PosX[i] = tx;
             _v.PosY[i] = ty;
-            float moveCost = _config.Stamina.MoveCost * _v.BodySpeed[i];
+            float moveCost = _config.Metabolism.MoveCost * _v.BodySpeed[i];
             if (_v.GetTerrainAt(tx, ty) == ToolDefinitions.TerrainPit)
                 moveCost += 2f;
 
             if (_v.IsShallowWater(tx, ty))
-                moveCost += _config.Stamina.ShallowWaterMoveExtra;
+                moveCost += _config.Metabolism.ShallowWaterMoveExtra;
             else if (_v.IsDeepWater(tx, ty))
-                moveCost += _config.Stamina.DeepWaterMoveExtra;
+                moveCost += _config.Metabolism.DeepWaterMoveExtra;
 
             if (_v.IsDeepWater(fromX, fromY) && !_v.IsDeepWater(tx, ty) && !_v.IsShallowWater(tx, ty))
-                moveCost += _config.Stamina.DeepWaterClimbExtra;
+                moveCost += _config.Metabolism.DeepWaterClimbExtra;
 
-            _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - moveCost);
+            _v.Energy[i] = MathF.Max(0f, _v.Energy[i] - moveCost);
         }
         else
         {
-            _v.Stamina[i] = MathF.Max(0f, _v.Stamina[i] - _config.Stamina.MoveCost * 0.5f);
+            _v.Energy[i] = MathF.Max(0f, _v.Energy[i] - _config.Metabolism.MoveCost * 0.5f);
         }
         _v.ScentGrid[_v.PosX[i], _v.PosY[i]] += _config.Scent.DepositAmount;
         _v.FacingDirection[i] = facingDir;

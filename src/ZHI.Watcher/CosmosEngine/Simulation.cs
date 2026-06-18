@@ -85,16 +85,16 @@ public partial class CosmosEngine
 
         // Pass 2: additive contributions — agent body heat
         float bodyHeat = _config.Temperature.AgentBodyHeat;
-        float initialHP = _config.Existence.Initial;
+        float initialEnergy = _config.Metabolism.EnergyInitial;
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
             int ax = _v.PosX[i], ay = _v.PosY[i];
-            float hpRatio = MathF.Max(0f, _v.Existence[i] / initialHP);
+            float hpRatio = MathF.Max(0f, _v.Energy[i] / initialEnergy);
             float agentHeat = bodyHeat * hpRatio;
 
-            float selfBonus = _v.IsStationary[i] ? _config.Stamina.StationarySelfHeat : 0f;
-            float neighborBonus = _v.IsStationary[i] ? _config.Stamina.StationaryNeighborHeat : 0f;
+            float selfBonus = _v.IsStationary[i] ? _config.Metabolism.StationarySelfHeat : 0f;
+            float neighborBonus = _v.IsStationary[i] ? _config.Metabolism.StationaryNeighborHeat : 0f;
 
             newGrid[ax, ay] += agentHeat + selfBonus;
             for (int dx = -1; dx <= 1; dx++)
@@ -123,23 +123,27 @@ public partial class CosmosEngine
 
     private void ApplyAgentPhysiology(int n)
     {
+        // Stress damage → direct Energy loss
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
-            _v.Existence[i] -= _v.Stress[i] * _config.Combat.StressDamage;
+            _v.Energy[i] -= _v.Stress[i] * _config.Combat.StressDamage;
         }
 
+        // Stress decay
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
             _v.Stress[i] = MathF.Max(0f, _v.Stress[i] - _config.Combat.StressDecay);
         }
 
+        // Core Energy + Water decay
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
-            float decay = _config.Existence.DecayPerTick;
+            float energyDecay = _config.Metabolism.EnergyDecayBase;
 
+            // Corpse pollution
             int ax = _v.PosX[i], ay = _v.PosY[i];
             lock (_v.LockObj)
             {
@@ -149,84 +153,88 @@ public partial class CosmosEngine
                     if (dist <= 2)
                     {
                         float pollution = (3f - dist) * 0.02f;
-                        decay += pollution;
+                        energyDecay += pollution;
                     }
                 }
             }
 
+            // Age-based extra decay
             int age = _v.TickCount[i];
             if (age >= _config.AgeDeath.MaxAge)
             {
-                _v.Existence[i] = 0f;
+                _v.Energy[i] = 0f;
                 continue;
             }
             else if (age >= _config.AgeDeath.Stage3Age)
-                decay += _config.AgeDeath.Stage3Decay;
+                energyDecay += _config.AgeDeath.Stage3Decay;
             else if (age >= _config.AgeDeath.Stage2Age)
-                decay += _config.AgeDeath.Stage2Decay;
+                energyDecay += _config.AgeDeath.Stage2Decay;
             else if (age >= _config.AgeDeath.Stage1Age)
-                decay += _config.AgeDeath.Stage1Decay;
+                energyDecay += _config.AgeDeath.Stage1Decay;
 
-            float hungerRatio = MathF.Max(0f, 1f - (_v.Hunger[i] / _config.Hunger.PenaltyStart));
-            decay += hungerRatio * _config.Hunger.MaxPenalty;
+            _v.Energy[i] -= energyDecay;
 
-            float thirstRatio = MathF.Max(0f, 1f - (_v.Thirst[i] / _config.Thirst.PenaltyStart));
-            decay += thirstRatio * _config.Thirst.MaxPenalty;
-
-            _v.Existence[i] -= decay;
-
-            if (_v.Hunger[i] > 80f && _v.Thirst[i] > 80f)
-                _v.Existence[i] = MathF.Min(_v.Existence[i] + 0.2f, _config.Existence.Initial);
+            // Base water decay
+            _v.BodyWater[i] = MathF.Max(0f, _v.BodyWater[i] - _config.Metabolism.WaterDecayRate);
         }
 
+        // Body temperature lerp toward local grid temp
         const float BodyTempLerpRate = 0.05f;
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
             float lerpRate = BodyTempLerpRate;
-            // Water accelerates body temp convergence (2x in shallow, 2x in deep)
             int rx = _v.PosX[i], ry = _v.PosY[i];
             if (_v.RiverGrid[rx, ry] > 0 || _v.TerrainType[rx, ry] == ToolDefinitions.TerrainDynamicWater)
                 lerpRate *= _config.Temperature.WaterCoolingMult;
             float localTemp = _v.TemperatureGrid[rx, ry];
             _v.BodyTemperature[i] += (localTemp - _v.BodyTemperature[i]) * lerpRate;
-            // Hard floor
             _v.BodyTemperature[i] = MathF.Max(_v.BodyTemperature[i], _config.Temperature.MinBodyTemp);
         }
 
+        // Temperature effects on energy and water
         for (int i = 0; i < n; i++)
         {
             if (!_v.Alive[i]) continue;
             float bodyTemp = _v.BodyTemperature[i];
 
-            // Hypothermia damage: body temp below 33°C → linear HP decay
+            // Hypothermia: body temp < threshold → energy damage
             float hypoThreshold = _config.Temperature.HypothermiaThreshold;
             if (bodyTemp < hypoThreshold)
             {
                 float hypoRatio = (hypoThreshold - bodyTemp)
                     / (hypoThreshold - _config.Temperature.MinBodyTemp);
                 float hypoDecay = hypoRatio * _config.Temperature.HypothermiaMaxDamage;
-                _v.Existence[i] -= hypoDecay;
+                _v.Energy[i] -= hypoDecay;
             }
 
+            // Cold metabolism acceleration: body temp < ColdThreshold → extra energy burn
             if (bodyTemp < _config.Temperature.ColdThreshold)
             {
                 float coldRatio = 1f - (bodyTemp - _config.Temperature.MinTemp)
                     / (_config.Temperature.ColdThreshold - _config.Temperature.MinTemp);
-                float coldDecay = coldRatio * _config.Temperature.MaxColdDecay;
+                float coldDecay = coldRatio * _config.Metabolism.ColdEnergyDecayMax;
                 if (_v.GetTerrainAt(_v.PosX[i], _v.PosY[i]) == ToolDefinitions.TerrainPit
                     && _v.CountAdjacentTerrain(_v.PosX[i], _v.PosY[i], ToolDefinitions.TerrainPit) == 0)
                     coldDecay *= 0.7f;
-                _v.Existence[i] -= coldDecay;
+                _v.Energy[i] -= coldDecay;
             }
 
+            // Hot: body temp > HotThreshold → accelerated water loss
             if (bodyTemp > _config.Temperature.HotThreshold)
             {
                 float hotRatio = (bodyTemp - _config.Temperature.HotThreshold)
                     / (_config.Temperature.MaxTemp - _config.Temperature.HotThreshold);
-                float thirstMult = 1f + hotRatio * (_config.Temperature.MaxThirstAccel - 1f);
-                _v.Thirst[i] = MathF.Max(0f, _v.Thirst[i]
-                    - _config.Thirst.DecayRate * thirstMult);
+                float waterMult = 1f + hotRatio * (_config.Temperature.MaxWaterDecayMult - 1f);
+                _v.BodyWater[i] = MathF.Max(0f, _v.BodyWater[i]
+                    - _config.Metabolism.WaterDecayRate * waterMult);
+            }
+
+            // Dehydration: low body water → extra energy penalty
+            if (_v.BodyWater[i] < _config.Metabolism.DehydrationThreshold)
+            {
+                float dehydRatio = 1f - _v.BodyWater[i] / _config.Metabolism.DehydrationThreshold;
+                _v.Energy[i] -= dehydRatio * _config.Metabolism.DehydrationEnergyPenalty;
             }
         }
     }
@@ -285,18 +293,6 @@ public partial class CosmosEngine
             for (int x = 0; x < W; x++)
                 for (int y = 0; y < H; y++)
                     _v.FoodScentGrid[x, y] = _foodScentBuf[x * H + y];
-        }
-
-        for (int i = 0; i < n; i++)
-        {
-            if (!_v.Alive[i]) continue;
-            _v.Hunger[i] = MathF.Max(0f, _v.Hunger[i] - _config.Hunger.DecayRate);
-        }
-
-        for (int i = 0; i < n; i++)
-        {
-            if (!_v.Alive[i]) continue;
-            _v.Thirst[i] = MathF.Max(0f, _v.Thirst[i] - _config.Thirst.DecayRate);
         }
 
         for (int i = 0; i < n; i++)
