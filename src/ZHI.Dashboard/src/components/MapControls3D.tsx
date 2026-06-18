@@ -2,21 +2,29 @@ import { OrbitControls } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import { useEffect } from 'react';
 
-export function MapControls3D() {
-  const { camera, gl } = useThree();
+interface Props {
+  heightScale: number;
+  camTarget: [number, number, number];
+}
+
+export function MapControls3D({ heightScale, camTarget }: Props) {
+  const { camera } = useThree();
 
   useEffect(() => {
-    camera.position.set(32, 50, 64);
-    camera.lookAt(31.5, 0, 31.5);
-  }, [camera]);
+    const hw = 32; // gridW/2
+    const hh = 32; // gridH/2
+    camera.position.set(hw * 0.6, heightScale * 0.5, hh * 0.8);
+    camera.lookAt(...camTarget);
+  }, [camera, heightScale, camTarget]);
 
   return (
     <OrbitControls
       makeDefault
-      minPolarAngle={0.1}
+      target={camTarget}
+      minPolarAngle={0.05}
       maxPolarAngle={Math.PI / 2 - 0.05}
-      minDistance={10}
-      maxDistance={120}
+      minDistance={8}
+      maxDistance={200}
       enableDamping
       dampingFactor={0.08}
       mouseButtons={{

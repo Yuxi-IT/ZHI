@@ -18,18 +18,35 @@ interface Props {
   showBiome: boolean;
 }
 
+/** Compute height scale adaptively: max relief ≈ 40% of grid width for dramatic 3D look */
+function computeHeightScale(heightMap: number[], gridW: number): number {
+  let minH = 255, maxH = 0;
+  for (let i = 0; i < heightMap.length; i++) {
+    const h = heightMap[i]!;
+    if (h < minH) minH = h;
+    if (h > maxH) maxH = h;
+  }
+  const range = maxH - minH;
+  if (range < 20) return gridW * 0.3;
+  // Map height range to ~40% of grid width
+  return (gridW * 0.4) / (range / 255);
+}
+
 export function WorldMap3D({ drawDataRef, gridW, gridH, trackedAgent, showBiome }: Props) {
   const { t } = useT();
   const data = drawDataRef.current;
-
-  const heightScale = 8;
   const timeOfDay = data?.timeOfDay ?? 12;
+
+  const heightScale = useMemo(
+    () => (data ? computeHeightScale(data.heightMap, gridW) : 20),
+    [data, gridW],
+  );
 
   // Sun position based on time of day (0-24)
   const sunPosition = useMemo(() => {
-    const azimuth = ((timeOfDay - 6) / 12) * Math.PI; // -PI/2 at 0h, 0 at 6h, PI/2 at 12h, PI at 18h
-    const elevation = Math.sin((timeOfDay / 24) * Math.PI * 2) * 0.5 + 0.3; // 0.3 to 0.8
-    const dist = 40;
+    const azimuth = ((timeOfDay - 6) / 12) * Math.PI;
+    const elevation = Math.sin((timeOfDay / 24) * Math.PI * 2) * 0.5 + 0.3;
+    const dist = 60;
     return [
       Math.cos(azimuth) * Math.cos(elevation) * dist,
       Math.sin(elevation) * dist,
@@ -38,19 +55,18 @@ export function WorldMap3D({ drawDataRef, gridW, gridH, trackedAgent, showBiome 
   }, [timeOfDay]);
 
   const brightness = useMemo(() => {
-    // Peak at noon (12), minimum at midnight (0/24)
     const t2 = (timeOfDay - 6) / 12 * Math.PI;
     return Math.max(0.05, Math.sin(t2));
   }, [timeOfDay]);
 
   const sunColor = useMemo(() => {
     const t2 = brightness;
-    // Night: warm orange (2000K), Day: cool white (5500K)
-    const r = 1;
-    const g = 0.6 + t2 * 0.4;
-    const b = 0.2 + t2 * 0.8;
-    return new THREE.Color(r, g, b);
+    return new THREE.Color(1, 0.6 + t2 * 0.4, 0.2 + t2 * 0.8);
   }, [brightness]);
+
+  // Camera: start from a low side angle so height differences are visible
+  const camTarget: [number, number, number] = [0, heightScale * 0.15, 0];
+  const camPos: [number, number, number] = [gridW * 0.6, heightScale * 0.5, gridH * 0.8];
 
   if (!data || gridW <= 0 || gridH <= 0) {
     return <div className="flex-1 bg-zhi-bg flex items-center justify-center text-zhi-muted text-xs">{t('map.loading')}</div>;
@@ -59,24 +75,37 @@ export function WorldMap3D({ drawDataRef, gridW, gridH, trackedAgent, showBiome 
   return (
     <div className="flex-1 min-h-0 relative">
       <Canvas
-        camera={{ position: [32, 50, 64], fov: 45, near: 1, far: 200 }}
+        camera={{ position: camPos, fov: 50, near: 0.5, far: 300 }}
         gl={{ antialias: true, alpha: false }}
         style={{ background: `rgb(${Math.round(5 + brightness * 15)}, ${Math.round(5 + brightness * 15)}, ${Math.round(10 + brightness * 25)})` }}
-        onCreated={({ gl }) => {
+        onCreated={({ gl, camera }) => {
           gl.setClearColor(new THREE.Color(
             0.02 + brightness * 0.06,
             0.02 + brightness * 0.06,
-            0.04 + brightness * 0.1
+            0.04 + brightness * 0.1,
           ));
+          camera.lookAt(...camTarget);
         }}
       >
-        <ambientLight intensity={0.15 + brightness * 0.3} color={sunColor} />
+        <ambientLight intensity={0.12 + brightness * 0.3} color={sunColor} />
         <directionalLight
           position={sunPosition}
-          intensity={0.2 + brightness * 0.8}
+          intensity={0.3 + brightness * 0.8}
           color={sunColor}
           castShadow={false}
         />
+        {/* Fill light from opposite side to reduce harsh shadows */}
+        <directionalLight
+          position={[-sunPosition[0], sunPosition[1] * 0.3, -sunPosition[2]]}
+          intensity={0.08 + brightness * 0.15}
+          color={sunColor}
+        />
+
+        {/* Sea-level reference plane — dark blue base under the terrain */}
+        <mesh position={[0, -0.1, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+          <planeGeometry args={[gridW + 4, gridH + 4]} />
+          <meshBasicMaterial color="#0a1628" />
+        </mesh>
 
         <TerrainMesh
           heightMap={data.heightMap}
@@ -122,7 +151,7 @@ export function WorldMap3D({ drawDataRef, gridW, gridH, trackedAgent, showBiome 
           heightScale={heightScale}
         />
 
-        <MapControls3D />
+        <MapControls3D heightScale={heightScale} camTarget={camTarget} />
       </Canvas>
     </div>
   );
