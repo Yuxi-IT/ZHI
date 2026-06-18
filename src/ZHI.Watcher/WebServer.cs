@@ -130,7 +130,7 @@ public partial class WebServer : IDisposable
 
         try { await _engineTask.WaitAsync(TimeSpan.FromSeconds(10)); }
         catch (TimeoutException) { Console.WriteLine("[WebServer] Engine stop timed out."); }
-        catch { }
+        catch (Exception ex) { Console.WriteLine($"[WebServer] Engine stop error: {ex.Message}"); }
 
         int gen = _engine.Generation;
         int deaths = _engine.TotalDeaths;
@@ -153,7 +153,7 @@ public partial class WebServer : IDisposable
                 meta.TotalDeaths = deaths;
                 _worldManager.SaveWorldMeta(name, meta);
             }
-            catch { /* preserve existing meta if load fails */ }
+            catch (Exception ex) { Console.WriteLine($"[WebServer] Failed to save world meta on stop: {ex.Message}"); }
         }
 
         _ = BroadcastStatusAsync("stopped");
@@ -508,7 +508,7 @@ public partial class WebServer : IDisposable
                 meta.Status = "running";
                 _worldManager.SaveWorldMeta(_currentWorldName, meta);
             }
-            catch { }
+            catch (Exception ex) { Console.WriteLine($"[WebServer] Failed to update world meta after config save: {ex.Message}"); }
         }
 
         var resp = JsonSerializer.Serialize(new { ok = true });
@@ -521,23 +521,40 @@ public partial class WebServer : IDisposable
 
     private async Task ServeStaticFile(HttpListenerContext context, string relativePath, string contentType)
     {
-        var filePath = Path.Combine(AppContext.BaseDirectory, "wwwroot", relativePath);
-        if (!File.Exists(filePath))
+        // Normalize and validate path to prevent directory traversal
+        var wwwrootDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "wwwroot"));
+        var resolvedPath = Path.GetFullPath(Path.Combine(wwwrootDir, relativePath));
+        if (!resolvedPath.StartsWith(wwwrootDir + Path.DirectorySeparatorChar) && resolvedPath != wwwrootDir)
         {
-            var srcPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "wwwroot", relativePath);
-            if (File.Exists(srcPath))
-                filePath = srcPath;
-        }
-        if (!File.Exists(filePath))
-        {
-            context.Response.StatusCode = 404;
-            var msg = Encoding.UTF8.GetBytes($"{relativePath} not found");
-            await context.Response.OutputStream.WriteAsync(msg);
+            context.Response.StatusCode = 403;
+            context.Response.ContentType = "text/plain; charset=utf-8";
+            var forbid = Encoding.UTF8.GetBytes("Forbidden");
+            context.Response.ContentLength64 = forbid.Length;
+            await context.Response.OutputStream.WriteAsync(forbid);
             context.Response.Close();
             return;
         }
 
-        var bytes = await File.ReadAllBytesAsync(filePath);
+        if (!File.Exists(resolvedPath))
+        {
+            // Fallback: try relative to project root (for dev convenience)
+            var devDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "wwwroot"));
+            var devPath = Path.GetFullPath(Path.Combine(devDir, relativePath));
+            if (devPath.StartsWith(devDir + Path.DirectorySeparatorChar) && File.Exists(devPath))
+                resolvedPath = devPath;
+            else
+            {
+                context.Response.StatusCode = 404;
+                context.Response.ContentType = "text/plain; charset=utf-8";
+                var msg = Encoding.UTF8.GetBytes($"{relativePath} not found");
+                context.Response.ContentLength64 = msg.Length;
+                await context.Response.OutputStream.WriteAsync(msg);
+                context.Response.Close();
+                return;
+            }
+        }
+
+        var bytes = await File.ReadAllBytesAsync(resolvedPath);
         context.Response.ContentType = contentType;
         context.Response.ContentLength64 = bytes.Length;
         await context.Response.OutputStream.WriteAsync(bytes);
@@ -559,19 +576,19 @@ public partial class WebServer : IDisposable
 
     public void Dispose()
     {
-        try { _engineCts.Cancel(); } catch { }
-        try { _engine?.Dispose(); } catch { }
-        try { _blackbox?.Dispose(); } catch { }
-        try { _listener.Stop(); } catch { }
+        try { _engineCts.Cancel(); } catch (Exception ex) { Console.WriteLine($"[WebServer] Dispose cts error: {ex.Message}"); }
+        try { _engine?.Dispose(); } catch (Exception ex) { Console.WriteLine($"[WebServer] Dispose engine error: {ex.Message}"); }
+        try { _blackbox?.Dispose(); } catch (Exception ex) { Console.WriteLine($"[WebServer] Dispose blackbox error: {ex.Message}"); }
+        try { _listener.Stop(); } catch (Exception ex) { Console.WriteLine($"[WebServer] Dispose listener error: {ex.Message}"); }
 
         lock (_stateClientsLock)
         {
-            foreach (var ws in _stateClients) try { ws.Dispose(); } catch { }
+            foreach (var ws in _stateClients) try { ws.Dispose(); } catch (Exception ex) { Console.WriteLine($"[WebServer] Dispose ws error: {ex.Message}"); }
             _stateClients.Clear();
         }
         lock (_logClientsLock)
         {
-            foreach (var ws in _logClients) try { ws.Dispose(); } catch { }
+            foreach (var ws in _logClients) try { ws.Dispose(); } catch (Exception ex) { Console.WriteLine($"[WebServer] Dispose ws error: {ex.Message}"); }
             _logClients.Clear();
         }
     }
