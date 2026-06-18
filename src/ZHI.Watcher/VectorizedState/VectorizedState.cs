@@ -91,7 +91,7 @@ public partial class VectorizedState : IDisposable
     // Pre-allocated buffer for state assembly
     private float[] _stateAssemblyBuffer;
 
-    public VectorizedState(int n, torch.Device device)
+    public VectorizedState(int n, torch.Device device, Random? rng = null)
     {
         N = n;
         Device = device;
@@ -154,11 +154,11 @@ public partial class VectorizedState : IDisposable
         StateMatrix = torch.zeros(n, ToolDefinitions.StateSize, device: device);
         _stateAssemblyBuffer = new float[n * ToolDefinitions.StateSize];
 
-        var rng = new Random();
+        var localRng = rng ?? new Random();
         for (int i = 0; i < n; i++)
         {
-            PosX[i] = rng.Next(ToolDefinitions.GridWidth);
-            PosY[i] = rng.Next(ToolDefinitions.GridHeight);
+            PosX[i] = localRng.Next(ToolDefinitions.GridWidth);
+            PosY[i] = localRng.Next(ToolDefinitions.GridHeight);
             Existence[i] = 100f;
             Stress[i] = 0f;
             Alive[i] = true;

@@ -9,26 +9,30 @@ namespace ZHI.Watcher;
 public partial class WebServer : IDisposable
 {
     private readonly HttpListener _listener;
-    private readonly List<WebSocket> _stateClients = new();  // /ws — cosmos state
-    private readonly List<WebSocket> _logClients = new();    // /ws/logs — logs + events
+    private readonly List<WebSocket> _stateClients = new();
+    private readonly List<WebSocket> _logClients = new();
     private readonly Lock _stateClientsLock = new();
     private readonly Lock _logClientsLock = new();
-    private readonly CosmosEngine _engine;
-    private readonly Blackbox _blackbox;
+    private readonly WorldManager _worldManager;
     private readonly int _port;
     private readonly List<string> _logBuffer = new();
     private readonly Lock _logLock = new();
     private const int MaxLogBuffer = 500;
 
-    public WebServer(CosmosEngine engine, Blackbox blackbox, int httpPort = 8088)
+    private CosmosEngine? _engine;
+    private Blackbox? _blackbox;
+    private Task _engineTask = Task.CompletedTask;
+    private CancellationTokenSource _engineCts = new();
+    private string? _currentWorldName;
+
+    public CosmosEngine? CurrentEngine => _engine;
+
+    public WebServer(WorldManager worldManager, int httpPort = 8088)
     {
-        _engine = engine;
-        _blackbox = blackbox;
+        _worldManager = worldManager;
         _port = httpPort;
         _listener = new HttpListener();
         _listener.Prefixes.Add($"http://localhost:{httpPort}/");
-
-        _engine.OnLog += OnEngineLog;
     }
 
     private void OnEngineLog(string message)
@@ -55,11 +59,10 @@ public partial class WebServer : IDisposable
         try
         {
             _listener.Start();
-            Console.WriteLine($"[WebServer] http://localhost:{_port} (listener started)");
+            Console.WriteLine($"[WebServer] http://localhost:{_port}");
 
             broadcastTask = BroadcastLoop(ct);
 
-            Console.WriteLine("[WebServer] Entering accept loop...");
             while (!ct.IsCancellationRequested)
             {
                 try
@@ -70,17 +73,97 @@ public partial class WebServer : IDisposable
                 catch (OperationCanceledException) { break; }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[WebServer] Error: {ex.GetType().Name}: {ex.Message}");
+                    Console.WriteLine($"[WebServer] Accept error: {ex.Message}");
                 }
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[WebServer] Fatal: {ex.GetType().Name}: {ex.Message}");
+            Console.WriteLine($"[WebServer] Fatal: {ex.Message}");
             throw;
         }
 
         await broadcastTask;
+    }
+
+    public async Task StartWorldAsync(string name)
+    {
+        if (_engine != null)
+            throw new InvalidOperationException("A world is already running. Stop it first.");
+
+        var (config, meta, dbPath) = _worldManager.LoadWorld(name);
+
+        _blackbox = new Blackbox(dbPath);
+        _engine = new CosmosEngine(config, _blackbox, dbPath, _worldManager.GetWorldDir(name));
+        _engine.OnLog += OnEngineLog;
+        _currentWorldName = name;
+
+        meta.Status = "running";
+        meta.LastRunAt = DateTime.UtcNow.ToString("O");
+        _worldManager.SaveWorldMeta(name, meta);
+
+        _engineCts = new CancellationTokenSource();
+        _engineTask = Task.Run(async () =>
+        {
+            try
+            {
+                await _engine.RunAsync();
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[WebServer] Engine fault: {ex.Message}");
+                OnEngineLog($"[System] Engine fault: {ex.Message}");
+            }
+        });
+
+        _ = BroadcastStatusAsync("running");
+        Console.WriteLine($"[WebServer] World '{name}' started.");
+    }
+
+    private async Task StopWorldAsync()
+    {
+        if (_engine == null) return;
+
+        var name = _currentWorldName;
+        _engine.GracefulStop();
+
+        try { await _engineTask.WaitAsync(TimeSpan.FromSeconds(10)); }
+        catch (TimeoutException) { Console.WriteLine("[WebServer] Engine stop timed out."); }
+        catch { }
+
+        if (_engine is IDisposable d) d.Dispose();
+        _blackbox?.Dispose();
+        _engine = null;
+        _blackbox = null;
+        _currentWorldName = null;
+        _engineCts.Dispose();
+
+        if (name != null)
+        {
+            try
+            {
+                var (_, meta, _) = _worldManager.LoadWorld(name);
+                meta.Status = "stopped";
+                meta.LastRunAt = DateTime.UtcNow.ToString("O");
+                if (_engine != null)
+                {
+                    meta.TotalGenerations = _engine.Generation;
+                    meta.TotalDeaths = _engine.TotalDeaths;
+                }
+                _worldManager.SaveWorldMeta(name, meta);
+            }
+            catch { /* preserve existing meta if load fails */ }
+        }
+
+        _ = BroadcastStatusAsync("stopped");
+        Console.WriteLine($"[WebServer] World '{name}' stopped.");
+    }
+
+    private async Task BroadcastStatusAsync(string status)
+    {
+        var payload = JsonSerializer.Serialize(new { type = "status", status });
+        await BroadcastToStateClientsAsync(payload);
     }
 
     private async Task HandleRequest(HttpListenerContext context, CancellationToken ct)
@@ -94,9 +177,8 @@ public partial class WebServer : IDisposable
             return;
         }
 
-        // CORS
         context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
-        context.Response.Headers.Add("Access-Control-Allow-Methods", "GET, OPTIONS");
+        context.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         context.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type");
 
         if (context.Request.HttpMethod == "OPTIONS")
@@ -106,24 +188,61 @@ public partial class WebServer : IDisposable
             return;
         }
 
+        // World management
+        if (path == "/api/worlds" && context.Request.HttpMethod == "GET")
+        {
+            await ServeWorlds(context);
+            return;
+        }
+        if (path == "/api/world/create" && context.Request.HttpMethod == "POST")
+        {
+            await HandleWorldCreate(context);
+            return;
+        }
+        if (path == "/api/world/start" && context.Request.HttpMethod == "POST")
+        {
+            await HandleWorldStart(context);
+            return;
+        }
+        if (path == "/api/world/delete" && context.Request.HttpMethod == "POST")
+        {
+            await HandleWorldDelete(context);
+            return;
+        }
+        if (path == "/api/world/clone" && context.Request.HttpMethod == "POST")
+        {
+            await HandleWorldClone(context);
+            return;
+        }
+
+        // Engine controls
+        if (path == "/api/pause" && context.Request.HttpMethod == "POST")
+        {
+            await HandlePause(context);
+            return;
+        }
+        if (path == "/api/stop" && context.Request.HttpMethod == "POST")
+        {
+            await HandleStop(context);
+            return;
+        }
+
+        // Data endpoints (require engine)
         if (path == "/api/stats")
         {
             await ServeStats(context);
             return;
         }
-
         if (path == "/api/cosmos")
         {
             await ServeCosmosState(context);
             return;
         }
-
         if (path == "/api/config" && context.Request.HttpMethod == "GET")
         {
             await ServeConfig(context);
             return;
         }
-
         if (path == "/api/config" && context.Request.HttpMethod == "POST")
         {
             await HandleConfigSave(context);
@@ -136,15 +255,12 @@ public partial class WebServer : IDisposable
             await ServeStaticFile(context, "index.html", "text/html; charset=utf-8");
             return;
         }
-
         if (path.StartsWith("/assets/") || path.EndsWith(".js") || path.EndsWith(".css") || path.EndsWith(".svg") || path.EndsWith(".ico"))
         {
             var filePath = path.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
-            var contentType = GetContentType(path);
-            await ServeStaticFile(context, filePath, contentType);
+            await ServeStaticFile(context, filePath, GetContentType(path));
             return;
         }
-
         if (!path.Contains('.'))
         {
             await ServeStaticFile(context, "index.html", "text/html; charset=utf-8");
@@ -155,35 +271,159 @@ public partial class WebServer : IDisposable
         context.Response.Close();
     }
 
-    private async Task ServeStaticFile(HttpListenerContext context, string relativePath, string contentType)
+    // === World endpoints ===
+
+    private async Task ServeWorlds(HttpListenerContext context)
     {
-        var filePath = Path.Combine(AppContext.BaseDirectory, "wwwroot", relativePath);
-        if (!File.Exists(filePath))
+        var worlds = _worldManager.ListWorlds();
+        var json = JsonSerializer.Serialize(worlds, new JsonSerializerOptions
         {
-            var srcPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "wwwroot", relativePath);
-            if (File.Exists(srcPath))
-                filePath = srcPath;
-        }
-
-        if (!File.Exists(filePath))
-        {
-            context.Response.StatusCode = 404;
-            var msg = Encoding.UTF8.GetBytes($"{relativePath} not found");
-            await context.Response.OutputStream.WriteAsync(msg);
-            context.Response.Close();
-            return;
-        }
-
-        var bytes = await File.ReadAllBytesAsync(filePath);
-        context.Response.ContentType = contentType;
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+        });
+        var bytes = Encoding.UTF8.GetBytes(json);
+        context.Response.ContentType = "application/json; charset=utf-8";
         context.Response.ContentLength64 = bytes.Length;
         await context.Response.OutputStream.WriteAsync(bytes);
         context.Response.Close();
     }
 
+    private async Task HandleWorldCreate(HttpListenerContext context)
+    {
+        using var reader = new StreamReader(context.Request.InputStream, context.Request.ContentEncoding);
+        var body = await reader.ReadToEndAsync();
+        var req = JsonSerializer.Deserialize<JsonElement>(body);
+
+        var name = req.TryGetProperty("name", out var n) ? n.GetString() ?? "untitled" : "untitled";
+        int? seed = req.TryGetProperty("seed", out var s) && s.ValueKind != JsonValueKind.Null ? s.GetInt32() : null;
+        var desc = req.TryGetProperty("description", out var d) ? d.GetString() : "";
+        ZhiConfig config;
+        if (req.TryGetProperty("config", out var cfgEl))
+            config = JsonSerializer.Deserialize<ZhiConfig>(cfgEl.GetRawText(), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower }) ?? new ZhiConfig();
+        else
+            config = new ZhiConfig();
+
+        try
+        {
+            var meta = _worldManager.CreateWorld(name, seed, desc, config);
+            var json = JsonSerializer.Serialize(meta, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
+            var bytes = Encoding.UTF8.GetBytes(json);
+            context.Response.ContentType = "application/json; charset=utf-8";
+            context.Response.ContentLength64 = bytes.Length;
+            await context.Response.OutputStream.WriteAsync(bytes);
+        }
+        catch (Exception ex)
+        {
+            context.Response.StatusCode = 400;
+            var err = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { error = ex.Message }));
+            context.Response.ContentType = "application/json; charset=utf-8";
+            context.Response.ContentLength64 = err.Length;
+            await context.Response.OutputStream.WriteAsync(err);
+        }
+        context.Response.Close();
+    }
+
+    private async Task HandleWorldStart(HttpListenerContext context)
+    {
+        using var reader = new StreamReader(context.Request.InputStream, context.Request.ContentEncoding);
+        var body = await reader.ReadToEndAsync();
+        var req = JsonSerializer.Deserialize<JsonElement>(body);
+        var name = req.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
+
+        try
+        {
+            await StartWorldAsync(name);
+            var resp = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { ok = true, name }));
+            context.Response.ContentType = "application/json; charset=utf-8";
+            context.Response.ContentLength64 = resp.Length;
+            await context.Response.OutputStream.WriteAsync(resp);
+        }
+        catch (Exception ex)
+        {
+            context.Response.StatusCode = 400;
+            var err = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { error = ex.Message }));
+            context.Response.ContentType = "application/json; charset=utf-8";
+            context.Response.ContentLength64 = err.Length;
+            await context.Response.OutputStream.WriteAsync(err);
+        }
+        context.Response.Close();
+    }
+
+    private async Task HandleWorldDelete(HttpListenerContext context)
+    {
+        using var reader = new StreamReader(context.Request.InputStream, context.Request.ContentEncoding);
+        var body = await reader.ReadToEndAsync();
+        var req = JsonSerializer.Deserialize<JsonElement>(body);
+        var name = req.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
+
+        if (name == _currentWorldName)
+            await StopWorldAsync();
+
+        _worldManager.DeleteWorld(name);
+        var resp = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { ok = true }));
+        context.Response.ContentType = "application/json; charset=utf-8";
+        context.Response.ContentLength64 = resp.Length;
+        await context.Response.OutputStream.WriteAsync(resp);
+        context.Response.Close();
+    }
+
+    private async Task HandleWorldClone(HttpListenerContext context)
+    {
+        using var reader = new StreamReader(context.Request.InputStream, context.Request.ContentEncoding);
+        var body = await reader.ReadToEndAsync();
+        var req = JsonSerializer.Deserialize<JsonElement>(body);
+        var sourceName = req.TryGetProperty("source", out var src) ? src.GetString() ?? "" : "";
+        var newName = req.TryGetProperty("name", out var nn) ? nn.GetString() ?? "clone" : "clone";
+        int? newSeed = req.TryGetProperty("seed", out var ns) && ns.ValueKind != JsonValueKind.Null ? ns.GetInt32() : null;
+
+        try
+        {
+            var meta = _worldManager.CloneWorld(sourceName, newName, newSeed);
+            var json = JsonSerializer.Serialize(meta, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
+            var bytes = Encoding.UTF8.GetBytes(json);
+            context.Response.ContentType = "application/json; charset=utf-8";
+            context.Response.ContentLength64 = bytes.Length;
+            await context.Response.OutputStream.WriteAsync(bytes);
+        }
+        catch (Exception ex)
+        {
+            context.Response.StatusCode = 400;
+            var err = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { error = ex.Message }));
+            context.Response.ContentType = "application/json; charset=utf-8";
+            context.Response.ContentLength64 = err.Length;
+            await context.Response.OutputStream.WriteAsync(err);
+        }
+        context.Response.Close();
+    }
+
+    // === Engine control endpoints ===
+
+    private async Task HandlePause(HttpListenerContext context)
+    {
+        _engine?.TogglePause();
+        var status = _engine?.Paused == true ? "paused" : "running";
+        var resp = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { ok = true, status }));
+        context.Response.ContentType = "application/json; charset=utf-8";
+        context.Response.ContentLength64 = resp.Length;
+        await context.Response.OutputStream.WriteAsync(resp);
+        context.Response.Close();
+        _ = BroadcastStatusAsync(status);
+    }
+
+    private async Task HandleStop(HttpListenerContext context)
+    {
+        await StopWorldAsync();
+        var resp = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { ok = true }));
+        context.Response.ContentType = "application/json; charset=utf-8";
+        context.Response.ContentLength64 = resp.Length;
+        await context.Response.OutputStream.WriteAsync(resp);
+        context.Response.Close();
+    }
+
+    // === Data endpoints ===
+
     private async Task ServeStats(HttpListenerContext context)
     {
-        var stats = _blackbox.GetStats();
+        var stats = _blackbox?.GetStats() ?? new StatsResult();
         var json = JsonSerializer.Serialize(stats, new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
@@ -208,6 +448,12 @@ public partial class WebServer : IDisposable
 
     private async Task ServeConfig(HttpListenerContext context)
     {
+        if (_engine == null)
+        {
+            context.Response.StatusCode = 404;
+            context.Response.Close();
+            return;
+        }
         var json = JsonSerializer.Serialize(_engine.CurrentConfig, new JsonSerializerOptions { WriteIndented = true });
         var bytes = Encoding.UTF8.GetBytes(json);
         context.Response.ContentType = "application/json; charset=utf-8";
@@ -218,6 +464,12 @@ public partial class WebServer : IDisposable
 
     private async Task HandleConfigSave(HttpListenerContext context)
     {
+        if (_engine == null)
+        {
+            context.Response.StatusCode = 404;
+            context.Response.Close();
+            return;
+        }
         using var reader = new StreamReader(context.Request.InputStream, context.Request.ContentEncoding);
         var body = await reader.ReadToEndAsync();
         var newConfig = JsonSerializer.Deserialize<ZhiConfig>(body);
@@ -228,12 +480,47 @@ public partial class WebServer : IDisposable
             return;
         }
 
-        bool restart = context.Request.QueryString["restart"] == "true";
         _engine.UpdateConfigAndRestart(newConfig);
+        if (_currentWorldName != null)
+        {
+            try
+            {
+                var (_, meta, _) = _worldManager.LoadWorld(_currentWorldName);
+                meta.Config = newConfig;
+                meta.Status = "running";
+                _worldManager.SaveWorldMeta(_currentWorldName, meta);
+            }
+            catch { }
+        }
 
-        var resp = JsonSerializer.Serialize(new { ok = true, restarted = restart });
+        var resp = JsonSerializer.Serialize(new { ok = true });
         var bytes = Encoding.UTF8.GetBytes(resp);
         context.Response.ContentType = "application/json; charset=utf-8";
+        context.Response.ContentLength64 = bytes.Length;
+        await context.Response.OutputStream.WriteAsync(bytes);
+        context.Response.Close();
+    }
+
+    private async Task ServeStaticFile(HttpListenerContext context, string relativePath, string contentType)
+    {
+        var filePath = Path.Combine(AppContext.BaseDirectory, "wwwroot", relativePath);
+        if (!File.Exists(filePath))
+        {
+            var srcPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "wwwroot", relativePath);
+            if (File.Exists(srcPath))
+                filePath = srcPath;
+        }
+        if (!File.Exists(filePath))
+        {
+            context.Response.StatusCode = 404;
+            var msg = Encoding.UTF8.GetBytes($"{relativePath} not found");
+            await context.Response.OutputStream.WriteAsync(msg);
+            context.Response.Close();
+            return;
+        }
+
+        var bytes = await File.ReadAllBytesAsync(filePath);
+        context.Response.ContentType = contentType;
         context.Response.ContentLength64 = bytes.Length;
         await context.Response.OutputStream.WriteAsync(bytes);
         context.Response.Close();
@@ -254,7 +541,11 @@ public partial class WebServer : IDisposable
 
     public void Dispose()
     {
+        try { _engineCts.Cancel(); } catch { }
+        try { _engine?.Dispose(); } catch { }
+        try { _blackbox?.Dispose(); } catch { }
         try { _listener.Stop(); } catch { }
+
         lock (_stateClientsLock)
         {
             foreach (var ws in _stateClients) try { ws.Dispose(); } catch { }

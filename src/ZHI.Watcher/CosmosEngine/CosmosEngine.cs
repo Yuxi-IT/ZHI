@@ -105,7 +105,7 @@ public partial class CosmosEngine : IDisposable
 
     // PLACEHOLDER_CONSTRUCTOR
 
-    public CosmosEngine(ZhiConfig config, Blackbox blackbox, string configPath)
+    public CosmosEngine(ZhiConfig config, Blackbox blackbox, string configPath, string? worldDir = null)
     {
         _config = config;
         _blackbox = blackbox;
@@ -113,15 +113,18 @@ public partial class CosmosEngine : IDisposable
 
         ZHI.Core.Device.Initialize();
 
-        var logDir = Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ".";
+        var logDir = worldDir ?? Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ".";
         _logFilePath = Path.Combine(logDir, "watcher.log");
         _logWriter = new StreamWriter(_logFilePath, append: true, System.Text.Encoding.UTF8) { AutoFlush = true };
 
+        int? seed = config.Seed;
+        _rng = seed.HasValue ? new Random(seed.Value) : new Random();
+
         int n = config.Cosmos.AgentCount;
-        _v = new VectorizedState(n, ZHI.Core.Device.TorchDevice);
+        _v = new VectorizedState(n, ZHI.Core.Device.TorchDevice, _rng);
         _gruBrain = new GRUBrain(config.Network.LearningRate, config.Network.Gamma);
         _rnd = new RNDModule(learningRate: 0.0005f, rewardScale: 0.05f);
-        _mapElites = new MAPElitesGrid();
+        _mapElites = new MAPElitesGrid(_rng);
         _ppoBuffer = new PPOBuffer(PpoRolloutSteps, n, ZHI.Core.Device.TorchDevice);
         _gruHidden = torch.zeros(1, n, _gruBrain.HiddenSize, device: ZHI.Core.Device.TorchDevice);
 
@@ -132,7 +135,7 @@ public partial class CosmosEngine : IDisposable
         _generation = config.DeathCount + 1;
         _totalDeaths = config.DeathCount;
 
-        Log($"[Cosmos] Grid world init: {n} agents, gen {_generation}, device {ZHI.Core.Device.Name}");
+        Log($"[Cosmos] Grid world init: {n} agents, gen {_generation}, seed {config.Seed?.ToString() ?? "random"}, device {ZHI.Core.Device.Name}");
     }
 
     public async Task RunAsync()
@@ -443,6 +446,52 @@ public partial class CosmosEngine : IDisposable
 
     public void TogglePause() => _paused = !_paused;
     public void RequestShutdown() { Log("[Cosmos] Shutting down..."); _cts.Cancel(); }
+
+    public void GracefulStop()
+    {
+        Log("[Cosmos] Graceful stop requested — saving final state...");
+        _paused = true;
+
+        // Save best agent's weights
+        int bestIdx = -1; int bestTicks = 0;
+        for (int j = 0; j < _v.N; j++)
+            if (_v.Alive[j] && _v.TickCount[j] > bestTicks) { bestIdx = j; bestTicks = _v.TickCount[j]; }
+        if (bestIdx >= 0 && bestIdx < _agentWeights.Count)
+            _blackbox.SaveWeights(_generation, _agentWeights[bestIdx]);
+
+        // Record generation snapshot if any ticks elapsed
+        if (_genTotalTicks > 0 && _v != null)
+        {
+            int alive = GetAliveCount();
+            float bestAlive = 0, avgAlive = 0;
+            int countAlive = 0;
+            for (int i = 0; i < _v.N; i++)
+            {
+                if (_v.TickCount[i] > bestAlive) bestAlive = _v.TickCount[i];
+                if (_v.Alive[i]) { avgAlive += _v.TickCount[i]; countAlive++; }
+            }
+            if (countAlive > 0) avgAlive /= countAlive;
+
+            _blackbox.SaveGeneration(new GenerationRecord
+            {
+                Generation = _generation,
+                AgentCount = alive,
+                TotalTicks = _genTotalTicks,
+                Attacks = _genAttacks,
+                FoodEaten = _genFoodEaten,
+                BigFoodEaten = _genBigFoodEaten,
+                CorpsesEaten = _genCorpsesEaten,
+                BestFitness = 0,
+                BestAliveSeconds = bestAlive / 5f,
+                AvgAliveSeconds = avgAlive / 5f,
+                StartedAt = DateTime.UtcNow.ToString("O"),
+                EndedAt = DateTime.UtcNow.ToString("O")
+            });
+        }
+
+        Log("[Cosmos] Final state saved.");
+        _cts.Cancel();
+    }
 
     public void Dispose()
     {

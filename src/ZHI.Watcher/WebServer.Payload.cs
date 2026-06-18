@@ -7,6 +7,8 @@ public partial class WebServer
 {
     private string BuildCosmosPayload()
     {
+        if (_engine == null) return "{}";
+
         var v = _engine.State;
         int n = _engine.AgentCount;
         var agents = new List<object>(n);

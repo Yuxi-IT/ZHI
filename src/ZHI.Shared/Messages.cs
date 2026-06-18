@@ -122,3 +122,33 @@ public sealed class PipeMessage
     [JsonPropertyName("generation")]
     public int? Generation { get; set; }
 }
+
+public sealed class WorldMeta
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
+
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = "";
+
+    [JsonPropertyName("seed")]
+    public int? Seed { get; set; }
+
+    [JsonPropertyName("created_at")]
+    public string CreatedAt { get; set; } = "";
+
+    [JsonPropertyName("last_run_at")]
+    public string? LastRunAt { get; set; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "stopped";
+
+    [JsonPropertyName("total_generations")]
+    public int TotalGenerations { get; set; }
+
+    [JsonPropertyName("total_deaths")]
+    public int TotalDeaths { get; set; }
+
+    [JsonPropertyName("config")]
+    public ZhiConfig? Config { get; set; }
+}

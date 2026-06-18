@@ -28,7 +28,12 @@ public class MAPElitesGrid
     }
 
     private readonly Cell[,] _grid = new Cell[GridSize, GridSize];
-    private readonly Random _rng = new();
+    private readonly Random _rng;
+
+    public MAPElitesGrid(Random? rng = null)
+    {
+        _rng = rng ?? new Random();
+    }
 
     /// <summary>
     /// Bin a behavior score [0, 1] to grid index 0-9.

@@ -81,8 +81,8 @@ public partial class WebServer
                 });
                 await BroadcastToStateClientsAsync(statePayload);
 
-                var events = _engine.TickEvents;
-                if (events.Count > 0)
+                var events = _engine?.TickEvents;
+                if (events != null && events.Count > 0)
                 {
                     var eventPayload = JsonSerializer.Serialize(new
                     {

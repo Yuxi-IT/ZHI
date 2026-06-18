@@ -21,6 +21,7 @@ public sealed class ZhiConfig
     public int Port { get; set; } = 19816;
     public int DecisionIntervalMs { get; set; } = 200;
     public int DeathCount { get; set; } = 0;
+    public int? Seed { get; set; }
 }
 
 public sealed class ExistenceConfig

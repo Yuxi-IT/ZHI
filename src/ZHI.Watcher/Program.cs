@@ -4,88 +4,53 @@ using ZHI.Shared;
 namespace ZHI.Watcher;
 
 class Program
-{     
+{
     static async Task Main(string[] args)
     {
         Console.Title = "ZHI · Cosmos";
 
-        // 加载配置
-        var configPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "config.json");
-        if (!File.Exists(configPath))
-            configPath = "config.json";
-        if (!File.Exists(configPath))
+        // Resolve base directory for worlds
+        var baseDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..");
+        if (!Directory.Exists(baseDir))
+            baseDir = ".";
+
+        // Legacy migration: move old config.json + blackbox.db into worlds/legacy/
+        MigrateLegacyData(baseDir);
+
+        var worldManager = new WorldManager(baseDir);
+
+        // Check CLI args for direct world start
+        string? autoStartWorld = null;
+        for (int i = 0; i < args.Length; i++)
         {
-            Console.WriteLine("[cosmos] config.json not found, using defaults");
-            configPath = null;
+            if (args[i] == "--world" && i + 1 < args.Length)
+                autoStartWorld = args[i + 1];
         }
 
-        ZhiConfig config;
-        if (configPath != null)
-        {
-            var json = await File.ReadAllTextAsync(configPath);
-            config = JsonSerializer.Deserialize<ZhiConfig>(json, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-            }) ?? new ZhiConfig();
+        var webServer = new WebServer(worldManager, httpPort: 8088);
 
-            // Detect if deserialization silently failed (all fields at default)
-            if (config.Grid.Width == 0 || config.Cosmos.AgentCount == 0)
-            {
-                Console.WriteLine("[cosmos] WARNING: config.json appears corrupt or in wrong format — using defaults");
-                Console.WriteLine("[cosmos] Check that config.json keys are snake_case (e.g. agent_count, grid_width)");
-                config = new ZhiConfig();
-            }
-        }
-        else
-        {
-            config = new ZhiConfig();
-        }
-
-        var actualConfigPath = configPath ?? "config.json";
-
-        // 初始化黑匣子
-        var blackboxDir = Path.GetDirectoryName(Path.GetFullPath(actualConfigPath)) ?? ".";
-        var blackboxPath = Path.Combine(blackboxDir, "blackbox.db");
-        var blackbox = new Blackbox(blackboxPath);
-
-        // 初始化多智能体引擎
-        var engine = new CosmosEngine(config, blackbox, actualConfigPath);
-
-        // 启动 WebSocket 仪表盘
-        var webServer = new WebServer(engine, blackbox, httpPort: 8088);
-
-        // Ctrl+C 关闭
         var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) =>
         {
             e.Cancel = true;
-            engine.RequestShutdown();
+            webServer.CurrentEngine?.RequestShutdown();
             cts.Cancel();
         };
 
-        Console.WriteLine($"[cosmos] {config.Cosmos.AgentCount} agents, http://localhost:8088");
+        Console.WriteLine($"[cosmos] Worlds dir: {worldManager.GetWorldDir(".")[..^1]}");
+        Console.WriteLine($"[cosmos] Dashboard: http://localhost:8088");
 
-        // 并行运行引擎和 Web 服务
-        var engineTask = engine.RunAsync();
-        var webTask = webServer.StartAsync(cts.Token);
+        if (autoStartWorld != null)
+        {
+            try { await webServer.StartWorldAsync(autoStartWorld); }
+            catch (Exception ex) { Console.WriteLine($"[cosmos] Failed to auto-start world: {ex.Message}"); }
+        }
 
         try
         {
-            var completed = await Task.WhenAny(engineTask, webTask);
-
-            // Observe the completed task — this throws if it faulted
-            try { await completed; }
-            catch (OperationCanceledException) { }
-            catch (Exception ex) { Console.WriteLine($"[cosmos] Task fault: {ex}"); }
-
-            cts.Cancel();
-
-            // Wait for the remaining task
-            var remaining = (completed == engineTask) ? webTask : engineTask;
-            try { await remaining; }
-            catch (OperationCanceledException) { }
-            catch (Exception ex) { Console.WriteLine($"[cosmos] Remaining task fault: {ex}"); }
+            await webServer.StartAsync(cts.Token);
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             Console.WriteLine($"[cosmos] Error: {ex}");
@@ -94,7 +59,59 @@ class Program
         {
             cts.Cancel();
             webServer.Dispose();
-            engine.Dispose();
+        }
+    }
+
+    private static void MigrateLegacyData(string baseDir)
+    {
+        var configPath = Path.Combine(baseDir, "config.json");
+        var dbPath = Path.Combine(baseDir, "blackbox.db");
+        var legacyDir = Path.Combine(baseDir, "worlds", "legacy");
+
+        if (!File.Exists(configPath) || !File.Exists(dbPath))
+            return;
+
+        // Don't migrate if worlds already exist
+        if (Directory.Exists(Path.Combine(baseDir, "worlds")) && Directory.GetFileSystemEntries(Path.Combine(baseDir, "worlds")).Length > 0)
+            return;
+
+        Console.WriteLine("[cosmos] Migrating legacy config.json + blackbox.db to worlds/legacy/...");
+
+        try
+        {
+            Directory.CreateDirectory(legacyDir);
+
+            var configJson = File.ReadAllText(configPath);
+            var config = JsonSerializer.Deserialize<ZhiConfig>(configJson, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+            }) ?? new ZhiConfig();
+
+            var meta = new WorldMeta
+            {
+                Name = "legacy",
+                Description = "Migrated from legacy config.json",
+                Seed = config.Seed,
+                CreatedAt = DateTime.UtcNow.ToString("O"),
+                Status = "stopped",
+                Config = config
+            };
+
+            var metaJson = JsonSerializer.Serialize(meta, new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+            });
+            File.WriteAllText(Path.Combine(legacyDir, "world.json"), metaJson);
+
+            File.Move(dbPath, Path.Combine(legacyDir, "blackbox.db"));
+            File.Delete(configPath);
+
+            Console.WriteLine("[cosmos] Legacy data migrated successfully.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[cosmos] Migration warning: {ex.Message}");
         }
     }
 }
