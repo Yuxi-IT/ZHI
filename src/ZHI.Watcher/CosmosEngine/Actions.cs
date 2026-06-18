@@ -103,6 +103,9 @@ public partial class CosmosEngine : IDisposable
             _v.PosY[i] = ty;
             float moveCost = _config.Metabolism.MoveCost * _v.BodySpeed[i];
 
+            // Low fat = slightly faster movement (lean body, less mass to carry)
+            moveCost *= 1f + (_v.BodyFat[i] - 0.5f) * _config.Metabolism.FatSpeedBonus;
+
             // Slope penalty: exponential continuous cost, capped at 10x
             float slope = _v.Slope[tx, ty];
             moveCost *= MathF.Min(MathF.Exp(slope * _config.Metabolism.SlopeMoveExp), 10f);

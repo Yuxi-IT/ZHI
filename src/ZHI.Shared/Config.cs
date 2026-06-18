@@ -328,6 +328,8 @@ public sealed class MetabolismConfig
     public float StationaryNeighborHeat { get; set; } = 0.3f;
     public float SlopeMoveExp { get; set; } = 0.5f;    // moveCost *= exp(slope * k), continuous penalty
     public float VisionHeightBonus { get; set; } = 0.15f; // effective vision += height/255 * k
+    public float FatMetabolismMult { get; set; } = 0.5f;   // base decay *= (1 - fat * k), high fat = less decay
+    public float FatSpeedBonus { get; set; } = 0.3f;       // move cost *= (1 + (fat-0.5)*k), low fat = faster
 }
 
 public sealed class WindConfig
