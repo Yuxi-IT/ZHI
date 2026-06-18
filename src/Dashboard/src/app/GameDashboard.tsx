@@ -116,14 +116,16 @@ export function GameDashboard({ worldName, onStop }: Props) {
   }, [onStop]);
 
   const ToggleBtn = ({ on, label, activeClass, onToggle }: { on: boolean; label: string; activeClass: string; onToggle: () => void }) => (
-    <button
-      onClick={onToggle}
-      className={`px-1.5 py-0.5 text-[9px] rounded border transition-colors ${
+    <Button
+      variant={on ? 'secondary' : 'ghost'}
+      size="sm"
+      onPress={onToggle}
+      className={`text-[10px] min-w-0 h-auto px-1.5 py-0.5 rounded border transition-colors ${
         on ? activeClass : 'border-zhi-border text-zhi-muted hover:text-zhi-text'
       }`}
     >
       {label}
-    </button>
+    </Button>
   );
 
   return (
@@ -149,12 +151,12 @@ export function GameDashboard({ worldName, onStop }: Props) {
         <div className="flex-1 flex flex-col min-h-0 min-w-0">
           {/* Display toggles bar */}
           <div className="flex items-center gap-1.5 px-3 py-1 border-b border-zhi-border shrink-0 flex-wrap">
-            <span className="text-zhi-muted text-[9px]">{t('header.day')} {worldDay}</span>
+            <span className="text-zhi-muted text-[11px]">{t('header.day')} {worldDay}</span>
             <Separator orientation="vertical" className="h-3" />
-            <span className="text-zhi-text text-[9px]">{formatGameTime(timeOfDay)}</span>
-            <span className="text-[9px] font-semibold" style={{ color: tempColor(temperature) }}>{temperature.toFixed(1)}°C</span>
+            <span className="text-zhi-text text-[11px]">{formatGameTime(timeOfDay)}</span>
+            <span className="text-[11px] font-semibold" style={{ color: tempColor(temperature) }}>{temperature.toFixed(1)}°C</span>
             <Separator orientation="vertical" className="h-3" />
-            <span className="text-zhi-muted text-[9px]">{t('toggle.display')}</span>
+            <span className="text-zhi-muted text-[11px]">{t('toggle.display')}</span>
 
             <ToggleBtn on={showScent} label={t('toggle.scent')} activeClass="border-purple-600 text-purple-400 bg-purple-900/20" onToggle={() => setShowScent(v => !v)} />
             <ToggleBtn on={showFoodScent} label={t('toggle.foodScent')} activeClass="border-green-600 text-green-400 bg-green-900/20" onToggle={() => setShowFoodScent(v => !v)} />
@@ -171,17 +173,17 @@ export function GameDashboard({ worldName, onStop }: Props) {
             {stats && (
               <>
                 <Separator orientation="vertical" className="h-3" />
-                <span className="text-zhi-muted text-[9px]">ATK:{stats.attack_rate.toFixed(2)}/t</span>
+                <span className="text-zhi-muted text-[11px]">ATK:{stats.attack_rate.toFixed(2)}/t</span>
               </>
             )}
             {!loading && dbStats && (
               <>
                 <Separator orientation="vertical" className="h-3" />
-                <span className="text-[9px] text-zhi-muted">{t('header.avgLife')} {dbStats.avg_alive_seconds_recent_10.toFixed(0)}s</span>
-                <span className="text-[9px] text-zhi-muted">{t('header.night')} {((dbStats.night_death_rate ?? 0) * 100).toFixed(0)}%</span>
-                <span className="text-[9px] text-zhi-muted">{t('header.atk')} {dbStats.avg_attacks_per_life?.toFixed(1) ?? '0'}</span>
-                <span className="text-[9px] text-zhi-muted">{t('header.eat')} {dbStats.avg_eats_per_life?.toFixed(1) ?? '0'}</span>
-                <span className="text-[9px] text-zhi-muted">{t('header.sig')} {dbStats.avg_signals_per_life?.toFixed(1) ?? '0'}</span>
+                <span className="text-[11px] text-zhi-muted">{t('header.avgLife')} {dbStats.avg_alive_seconds_recent_10.toFixed(0)}s</span>
+                <span className="text-[11px] text-zhi-muted">{t('header.night')} {((dbStats.night_death_rate ?? 0) * 100).toFixed(0)}%</span>
+                <span className="text-[11px] text-zhi-muted">{t('header.atk')} {dbStats.avg_attacks_per_life?.toFixed(1) ?? '0'}</span>
+                <span className="text-[11px] text-zhi-muted">{t('header.eat')} {dbStats.avg_eats_per_life?.toFixed(1) ?? '0'}</span>
+                <span className="text-[11px] text-zhi-muted">{t('header.sig')} {dbStats.avg_signals_per_life?.toFixed(1) ?? '0'}</span>
               </>
             )}
           </div>
