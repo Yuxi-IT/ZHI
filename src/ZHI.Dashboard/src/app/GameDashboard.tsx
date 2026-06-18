@@ -49,7 +49,9 @@ export function GameDashboard({ worldName, onStop }: Props) {
   const [paused, setPaused] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [speed, setSpeed] = useState(1);
-  const resizeRef = useRef<{ startY: number; startH: number } | null>(null);
+  const [leftWidth, setLeftWidth] = useState(256);
+  const [rightWidth, setRightWidth] = useState(320);
+  const resizeRef = useRef<{ side: 'bottom' | 'left' | 'right'; startPos: number; startSize: number } | null>(null);
 
   const [showScent, setShowScent] = useState(true);
   const [showFoodScent, setShowFoodScent] = useState(true);
@@ -86,17 +88,35 @@ export function GameDashboard({ worldName, onStop }: Props) {
     }
   }, [agents, trackedAgent, trackNextGen]);
 
-  const onResizeStart = useCallback((e: React.MouseEvent) => {
+  const onResizeBottom = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    resizeRef.current = { startY: e.clientY, startH: bottomHeight };
+    resizeRef.current = { side: 'bottom', startPos: e.clientY, startSize: bottomHeight };
   }, [bottomHeight]);
+
+  const onResizeLeft = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    resizeRef.current = { side: 'left', startPos: e.clientX, startSize: leftWidth };
+  }, [leftWidth]);
+
+  const onResizeRight = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    resizeRef.current = { side: 'right', startPos: e.clientX, startSize: rightWidth };
+  }, [rightWidth]);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!resizeRef.current) return;
-      const dy = resizeRef.current.startY - e.clientY;
-      const newH = Math.max(80, Math.min(600, resizeRef.current.startH + dy));
-      setBottomHeight(newH);
+      const { side, startPos, startSize } = resizeRef.current;
+      if (side === 'bottom') {
+        const dy = startPos - e.clientY;
+        setBottomHeight(Math.max(80, Math.min(600, startSize + dy)));
+      } else if (side === 'left') {
+        const dx = e.clientX - startPos;
+        setLeftWidth(Math.max(180, Math.min(500, startSize + dx)));
+      } else if (side === 'right') {
+        const dx = startPos - e.clientX;
+        setRightWidth(Math.max(200, Math.min(500, startSize + dx)));
+      }
     };
     const onUp = () => { resizeRef.current = null; };
     window.addEventListener('mousemove', onMove);
@@ -158,8 +178,14 @@ export function GameDashboard({ worldName, onStop }: Props) {
       />
 
       <div className="flex-1 flex min-h-0">
-        <aside className="w-64 shrink-0 border-r border-zhi-border flex flex-col min-h-0">
-          <EventMonitor events={events} energySource={stats?.energy_source} onClear={clearEvents} />
+        <aside className="shrink-0 flex flex-col min-h-0 relative" style={{ width: leftWidth }}>
+          <div className="flex-1 min-h-0 border-r border-zhi-border">
+            <EventMonitor events={events} energySource={stats?.energy_source} onClear={clearEvents} />
+          </div>
+          <div
+            className="absolute top-0 -right-0.5 w-1.5 h-full cursor-col-resize hover:bg-zhi-muted/30 transition-colors z-10"
+            onMouseDown={onResizeLeft}
+          />
         </aside>
 
         <div className="flex-1 flex flex-col min-h-0 min-w-0">
@@ -202,7 +228,7 @@ export function GameDashboard({ worldName, onStop }: Props) {
             trackNextGen={trackNextGen} setTrackNextGen={setTrackNextGen}
           />
 
-          <div className="flex-1 min-h-0 border-r border-zhi-border">
+          <div className="flex-1 min-h-0">
             <WorldMap
               drawDataRef={drawDataRef}
               gridW={gridW}
@@ -224,7 +250,7 @@ export function GameDashboard({ worldName, onStop }: Props) {
           <div className="shrink-0 border-r border-zhi-border flex flex-col overflow-hidden" style={{ height: bottomHeight }}>
             <div
               className="h-1 shrink-0 bg-zhi-border hover:bg-zhi-muted cursor-ns-resize transition-colors"
-              onMouseDown={onResizeStart}
+              onMouseDown={onResizeBottom}
             />
             <div className="flex items-center gap-1 px-3 py-1 border-b border-zhi-border shrink-0">
               {(['log', 'charts'] as const).map(tab => (
@@ -244,14 +270,20 @@ export function GameDashboard({ worldName, onStop }: Props) {
           </div>
         </div>
 
-        <aside className="w-80 shrink-0 flex flex-col min-h-0">
-          <AgentCardsPanel
-            agents={agents}
-            trackedId={trackedAgent}
-            onTrack={setTrackedAgent}
-            terrain={terrain}
-            gridW={gridW}
+        <aside className="shrink-0 flex flex-col min-h-0 relative" style={{ width: rightWidth }}>
+          <div
+            className="absolute top-0 -left-0.5 w-1.5 h-full cursor-col-resize hover:bg-zhi-muted/30 transition-colors z-10"
+            onMouseDown={onResizeRight}
           />
+          <div className="flex-1 min-h-0 border-l border-zhi-border">
+            <AgentCardsPanel
+              agents={agents}
+              trackedId={trackedAgent}
+              onTrack={setTrackedAgent}
+              terrain={terrain}
+              gridW={gridW}
+            />
+          </div>
         </aside>
       </div>
     </div>

@@ -29,8 +29,8 @@ export function ControlBar({
 
   const cycleSpeed = () => {
     const idx = SPEEDS.indexOf(speed);
-    const next = (idx + 1) % SPEEDS.length;
-    onSpeedChange(SPEEDS[next]!);
+    const next = SPEEDS[(idx + 1) % SPEEDS.length];
+    if (next != null) onSpeedChange(next);
   };
 
   return (
