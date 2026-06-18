@@ -46,7 +46,9 @@ public partial class WebServer
                 body_vision = v.BodyVision[i],
                 body_fat = v.BodyFat[i],
                 body_cold_resist = v.BodyColdResist[i],
-                body_heat_resist = v.BodyHeatResist[i]
+                body_heat_resist = v.BodyHeatResist[i],
+                is_pregnant = v.IsPregnant[i],
+                pregnancy_ticks = v.PregnancyTicks[i]
             });
         }
 

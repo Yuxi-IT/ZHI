@@ -41,6 +41,8 @@ export interface AgentSnapshot {
   body_fat: number
   body_cold_resist: number
   body_heat_resist: number
+  is_pregnant: boolean
+  pregnancy_ticks: number
 }
 
 export interface FoodTile {

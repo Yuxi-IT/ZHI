@@ -360,27 +360,24 @@ public partial class CosmosEngine : IDisposable
                 _gruHidden!.zero_();
         }
 
-        // 13. Reproduction (asexual: Existence>threshold + Age>threshold → split)
-        // Runs after PPO store so new agents start fresh next tick
+        // 13. Process pregnancies — decrement counters, birth when complete
+        ProcessPregnancies();
+
+        // 13b. Reproduction (asexual: start pregnancy when conditions met)
         int preReproCount = n;
         int aliveNow = GetAliveCount();
         for (int i = 0; i < preReproCount; i++)
         {
             if (!_v.Alive[i]) continue;
+            if (_v.IsPregnant[i]) continue;
             if (_v.Energy[i] >= _config.Reproduce.MinEnergy
                 && _v.TickCount[i] >= _config.Reproduce.MinAge
                 && _v.N < _config.Cosmos.AgentCount
                 && (_globalTick - _v.LastReproduceTick[i]) >= _config.Reproduce.Cooldown)
             {
-                // Population pressure: reduce reproduction chance when overcrowded
                 if (aliveNow > 128 && _rng.NextDouble() > 0.2) continue;
-                int childIdx = ReproduceAgent(i);
-                if (childIdx >= 0)
-                {
-                    aliveNow++;
-                    _tickEvents.Add(new WorldEvent { Type = "reproduce", AgentId = i, ChildId = childIdx, Tick = _globalTick });
-                    _v.LastReproduceTick[i] = _globalTick;
-                }
+                ReproduceAgent(i);
+                _tickEvents.Add(new WorldEvent { Type = "reproduce", AgentId = i, ChildId = -1, Tick = _globalTick });
             }
         }
 

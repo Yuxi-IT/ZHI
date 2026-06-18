@@ -63,6 +63,8 @@ public partial class VectorizedState : IDisposable
     public int[] RespawnCount;
     public int[] TicksSinceLastMove;
     public bool[] IsStationary;
+    public bool[] IsPregnant;
+    public int[] PregnancyTicks;
 
     // Body parameters (derived from Genome, heritable)
     public Genome[] Genomes;
@@ -145,6 +147,8 @@ public partial class VectorizedState : IDisposable
         RespawnCount = new int[n];
         TicksSinceLastMove = new int[n];
         IsStationary = new bool[n];
+        IsPregnant = new bool[n];
+        PregnancyTicks = new int[n];
 
         Genomes = new Genome[n];
         BodySize = new float[n];
@@ -663,6 +667,8 @@ public partial class VectorizedState : IDisposable
         BodyTemperature = Resize(BodyTemperature, newN); BodyTemperature[newN - 1] = 20f;
         TicksSinceLastMove = Resize(TicksSinceLastMove, newN);
         IsStationary = Resize(IsStationary, newN);
+        IsPregnant = Resize(IsPregnant, newN);
+        PregnancyTicks = Resize(PregnancyTicks, newN);
         RespawnCount = Resize(RespawnCount, newN);
 
         Genomes = Resize(Genomes, newN);

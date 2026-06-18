@@ -144,6 +144,10 @@ public sealed class ReproduceConfig
     public float ChildStart { get; set; } = 40f;
     public float MutationScale { get; set; } = 0.3f;
     public int Cooldown { get; set; } = 500;
+    public int PregnancyDuration { get; set; } = 30;  // ticks before child is born
+    public float PregnancySpeedPenalty { get; set; } = 0.7f; // move speed multiplier during pregnancy
+    public float BirthRisk { get; set; } = 0.05f;     // chance of death if energy < ChildStart at birth
+    public float PregnancyDamageMult { get; set; } = 1.3f; // damage multiplier when attacked while pregnant
 }
 
 public sealed class RiverConfig

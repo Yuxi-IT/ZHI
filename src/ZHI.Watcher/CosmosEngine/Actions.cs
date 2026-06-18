@@ -106,6 +106,10 @@ public partial class CosmosEngine : IDisposable
             // Low fat = slightly faster movement (lean body, less mass to carry)
             moveCost *= 1f + (_v.BodyFat[i] - 0.5f) * _config.Metabolism.FatSpeedBonus;
 
+            // Pregnancy reduces speed
+            if (_v.IsPregnant[i])
+                moveCost /= _config.Reproduce.PregnancySpeedPenalty;
+
             // Slope penalty: exponential continuous cost, capped at 10x
             float slope = _v.Slope[tx, ty];
             moveCost *= MathF.Min(MathF.Exp(slope * _config.Metabolism.SlopeMoveExp), 10f);

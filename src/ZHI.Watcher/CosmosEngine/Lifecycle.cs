@@ -122,58 +122,83 @@ public partial class CosmosEngine
 
     private int ReproduceAgent(int parentIdx)
     {
-        // Find adjacent empty cell
-        int px = _v.PosX[parentIdx];
-        int py = _v.PosY[parentIdx];
-        int W = ToolDefinitions.GridWidth;
-        int H = ToolDefinitions.GridHeight;
-
-        int cx = px, cy = py;
-        bool found = false;
-        for (int attempt = 0; attempt < 8; attempt++)
-        {
-            int dx = _rng.Next(-1, 2);
-            int dy = _rng.Next(-1, 2);
-            if (dx == 0 && dy == 0) continue;
-            int nx = px + dx;
-            int ny = py + dy;
-            if (nx >= 0 && nx < W && ny >= 0 && ny < H
-                && _v.GetCellOccupancy(nx, ny) < 2)
-            {
-                cx = nx; cy = ny; found = true; break;
-            }
-        }
-
-        if (!found) return -1; // No empty adjacent cell
-
-        // Parent pays cost
+        // Parent pays energy cost and begins pregnancy
         _v.Energy[parentIdx] -= _config.Reproduce.ParentCost;
+        _v.IsPregnant[parentIdx] = true;
+        _v.PregnancyTicks[parentIdx] = _config.Reproduce.PregnancyDuration;
+        _v.LastReproduceTick[parentIdx] = _globalTick;
+        Log($"[Reproduce] agent {parentIdx} pregnant ({_v.PregnancyTicks[parentIdx]} tick gestation)");
+        return -1; // child not born yet
+    }
 
-        // Create child with mutated brain and genome
-        int childIdx = _v.AddAgent(cx, cy, _config.Reproduce.ChildStart);
+    private void ProcessPregnancies()
+    {
+        int n = _v.N;
+        for (int i = 0; i < n; i++)
+        {
+            if (!_v.Alive[i] || !_v.IsPregnant[i]) continue;
+            _v.PregnancyTicks[i]--;
 
-        // Inherit and mutate parent's genome
-        var parentGenome = _v.Genomes[parentIdx] ?? Genome.Random(_rng, _config.Genome.MutationStd);
-        var childGenome = parentGenome.Mutate(_rng, _config.Genome.MutationStd);
-        _v.Genomes[childIdx] = childGenome;
-        _v.BodySize[childIdx] = childGenome.Size;
-        _v.BodySpeed[childIdx] = childGenome.Speed;
-        _v.BodyStrength[childIdx] = childGenome.Strength;
-        _v.BodyVision[childIdx] = childGenome.VisionRange;
-        _v.BodyFat[childIdx] = childGenome.FatStorage;
-        _v.BodyColdResist[childIdx] = childGenome.ColdResistance;
-        _v.BodyHeatResist[childIdx] = childGenome.HeatResistance;
+            if (_v.PregnancyTicks[i] > 0) continue;
 
-        // Copy and mutate parent's weights
-        byte[] parentWeights = _agentWeights[parentIdx];
-        byte[] childWeights = MutateChild(parentWeights);
+            // Gestation complete — find adjacent empty cell for birth
+            _v.IsPregnant[i] = false;
+            int px = _v.PosX[i], py = _v.PosY[i];
+            int W = ToolDefinitions.GridWidth, H = ToolDefinitions.GridHeight;
 
-        // Ensure agentWeights list is large enough
-        while (_agentWeights.Count <= childIdx)
-            _agentWeights.Add(childWeights);
+            int cx = px, cy = py;
+            bool found = false;
+            for (int attempt = 0; attempt < 8; attempt++)
+            {
+                int dx = _rng.Next(-1, 2);
+                int dy = _rng.Next(-1, 2);
+                if (dx == 0 && dy == 0) continue;
+                int nx = px + dx, ny = py + dy;
+                if (nx >= 0 && nx < W && ny >= 0 && ny < H
+                    && _v.GetCellOccupancy(nx, ny) < 2)
+                { cx = nx; cy = ny; found = true; break; }
+            }
 
-        Log($"[Reproduce] agent {parentIdx} → child {childIdx} at ({cx},{cy})");
-        return childIdx;
+            if (!found)
+            {
+                // No space — retry next tick
+                _v.IsPregnant[i] = true;
+                _v.PregnancyTicks[i] = 1;
+                continue;
+            }
+
+            // Birth risk: low energy at birth may cause death
+            if (_v.Energy[i] < _config.Reproduce.ChildStart
+                && _rng.NextDouble() < _config.Reproduce.BirthRisk)
+            {
+                _v.Energy[i] = 0f;
+                _tickEvents.Add(new WorldEvent { Type = "death", AgentId = i, Tick = _globalTick });
+                Log($"[Reproduce] agent {i} died in childbirth (energy={_v.Energy[i]:F1})");
+                continue;
+            }
+
+            // Create child
+            int childIdx = _v.AddAgent(cx, cy, _config.Reproduce.ChildStart);
+
+            var parentGenome = _v.Genomes[i] ?? Genome.Random(_rng, _config.Genome.MutationStd);
+            var childGenome = parentGenome.Mutate(_rng, _config.Genome.MutationStd);
+            _v.Genomes[childIdx] = childGenome;
+            _v.BodySize[childIdx] = childGenome.Size;
+            _v.BodySpeed[childIdx] = childGenome.Speed;
+            _v.BodyStrength[childIdx] = childGenome.Strength;
+            _v.BodyVision[childIdx] = childGenome.VisionRange;
+            _v.BodyFat[childIdx] = childGenome.FatStorage;
+            _v.BodyColdResist[childIdx] = childGenome.ColdResistance;
+            _v.BodyHeatResist[childIdx] = childGenome.HeatResistance;
+
+            byte[] parentWeights = _agentWeights[i];
+            byte[] childWeights = MutateChild(parentWeights);
+            while (_agentWeights.Count <= childIdx)
+                _agentWeights.Add(childWeights);
+
+            _tickEvents.Add(new WorldEvent { Type = "reproduce", AgentId = i, ChildId = childIdx, Tick = _globalTick });
+            Log($"[Reproduce] agent {i} gave birth → child {childIdx} at ({cx},{cy})");
+        }
     }
 
     private byte[] MutateChild(byte[] parentWeights)

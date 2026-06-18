@@ -39,6 +39,8 @@ public partial class CosmosEngine
             if (_v.IsEating[bestTarget]) damage *= 1.1f;
             if (_v.IsStationary[bestTarget]) damage *= _config.Metabolism.StationaryDamageMult;
             _v.Stress[bestTarget] += _config.Combat.StressPerAttack;
+            if (_v.IsPregnant[bestTarget])
+                damage *= _config.Reproduce.PregnancyDamageMult;
             _v.Energy[bestTarget] -= damage;
             _v.LastActionNameMirror[attacker] = $"attack#{bestTarget}";
             _tickEvents.Add(new WorldEvent
