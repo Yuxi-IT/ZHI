@@ -3,23 +3,36 @@
 
 @theme {
   --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
-  --color-zhi-bg: #0a0a0a;
-  --color-zhi-panel: #111111;
-  --color-zhi-border: #1e1e1e;
-  --color-zhi-muted: #525252;
-  --color-zhi-text: #d4d4d4;
-  --color-zhi-accent: #a78bfa;
+  --color-zhi-bg: var(--zhi-bg);
+  --color-zhi-panel: var(--zhi-panel);
+  --color-zhi-border: var(--zhi-border);
+  --color-zhi-muted: var(--zhi-muted);
+  --color-zhi-text: var(--zhi-text);
+  --color-zhi-accent: var(--zhi-accent);
 }
 
 :root {
-  color: var(--color-zhi-text);
-  background: var(--color-zhi-bg);
-  font-family: var(--font-mono);
+  --zhi-bg: #ffffff;
+  --zhi-panel: #f5f5f5;
+  --zhi-border: #e5e5e5;
+  --zhi-muted: #737373;
+  --zhi-text: #171717;
+  --zhi-accent: #7c3aed;
+}
+
+.dark {
+  --zhi-bg: #0a0a0a;
+  --zhi-panel: #111111;
+  --zhi-border: #1e1e1e;
+  --zhi-muted: #525252;
+  --zhi-text: #d4d4d4;
+  --zhi-accent: #a78bfa;
 }
 
 body {
   margin: 0;
   min-width: 320px;
+  font-family: var(--font-mono);
 }
 
 #root {
@@ -32,6 +45,6 @@ button, input, textarea, select {
 
 /* Custom scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--color-zhi-bg); }
-::-webkit-scrollbar-thumb { background: var(--color-zhi-border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--color-zhi-muted); }
+::-webkit-scrollbar-track { background: var(--zhi-bg); }
+::-webkit-scrollbar-thumb { background: var(--zhi-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--zhi-muted); }

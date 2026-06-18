@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Button } from '@heroui/react';
+import { Button, Modal, useOverlayState, Card, TextField, Label, Input, Form, Spinner } from '@heroui/react';
+import { EmptyState } from '../components/empty-state';
+import { ThemeSwitcher } from '../components/ThemeSwitcher';
+import { Plus, TrashBin, CircleCheckFill, CircleXmarkFill, CircleFill } from '@gravity-ui/icons';
 import type { WorldMeta } from '../types';
 
 interface Props {
@@ -9,11 +12,12 @@ interface Props {
 export function LaunchPage({ onWorldStart }: Props) {
   const [worlds, setWorlds] = useState<WorldMeta[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState('');
   const [createSeed, setCreateSeed] = useState('');
   const [createDesc, setCreateDesc] = useState('');
   const [creating, setCreating] = useState(false);
+
+  const createModal = useOverlayState({ defaultOpen: false });
 
   const loadWorlds = useCallback(async () => {
     try {
@@ -61,7 +65,7 @@ export function LaunchPage({ onWorldStart }: Props) {
         alert(err.error || 'Failed to create world');
         return;
       }
-      setShowCreate(false);
+      createModal.close();
       setCreateName('');
       setCreateSeed('');
       setCreateDesc('');
@@ -91,15 +95,21 @@ export function LaunchPage({ onWorldStart }: Props) {
       {/* Header */}
       <header className="border-b border-zhi-border px-6 py-5">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-zhi-text tracking-wide">ZHI</h1>
-            <p className="text-xs text-zhi-muted mt-0.5">Zero-Hypothesis Intelligence Ecosystem</p>
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-lg font-semibold text-zhi-text tracking-wide">ZHI</h1>
+              <p className="text-xs text-zhi-muted mt-0.5">Zero-Hypothesis Intelligence Ecosystem</p>
+            </div>
+            <ThemeSwitcher />
           </div>
           <Button
-            className="bg-zhi-accent text-white text-xs font-medium px-4 py-1.5 rounded-md hover:opacity-90 transition-opacity"
-            onPress={() => setShowCreate(true)}
+            variant="primary"
+            size="sm"
+            className="bg-zhi-accent text-white"
+            onPress={() => createModal.open()}
           >
-            + New World
+            <Plus className="size-3.5" />
+            New World
           </Button>
         </div>
       </header>
@@ -107,130 +117,176 @@ export function LaunchPage({ onWorldStart }: Props) {
       {/* World list */}
       <main className="flex-1 px-6 py-8 max-w-5xl mx-auto w-full">
         {loading ? (
-          <p className="text-zhi-muted text-xs animate-pulse text-center py-16">Loading worlds...</p>
+          <div className="flex items-center justify-center py-16 gap-2">
+            <Spinner size="sm" />
+            <span className="text-zhi-muted text-xs animate-pulse">Loading worlds...</span>
+          </div>
         ) : worlds.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-zhi-muted text-sm mb-3">No worlds yet</p>
-            <p className="text-zhi-muted text-xs">
-              Create a new world to begin the simulation.
-            </p>
+          <div className="flex items-center justify-center py-16">
+            <EmptyState>
+              <EmptyState.Title>No worlds yet</EmptyState.Title>
+              <EmptyState.Description>Create a new world to begin the simulation.</EmptyState.Description>
+              <EmptyState.Content>
+                <Button variant="outline" size="sm" onPress={() => createModal.open()}>
+                  <Plus className="size-3.5" />
+                  Create World
+                </Button>
+              </EmptyState.Content>
+            </EmptyState>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {worlds.map((w) => (
-              <div
+              <Card
                 key={w.name}
-                className="bg-zhi-panel border border-zhi-border rounded-lg p-4 hover:border-zhi-muted transition-colors cursor-pointer group"
+                variant="secondary"
+                className={`bg-zhi-panel border cursor-pointer transition-colors hover:border-zhi-muted ${
+                  w.status === 'running' ? 'border-green-700/50' :
+                  w.status === 'crashed' ? 'border-red-700/50' :
+                  'border-zhi-border'
+                }`}
                 onClick={() => w.status !== 'running' && handleStart(w.name)}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-zhi-text truncate">{w.name}</h3>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                    w.status === 'running' ? 'bg-green-900/40 text-green-400' :
-                    w.status === 'crashed' ? 'bg-red-900/40 text-red-400' :
-                    'bg-zhi-border text-zhi-muted'
-                  }`}>
-                    {w.status}
-                  </span>
-                </div>
+                <Card.Header>
+                  <div className="flex items-center justify-between w-full">
+                    <Card.Title className="text-sm text-zhi-text truncate">{w.name}</Card.Title>
+                    <StatusBadge status={w.status} />
+                  </div>
+                </Card.Header>
 
-                <div className="text-[10px] text-zhi-muted space-y-0.5 mb-2">
-                  <div className="flex justify-between">
-                    <span>Gen</span><span className="text-zhi-text">{w.total_generations}</span>
+                <Card.Content>
+                  <div className="text-[10px] text-zhi-muted space-y-1">
+                    <Row label="Gen" value={w.total_generations} />
+                    <Row label="Deaths" value={w.total_deaths} />
+                    {w.seed != null && <Row label="Seed" value={w.seed} mono />}
                   </div>
-                  <div className="flex justify-between">
-                    <span>Deaths</span><span className="text-zhi-text">{w.total_deaths}</span>
-                  </div>
-                  {w.seed != null && (
-                    <div className="flex justify-between">
-                      <span>Seed</span><span className="text-zhi-text font-mono">{w.seed}</span>
+                </Card.Content>
+
+                <Card.Footer>
+                  <div className="flex items-center justify-between w-full">
+                    <span className="text-[10px] text-zhi-muted">
+                      {formatDate(w.created_at)}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      {w.status !== 'running' && (
+                        <span className="text-[10px] text-zhi-accent font-medium">Start</span>
+                      )}
+                      <Button
+                        isIconOnly
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-400 hover:text-red-300 min-w-0 w-5 h-5"
+                        aria-label={`Delete ${w.name}`}
+                        onPress={() => { handleDelete(w.name); }}
+                      >
+                        <TrashBin className="size-3" />
+                      </Button>
                     </div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between mt-3 pt-2 border-t border-zhi-border">
-                  <span className="text-[10px] text-zhi-muted">
-                    {formatDate(w.created_at)}
-                  </span>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {w.status !== 'running' && (
-                      <span className="text-[10px] text-zhi-accent font-medium">Start →</span>
-                    )}
-                    <button
-                      className="text-[10px] text-red-400 hover:text-red-300 ml-1.5"
-                      onClick={(e) => { e.stopPropagation(); handleDelete(w.name); }}
-                    >
-                      Del
-                    </button>
                   </div>
-                </div>
-              </div>
+                </Card.Footer>
+              </Card>
             ))}
           </div>
         )}
       </main>
 
-      {/* Create modal */}
-      {showCreate && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowCreate(false)}>
-          <div className="bg-zhi-panel border border-zhi-border rounded-lg p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-sm font-semibold text-zhi-text mb-4">New World</h2>
+      {/* Create Modal */}
+      <Modal>
+        <Modal.Backdrop
+          variant="opaque"
+          isDismissable
+          isOpen={createModal.isOpen}
+          onOpenChange={(open: boolean) => {
+            if (open) createModal.open();
+            else createModal.close();
+          }}
+        >
+          <Modal.Container placement="center" size="sm">
+            <Modal.Dialog>
+              <Modal.CloseTrigger />
+              <Modal.Header>
+                <Modal.Heading className="text-zhi-text text-sm">New World</Modal.Heading>
+              </Modal.Header>
+              <Modal.Body>
+                <Form className="space-y-4" onSubmit={(e: React.FormEvent) => { e.preventDefault(); handleCreate(); }}>
+                  <TextField isRequired>
+                    <Label className="text-[10px] text-zhi-muted">Name</Label>
+                    <Input
+                      className="bg-zhi-bg border border-zhi-border rounded px-2.5 py-1.5 text-xs text-zhi-text"
+                      placeholder="my-world"
+                      value={createName}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCreateName(e.target.value)}
+                      autoFocus
+                    />
+                  </TextField>
 
-            <div className="space-y-3">
-              <div>
-                <label className="text-[10px] text-zhi-muted block mb-1">Name</label>
-                <input
-                  type="text"
-                  className="w-full bg-zhi-bg border border-zhi-border rounded px-2.5 py-1.5 text-xs text-zhi-text outline-none focus:border-zhi-accent"
-                  placeholder="my-world"
-                  value={createName}
-                  onChange={(e) => setCreateName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                  autoFocus
-                />
-              </div>
+                  <TextField>
+                    <Label className="text-[10px] text-zhi-muted">Seed (optional, leave empty for random)</Label>
+                    <Input
+                      type="number"
+                      className="bg-zhi-bg border border-zhi-border rounded px-2.5 py-1.5 text-xs text-zhi-text font-mono"
+                      placeholder="42"
+                      value={createSeed}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCreateSeed(e.target.value)}
+                    />
+                  </TextField>
 
-              <div>
-                <label className="text-[10px] text-zhi-muted block mb-1">Seed (optional, leave empty for random)</label>
-                <input
-                  type="number"
-                  className="w-full bg-zhi-bg border border-zhi-border rounded px-2.5 py-1.5 text-xs text-zhi-text outline-none focus:border-zhi-accent font-mono"
-                  placeholder="42"
-                  value={createSeed}
-                  onChange={(e) => setCreateSeed(e.target.value)}
-                />
-              </div>
+                  <TextField>
+                    <Label className="text-[10px] text-zhi-muted">Description (optional)</Label>
+                    <Input
+                      className="bg-zhi-bg border border-zhi-border rounded px-2.5 py-1.5 text-xs text-zhi-text"
+                      placeholder="Testing hypothermia..."
+                      value={createDesc}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCreateDesc(e.target.value)}
+                    />
+                  </TextField>
+                </Form>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-zhi-muted"
+                  onPress={() => createModal.close()}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="bg-zhi-accent text-white disabled:opacity-50"
+                  isDisabled={!createName.trim() || creating}
+                  onPress={handleCreate}
+                >
+                  {creating ? 'Creating...' : 'Create & Start'}
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
+    </div>
+  );
+}
 
-              <div>
-                <label className="text-[10px] text-zhi-muted block mb-1">Description (optional)</label>
-                <input
-                  type="text"
-                  className="w-full bg-zhi-bg border border-zhi-border rounded px-2.5 py-1.5 text-xs text-zhi-text outline-none focus:border-zhi-accent"
-                  placeholder="Testing hypothermia..."
-                  value={createDesc}
-                  onChange={(e) => setCreateDesc(e.target.value)}
-                />
-              </div>
-            </div>
+function StatusBadge({ status }: { status: string }) {
+  const Icon = status === 'running' ? CircleCheckFill :
+    status === 'crashed' ? CircleXmarkFill : CircleFill;
+  const color = status === 'running' ? 'text-green-400' :
+    status === 'crashed' ? 'text-red-400' : 'text-zhi-muted';
+  return (
+    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium inline-flex items-center gap-1 ${color}`}>
+      <Icon className="size-2" />
+      {status}
+    </span>
+  );
+}
 
-            <div className="flex justify-end gap-2 mt-5">
-              <Button
-                className="text-xs text-zhi-muted px-3 py-1 rounded bg-zhi-border hover:bg-zhi-muted transition-colors"
-                onPress={() => setShowCreate(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="text-xs bg-zhi-accent text-white px-3 py-1 rounded hover:opacity-90 transition-opacity disabled:opacity-50"
-                onPress={handleCreate}
-                isDisabled={!createName.trim() || creating}
-              >
-                {creating ? 'Creating...' : 'Create & Start'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+function Row({ label, value, mono }: { label: string; value: string | number; mono?: boolean }) {
+  return (
+    <div className="flex justify-between">
+      <span>{label}</span>
+      <span className={`text-zhi-text ${mono ? 'font-mono' : ''}`}>{value}</span>
     </div>
   );
 }

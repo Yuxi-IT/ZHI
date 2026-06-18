@@ -1,4 +1,6 @@
-import { Button } from '@heroui/react';
+import { Button, Separator } from '@heroui/react';
+import { Pause, Play, Stop } from '@gravity-ui/icons';
+import { ThemeSwitcher } from '../components/ThemeSwitcher';
 
 interface Props {
   worldName: string;
@@ -18,39 +20,56 @@ export function ControlBar({
   connected, onPause, onStop, paused, stopping,
 }: Props) {
   return (
-    <header className="flex items-center gap-4 px-5 py-2 border-b border-zhi-border shrink-0 bg-zhi-panel">
+    <header className="flex items-center gap-3 px-5 py-2 border-b border-zhi-border shrink-0 bg-zhi-panel">
       <div className="flex items-center gap-2">
         <h1 className="text-sm font-normal tracking-[0.2em] text-zhi-text">ZHI</h1>
-        <span className="text-zhi-muted text-xs">|</span>
+        <Separator orientation="vertical" className="h-3" />
         <span className="text-xs text-zhi-text font-medium truncate max-w-40">{worldName}</span>
       </div>
 
-      <div className="flex items-center gap-0.5">
+      <div className="flex items-center gap-1.5">
         <Button
-          className="text-[10px] bg-zhi-border text-zhi-muted hover:text-zhi-text px-2 py-0.5 min-w-0 h-auto rounded border-0"
+          variant="ghost"
+          size="sm"
+          className="text-[10px] text-zhi-muted hover:text-zhi-text min-w-0 h-auto px-2 py-0.5"
           onPress={onPause}
           isDisabled={stopping}
         >
-          {paused ? '▶ Resume' : '⏸ Pause'}
+          {paused ? <Play className="size-3" /> : <Pause className="size-3" />}
+          {paused ? 'Resume' : 'Pause'}
         </Button>
         <Button
-          className="text-[10px] bg-red-900/30 text-red-400 hover:text-red-300 px-2 py-0.5 min-w-0 h-auto rounded border-0"
+          variant="ghost"
+          size="sm"
+          className="text-[10px] text-red-400 hover:text-red-300 min-w-0 h-auto px-2 py-0.5"
           onPress={onStop}
           isDisabled={stopping}
         >
-          {stopping ? 'Stopping...' : '⏹ Stop'}
+          <Stop className="size-3" />
+          {stopping ? 'Stopping...' : 'Stop'}
         </Button>
       </div>
 
       <div className="flex items-center gap-2 ml-auto text-[10px] text-zhi-muted">
+        <ThemeSwitcher />
+        <Separator orientation="vertical" className="h-3" />
         <span>Gen {generation}</span>
-        <span className="text-zhi-border">|</span>
+        <Separator orientation="vertical" className="h-3" />
         <span>Deaths {totalDeaths}</span>
-        <span className="text-zhi-border">|</span>
+        <Separator orientation="vertical" className="h-3" />
         <span>Alive {aliveCount}/{agentCount}</span>
-        <span className="text-zhi-border">|</span>
-        <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
-        <span>{connected ? 'live' : 'off'}</span>
+        <Separator orientation="vertical" className="h-3" />
+        {connected ? (
+          <span className="inline-flex items-center gap-1 text-green-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+            live
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-red-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+            off
+          </span>
+        )}
       </div>
     </header>
   );

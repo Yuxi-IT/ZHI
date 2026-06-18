@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Button, Separator } from '@heroui/react';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useLogSocket } from '../hooks/useLogSocket';
 import { useStats } from '../hooks/useStats';
@@ -114,6 +115,17 @@ export function GameDashboard({ worldName, onStop }: Props) {
     }
   }, [onStop]);
 
+  const ToggleBtn = ({ on, label, activeClass, onToggle }: { on: boolean; label: string; activeClass: string; onToggle: () => void }) => (
+    <button
+      onClick={onToggle}
+      className={`px-1.5 py-0.5 text-[9px] rounded border transition-colors ${
+        on ? activeClass : 'border-zhi-border text-zhi-muted hover:text-zhi-text'
+      }`}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <div className="h-screen flex flex-col bg-zhi-bg text-zhi-text font-mono text-xs overflow-hidden">
       <ControlBar
@@ -129,7 +141,6 @@ export function GameDashboard({ worldName, onStop }: Props) {
         stopping={stopping}
       />
 
-      {/* Main */}
       <div className="flex-1 flex min-h-0">
         <aside className="w-64 shrink-0 border-r border-zhi-border flex flex-col min-h-0">
           <EventMonitor events={events} energySource={stats?.energy_source} onClear={clearEvents} />
@@ -137,53 +148,40 @@ export function GameDashboard({ worldName, onStop }: Props) {
 
         <div className="flex-1 flex flex-col min-h-0 min-w-0">
           {/* Display toggles bar */}
-          <div className="flex items-center gap-1 px-3 py-1 border-b border-zhi-border shrink-0">
+          <div className="flex items-center gap-1.5 px-3 py-1 border-b border-zhi-border shrink-0 flex-wrap">
             <span className="text-zhi-muted text-[9px]">{t('header.day')} {worldDay}</span>
-            <span className="text-zhi-border text-[9px]">|</span>
+            <Separator orientation="vertical" className="h-3" />
             <span className="text-zhi-text text-[9px]">{formatGameTime(timeOfDay)}</span>
             <span className="text-[9px] font-semibold" style={{ color: tempColor(temperature) }}>{temperature.toFixed(1)}°C</span>
-            <span className="text-zhi-border text-[9px] mx-1">|</span>
-            <span className="text-zhi-muted text-[9px] mr-1">{t('toggle.display')}</span>
-            <button onClick={() => setShowScent(v => !v)} className={`px-1.5 py-0.5 text-[9px] rounded border ${showScent ? 'border-purple-600 text-purple-400 bg-purple-900/20' : 'border-zhi-border text-zhi-muted hover:text-zhi-text'}`}>{t('toggle.scent')}</button>
-            <button onClick={() => setShowFoodScent(v => !v)} className={`px-1.5 py-0.5 text-[9px] rounded border ${showFoodScent ? 'border-green-600 text-green-400 bg-green-900/20' : 'border-zhi-border text-zhi-muted hover:text-zhi-text'}`}>{t('toggle.foodScent')}</button>
-            <button onClick={() => setShowDirection(v => !v)} className={`px-1.5 py-0.5 text-[9px] rounded border ${showDirection ? 'border-yellow-600 text-yellow-400 bg-yellow-900/20' : 'border-zhi-border text-zhi-muted hover:text-zhi-text'}`}>{t('toggle.direction')}</button>
-            <button onClick={() => setShowVision(v => !v)} className={`px-1.5 py-0.5 text-[9px] rounded border ${showVision ? 'border-purple-600 text-purple-400 bg-purple-900/20' : 'border-zhi-border text-zhi-muted hover:text-zhi-text'}`}>{t('toggle.vision')}</button>
-            <button onClick={() => setShowSignal(v => !v)} className={`px-1.5 py-0.5 text-[9px] rounded border ${showSignal ? 'border-yellow-600 text-yellow-400 bg-yellow-900/20' : 'border-zhi-border text-zhi-muted hover:text-zhi-text'}`}>{t('toggle.signal')}</button>
-            <button onClick={() => setShowTemp(v => !v)} className={`px-1.5 py-0.5 text-[9px] rounded border ${showTemp ? 'border-orange-600 text-orange-400 bg-orange-900/20' : 'border-zhi-border text-zhi-muted hover:text-zhi-text'}`}>{t('toggle.temp')}</button>
-            <button onClick={() => setShowTerrain(v => !v)} className={`px-1.5 py-0.5 text-[9px] rounded border ${showTerrain ? 'border-amber-600 text-amber-400 bg-amber-900/20' : 'border-zhi-border text-zhi-muted hover:text-zhi-text'}`}>{t('toggle.terrain')}</button>
-            <button onClick={() => setShowFlow(v => !v)} className={`px-1.5 py-0.5 text-[9px] rounded border ${showFlow ? 'border-sky-600 text-sky-400 bg-sky-900/20' : 'border-zhi-border text-zhi-muted hover:text-zhi-text'}`}>{t('toggle.flow')}</button>
-            <span className="text-zhi-border text-[9px] mx-1">|</span>
-            <button
-              onClick={() => setTrackNextGen(v => !v)}
-              className={`px-1.5 py-0.5 text-[9px] rounded border ${trackNextGen ? 'border-cyan-600 text-cyan-400 bg-cyan-900/20' : 'border-zhi-border text-zhi-muted hover:text-zhi-text'}`}
-              title={t('toggle.trackRebirthTitle')}
-            >
-              {t('toggle.trackRebirth')}
-            </button>
+            <Separator orientation="vertical" className="h-3" />
+            <span className="text-zhi-muted text-[9px]">{t('toggle.display')}</span>
+
+            <ToggleBtn on={showScent} label={t('toggle.scent')} activeClass="border-purple-600 text-purple-400 bg-purple-900/20" onToggle={() => setShowScent(v => !v)} />
+            <ToggleBtn on={showFoodScent} label={t('toggle.foodScent')} activeClass="border-green-600 text-green-400 bg-green-900/20" onToggle={() => setShowFoodScent(v => !v)} />
+            <ToggleBtn on={showDirection} label={t('toggle.direction')} activeClass="border-yellow-600 text-yellow-400 bg-yellow-900/20" onToggle={() => setShowDirection(v => !v)} />
+            <ToggleBtn on={showVision} label={t('toggle.vision')} activeClass="border-purple-600 text-purple-400 bg-purple-900/20" onToggle={() => setShowVision(v => !v)} />
+            <ToggleBtn on={showSignal} label={t('toggle.signal')} activeClass="border-yellow-600 text-yellow-400 bg-yellow-900/20" onToggle={() => setShowSignal(v => !v)} />
+            <ToggleBtn on={showTemp} label={t('toggle.temp')} activeClass="border-orange-600 text-orange-400 bg-orange-900/20" onToggle={() => setShowTemp(v => !v)} />
+            <ToggleBtn on={showTerrain} label={t('toggle.terrain')} activeClass="border-amber-600 text-amber-400 bg-amber-900/20" onToggle={() => setShowTerrain(v => !v)} />
+            <ToggleBtn on={showFlow} label={t('toggle.flow')} activeClass="border-sky-600 text-sky-400 bg-sky-900/20" onToggle={() => setShowFlow(v => !v)} />
+
+            <Separator orientation="vertical" className="h-3" />
+            <ToggleBtn on={trackNextGen} label={t('toggle.trackRebirth')} activeClass="border-cyan-600 text-cyan-400 bg-cyan-900/20" onToggle={() => setTrackNextGen(v => !v)} />
+
             {stats && (
               <>
-                <span className="text-zhi-border text-[9px] ml-2">|</span>
+                <Separator orientation="vertical" className="h-3" />
                 <span className="text-zhi-muted text-[9px]">ATK:{stats.attack_rate.toFixed(2)}/t</span>
               </>
             )}
             {!loading && dbStats && (
               <>
-                <span className="text-zhi-border text-[9px]">|</span>
-                <span className="text-[9px] text-zhi-muted">
-                  {t('header.avgLife')} {dbStats.avg_alive_seconds_recent_10.toFixed(0)}s
-                </span>
-                <span className="text-[9px] text-zhi-muted">
-                  {t('header.night')} {((dbStats.night_death_rate ?? 0) * 100).toFixed(0)}%
-                </span>
-                <span className="text-[9px] text-zhi-muted">
-                  {t('header.atk')} {dbStats.avg_attacks_per_life?.toFixed(1) ?? '0'}
-                </span>
-                <span className="text-[9px] text-zhi-muted">
-                  {t('header.eat')} {dbStats.avg_eats_per_life?.toFixed(1) ?? '0'}
-                </span>
-                <span className="text-[9px] text-zhi-muted">
-                  {t('header.sig')} {dbStats.avg_signals_per_life?.toFixed(1) ?? '0'}
-                </span>
+                <Separator orientation="vertical" className="h-3" />
+                <span className="text-[9px] text-zhi-muted">{t('header.avgLife')} {dbStats.avg_alive_seconds_recent_10.toFixed(0)}s</span>
+                <span className="text-[9px] text-zhi-muted">{t('header.night')} {((dbStats.night_death_rate ?? 0) * 100).toFixed(0)}%</span>
+                <span className="text-[9px] text-zhi-muted">{t('header.atk')} {dbStats.avg_attacks_per_life?.toFixed(1) ?? '0'}</span>
+                <span className="text-[9px] text-zhi-muted">{t('header.eat')} {dbStats.avg_eats_per_life?.toFixed(1) ?? '0'}</span>
+                <span className="text-[9px] text-zhi-muted">{t('header.sig')} {dbStats.avg_signals_per_life?.toFixed(1) ?? '0'}</span>
               </>
             )}
           </div>
@@ -226,13 +224,15 @@ export function GameDashboard({ worldName, onStop }: Props) {
             />
             <div className="flex items-center gap-1 px-3 py-1 border-b border-zhi-border shrink-0">
               {(['log', 'charts', 'settings'] as const).map(tab => (
-                <button
+                <Button
                   key={tab}
-                  className={`px-2 py-0.5 text-[10px] rounded ${bottomTab === tab ? 'bg-zhi-border text-zhi-text' : 'text-zhi-muted hover:text-zhi-text'}`}
-                  onClick={() => setBottomTab(tab)}
+                  variant={bottomTab === tab ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className={`text-[10px] min-w-0 h-auto px-2 py-0.5 ${bottomTab === tab ? 'bg-zhi-border text-zhi-text' : 'text-zhi-muted hover:text-zhi-text'}`}
+                  onPress={() => setBottomTab(tab)}
                 >
                   {tab === 'log' ? t('tab.log') : tab === 'charts' ? t('tab.charts') : t('tab.settings')}
-                </button>
+                </Button>
               ))}
             </div>
             {bottomTab === 'charts' ? <ChartsPanel data={history} />

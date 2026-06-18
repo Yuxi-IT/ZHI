@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Button, TextField, Label, Input, Disclosure } from '@heroui/react';
+import { FloppyDisk, ChevronDown } from '@gravity-ui/icons';
 import { useT } from '../i18n/I18nContext';
 
 interface ZhiConfig {
@@ -14,31 +16,36 @@ interface ZhiConfig {
   AgeDeath: { MaxAge: number; Stage1Age: number; Stage1Decay: number; Stage2Age: number; Stage2Decay: number; Stage3Age: number; Stage3Decay: number };
 }
 
-function NumberField({ label, value, onChange, min, max, step = 1 }: { label: string; value: number; onChange: (v: number) => void; min?: number; max?: number; step?: number }) {
+function NumberField({ label, value, onChange, min, max, step }: {
+  label: string; value: number; onChange: (v: number) => void; min?: number; max?: number; step?: number;
+}) {
   return (
-    <label className="flex items-center justify-between gap-2 py-0.5">
-      <span className="text-[10px] text-zhi-muted shrink-0">{label}</span>
-      <input
-        type="number"
-        value={value}
-        onChange={e => onChange(parseFloat(e.target.value) || 0)}
-        min={min} max={max} step={step}
-        className="w-16 px-1 py-0 text-[10px] bg-zhi-border border border-zhi-border rounded text-zhi-text text-right focus:outline-none focus:border-zhi-accent"
-      />
-    </label>
+    <TextField className="w-full">
+      <div className="flex items-center justify-between gap-2 py-0.5">
+        <Label className="text-[10px] text-zhi-muted shrink-0">{label}</Label>
+        <Input
+          type="number"
+          value={value}
+          onChange={e => onChange(parseFloat(e.target.value) || 0)}
+          min={min} max={max} step={step ?? 1}
+          className="w-20 text-[10px] text-right"
+        />
+      </div>
+    </TextField>
   );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  const [open, setOpen] = useState(true);
   return (
-    <div className="border-b border-zhi-border pb-1">
-      <button onClick={() => setOpen(o => !o)} className="flex items-center gap-1 w-full text-left py-1">
-        <span className="text-[9px] text-zhi-muted">{open ? '▾' : '▸'}</span>
+    <Disclosure defaultExpanded>
+      <Disclosure.Trigger className="flex items-center gap-1 w-full text-left py-1 group">
+        <ChevronDown className="size-3 text-zhi-muted transition-transform group-data-[expanded]:rotate-180" />
         <span className="text-[10px] text-zhi-text font-semibold">{title}</span>
-      </button>
-      {open && <div className="pl-2 pb-1 grid grid-cols-2 gap-x-3 gap-y-0">{children}</div>}
-    </div>
+      </Disclosure.Trigger>
+      <Disclosure.Content className="pl-2 pb-1">
+        <div className="space-y-0">{children}</div>
+      </Disclosure.Content>
+    </Disclosure>
   );
 }
 
@@ -148,18 +155,23 @@ export function SettingsPanel() {
       </div>
 
       <div className="shrink-0 px-3 py-2 border-t border-zhi-border flex items-center gap-2">
-        <button
-          onClick={() => save(false)}
-          className="px-2 py-1 text-[10px] bg-zhi-border hover:bg-zhi-muted text-zhi-text rounded border border-zhi-border"
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-[10px] min-w-0 h-auto px-2 py-1 bg-zhi-border hover:bg-zhi-muted text-zhi-text rounded border border-zhi-border"
+          onPress={() => save(false)}
         >
+          <FloppyDisk className="size-3" />
           {t('settings.save')}
-        </button>
-        <button
-          onClick={() => save(true)}
-          className="px-2 py-1 text-[10px] bg-blue-800 hover:bg-blue-700 text-blue-200 rounded border border-blue-700"
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-[10px] min-w-0 h-auto px-2 py-1 bg-blue-800 hover:bg-blue-700 text-blue-200 rounded border border-blue-700"
+          onPress={() => save(true)}
         >
           {t('settings.saveAndRestart')}
-        </button>
+        </Button>
         {status && <span className="text-[10px] text-zhi-muted ml-1">{status}</span>}
       </div>
     </div>

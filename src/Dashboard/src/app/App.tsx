@@ -1,13 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTheme } from '@heroui/react';
 import { LaunchPage } from './LaunchPage';
 import { GameDashboard } from './GameDashboard';
+
+function ThemeInit() {
+  const { resolvedTheme } = useTheme('system');
+  return null;
+}
 
 export function App() {
   const [activeWorld, setActiveWorld] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if there's already a running world
     fetch('/api/worlds')
       .then((r) => r.json())
       .then((worlds: { name: string; status: string }[]) => {
@@ -28,15 +33,25 @@ export function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zhi-bg flex items-center justify-center">
-        <p className="text-zhi-muted text-sm animate-pulse">Loading...</p>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-foreground-400 text-sm animate-pulse">Loading...</p>
       </div>
     );
   }
 
   if (!activeWorld) {
-    return <LaunchPage onWorldStart={handleWorldStart} />;
+    return (
+      <>
+        <ThemeInit />
+        <LaunchPage onWorldStart={handleWorldStart} />
+      </>
+    );
   }
 
-  return <GameDashboard worldName={activeWorld} onStop={handleWorldStop} />;
+  return (
+    <>
+      <ThemeInit />
+      <GameDashboard worldName={activeWorld} onStop={handleWorldStop} />
+    </>
+  );
 }

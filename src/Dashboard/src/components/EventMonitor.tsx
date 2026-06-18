@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
+import { Button } from '@heroui/react';
+import { ArrowDownToLine, TrashBin } from '@gravity-ui/icons';
 import type { WorldEvent, WorldEventType } from '../types';
 import { useT } from '../i18n/I18nContext';
 
@@ -24,17 +26,30 @@ const EVENT_COLORS: Record<string, string> = {
 
 const FILTER_TYPES: WorldEventType[] = ['death', 'attack', 'respawn', 'eat', 'signal', 'push', 'terraform', 'flood', 'weather', 'dam_built'];
 
-const FILTER_COLORS: Record<string, string> = {
-  death: 'border-zhi-muted text-zhi-muted',
-  attack: 'border-red-600 text-red-400',
-  respawn: 'border-violet-600 text-violet-400',
-  eat: 'border-green-600 text-green-400',
-  signal: 'border-yellow-600 text-yellow-400',
-  push: 'border-amber-600 text-amber-400',
-  terraform: 'border-stone-600 text-stone-400',
-  flood: 'border-blue-600 text-blue-400',
-  weather: 'border-zhi-muted text-zhi-muted',
-  dam_built: 'border-lime-600 text-lime-400',
+const FILTER_BORDER_COLORS: Record<string, string> = {
+  death: 'border-zhi-muted',
+  attack: 'border-red-600',
+  respawn: 'border-violet-600',
+  eat: 'border-green-600',
+  signal: 'border-yellow-600',
+  push: 'border-amber-600',
+  terraform: 'border-stone-600',
+  flood: 'border-blue-600',
+  weather: 'border-zhi-muted',
+  dam_built: 'border-lime-600',
+};
+
+const FILTER_TEXT_COLORS: Record<string, string> = {
+  death: 'text-zhi-muted',
+  attack: 'text-red-400',
+  respawn: 'text-violet-400',
+  eat: 'text-green-400',
+  signal: 'text-yellow-400',
+  push: 'text-amber-400',
+  terraform: 'text-stone-400',
+  flood: 'text-blue-400',
+  weather: 'text-zhi-muted',
+  dam_built: 'text-lime-400',
 };
 
 export function EventMonitor({ events, energySource, onClear }: Props) {
@@ -110,9 +125,14 @@ export function EventMonitor({ events, energySource, onClear }: Props) {
       <div className="px-3 py-1.5 border-b border-zhi-border shrink-0">
         <div className="text-zhi-muted text-[10px] flex items-center justify-between">
           <span>{t('events.title')} ({filteredEvents.length})</span>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => {
+          <div className="flex items-center gap-0.5">
+            <Button
+              isIconOnly
+              variant="ghost"
+              size="sm"
+              className={`min-w-0 w-5 h-5 ${autoScroll ? 'text-cyan-400' : 'text-zhi-muted hover:text-zhi-text'}`}
+              aria-label={autoScroll ? t('events.autoScrollOn') : t('events.autoScrollOff')}
+              onPress={() => {
                 setAutoScroll(v => !v);
                 autoScrollRef.current = !autoScrollRef.current;
                 if (!autoScroll) {
@@ -120,23 +140,20 @@ export function EventMonitor({ events, energySource, onClear }: Props) {
                   if (el) el.scrollTop = el.scrollHeight;
                 }
               }}
-              className={`px-1 py-0.5 text-[9px] rounded border ${
-                autoScroll
-                  ? 'border-cyan-700 text-cyan-400'
-                  : 'border-zhi-border text-zhi-muted hover:text-zhi-text'
-              }`}
-              title={autoScroll ? t('events.autoScrollOn') : t('events.autoScrollOff')}
             >
-              ⇩
-            </button>
+              <ArrowDownToLine className="size-3" />
+            </Button>
             {onClear && (
-              <button
-                onClick={onClear}
-                className="px-1 py-0.5 text-[9px] rounded border border-zhi-border text-zhi-muted hover:text-red-400"
-                title={t('events.clearAll')}
+              <Button
+                isIconOnly
+                variant="ghost"
+                size="sm"
+                className="min-w-0 w-5 h-5 text-zhi-muted hover:text-red-400"
+                aria-label={t('events.clearAll')}
+                onPress={onClear}
               >
-                {t('events.clear')}
-              </button>
+                <TrashBin className="size-3" />
+              </Button>
             )}
           </div>
         </div>
@@ -151,17 +168,19 @@ export function EventMonitor({ events, energySource, onClear }: Props) {
 
       <div className="px-2 py-1 border-b border-zhi-border shrink-0 flex flex-wrap gap-1">
         {FILTER_TYPES.map(type => (
-          <button
+          <Button
             key={type}
-            onClick={() => toggleFilter(type)}
-            className={`px-1.5 py-0.5 text-[9px] rounded border transition-colors ${
+            variant={activeFilters.has(type) ? 'secondary' : 'ghost'}
+            size="sm"
+            className={`text-[9px] min-w-0 h-auto px-1.5 py-0.5 rounded border ${
               activeFilters.has(type)
-                ? `${FILTER_COLORS[type]} bg-zhi-border/50`
+                ? `${FILTER_BORDER_COLORS[type]} ${FILTER_TEXT_COLORS[type]} bg-zhi-border/50`
                 : 'border-zhi-border text-zhi-muted'
             }`}
+            onPress={() => toggleFilter(type)}
           >
             {t(`events.${type}`)}
-          </button>
+          </Button>
         ))}
       </div>
 

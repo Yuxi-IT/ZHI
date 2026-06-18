@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react';
+import { Card, Button, Badge } from '@heroui/react';
+import { Pin, PinFill, Diamond, DiamondFill, CircleFill } from '@gravity-ui/icons';
 import type { AgentSnapshot } from '../types';
 import { useT } from '../i18n/I18nContext';
 
@@ -32,10 +34,8 @@ export function AgentCardsPanel({ agents, onTrack, trackedId, terrain, gridW }: 
   const sortedAlive = useMemo(() => {
     const pinned = aliveAgents.filter(a => pinnedIds.has(a.id));
     const rest = aliveAgents.filter(a => !pinnedIds.has(a.id));
-
     if (sortMode === 'hp-desc') rest.sort((a, b) => b.existence - a.existence);
     else if (sortMode === 'hp-asc') rest.sort((a, b) => a.existence - b.existence);
-
     return [...pinned, ...rest];
   }, [aliveAgents, pinnedIds, sortMode]);
 
@@ -55,28 +55,26 @@ export function AgentCardsPanel({ agents, onTrack, trackedId, terrain, gridW }: 
           {t('agents.alive')} {aliveAgents.length}/{agents.length}
         </span>
         {pinnedIds.size > 0 && (
-          <span className="text-[9px] text-yellow-600/70">{t('agents.pin')}:{pinnedIds.size}</span>
+          <Badge variant="secondary" className="text-[9px]">{t('agents.pin')}:{pinnedIds.size}</Badge>
         )}
         <div className="ml-auto flex items-center gap-1">
-          <button
-            onClick={cycleSort}
-            title={sortTitle}
-            className={`px-1.5 py-0.5 text-[9px] rounded border ${
-              sortMode !== 'none'
-                ? 'border-zhi-muted text-zhi-text bg-zhi-border'
-                : 'border-zhi-border text-zhi-muted hover:text-zhi-text'
-            }`}
+          <Button
+            variant={sortMode !== 'none' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="text-[9px] min-w-0 h-auto px-1.5 py-0.5"
+            onPress={cycleSort}
           >
             {sortLabel}
-          </button>
+          </Button>
           {pinnedIds.size > 0 && (
-            <button
-              onClick={() => setPinnedIds(new Set())}
-              className="px-1.5 py-0.5 text-[9px] rounded border border-zhi-border text-zhi-muted hover:text-zhi-text"
-              title={t('agents.clearAllPins')}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-[9px] text-zhi-muted hover:text-zhi-text min-w-0 h-auto px-1.5 py-0.5"
+              onPress={() => setPinnedIds(new Set())}
             >
               {t('agents.unpinAll')}
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -129,109 +127,108 @@ function AgentCard({
   const { t } = useT();
   const hp = Math.max(0, Math.min(1, agent.existence / 100));
   const hpColor = `hsl(${hp * 120}, 70%, 50%)`;
+  const isTracked = tracked;
+  const isPinned = pinned;
 
   return (
-    <div
-      className={`rounded border p-2 text-[10px] transition-colors ${
-        tracked
+    <Card
+      variant="secondary"
+      className={`p-2 text-[10px] transition-colors ${
+        isTracked
           ? 'border-yellow-500/50 bg-yellow-900/10'
-          : pinned
+          : isPinned
           ? 'border-zhi-muted bg-zhi-panel/70'
           : 'border-zhi-border bg-zhi-panel/50'
       }`}
     >
-      <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={onTogglePin}
-            className={`text-[9px] leading-none ${pinned ? 'text-yellow-500' : 'text-zhi-muted hover:text-zhi-text'}`}
-            title={pinned ? t('agents.unpin') : t('agents.pinToTop')}
-          >
-            {pinned ? '◉' : '○'}
-          </button>
-          <span className="text-zhi-text font-medium">#{agent.id}</span>
-          {agent.respawn_count > 0 && (
-            <span className="text-zhi-muted text-[9px]">G{agent.respawn_count}</span>
-          )}
+      <Card.Content className="p-0">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-1.5">
+            <Button
+              isIconOnly
+              variant="ghost"
+              size="sm"
+              className={`min-w-0 w-4 h-4 ${isPinned ? 'text-yellow-500' : 'text-zhi-muted hover:text-zhi-text'}`}
+              aria-label={isPinned ? t('agents.unpin') : t('agents.pinToTop')}
+              onPress={onTogglePin}
+            >
+              {isPinned ? <PinFill className="size-2.5" /> : <Pin className="size-2.5" />}
+            </Button>
+            <span className="text-zhi-text font-medium">#{agent.id}</span>
+            {agent.respawn_count > 0 && (
+              <span className="text-zhi-muted text-[9px]">G{agent.respawn_count}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Button
+              isIconOnly
+              variant="ghost"
+              size="sm"
+              className={`min-w-0 w-4 h-4 ${isTracked ? 'text-yellow-400' : 'text-zhi-muted hover:text-zhi-text'}`}
+              aria-label={isTracked ? t('agents.stopTracking') : t('agents.trackOnMap')}
+              onPress={onTrack}
+            >
+              {isTracked ? <DiamondFill className="size-2.5" /> : <Diamond className="size-2.5" />}
+            </Button>
+            <CircleFill className="size-2" style={{ color: hpColor }} />
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={onTrack}
-            className={`text-[9px] leading-none ${tracked ? 'text-yellow-400' : 'text-zhi-muted hover:text-zhi-text'}`}
-            title={tracked ? t('agents.stopTracking') : t('agents.trackOnMap')}
-          >
-            {tracked ? '◆' : '◇'}
-          </button>
-          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hpColor }} />
+
+        <div className="text-zhi-muted space-y-0.5">
+          <StatRow label={t('agents.hp')} value={agent.existence.toFixed(1)} />
+          <StatRow label={t('agents.stress')} value={agent.stress.toFixed(2)} warn={agent.stress > 1} />
+          <StatRow label={t('agents.hunger')} value={agent.hunger.toFixed(1)} warn={agent.hunger < 20} />
+          <StatRow label={t('agents.thirst')} value={agent.thirst.toFixed(1)} accent="cyan" warn={agent.thirst < 20} />
+          <StatRow label={t('agents.stamina')} value={agent.stamina.toFixed(1)} accent="yellow" warn={agent.stamina < 10} />
+          <StatRow label="BTemp" value={`${agent.body_temperature.toFixed(1)}°C`} accent="blue" warn={agent.body_temperature < 10} hot={agent.body_temperature > 35} />
+          <StatRow label={t('agents.age')} value={`${agent.tick_count}t`} />
+          <StatRow label={t('agents.action')} value={actionLabel(agent, terrain, gridW, t)} />
+          <StatRow label={t('agents.pos')} value={`(${agent.x},${agent.y})`} />
+          <div className="flex gap-3 mt-0.5 text-zhi-muted">
+            <span title="Food">F:{agent.food_eat_count}</span>
+            <span title="BigFood">B:{agent.bigfood_eat_count}</span>
+            <span title="Corpse">C:{agent.corpse_eat_count}</span>
+            <span title="Attacks">A:{agent.attack_count}</span>
+            <span title="Signals">S:{agent.signal_count}</span>
+            <span title="Push">P:{agent.push_count}</span>
+            <span title="Terraform">T:{agent.terraform_count}</span>
+          </div>
         </div>
-      </div>
-      <div className="text-zhi-muted space-y-0.5">
-        <div className="flex justify-between">
-          <span>{t('agents.hp')}</span>
-          <span className="text-zhi-text">{agent.existence.toFixed(1)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>{t('agents.stress')}</span>
-          <span className={agent.stress > 1 ? 'text-red-400' : 'text-zhi-text'}>
-            {agent.stress.toFixed(2)}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span>{t('agents.hunger')}</span>
-          <span className={agent.hunger < 20 ? 'text-orange-400' : 'text-zhi-text'}>
-            {agent.hunger.toFixed(1)}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span>{t('agents.thirst')}</span>
-          <span className={agent.thirst < 20 ? 'text-cyan-400' : 'text-zhi-text'}>
-            {agent.thirst.toFixed(1)}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span>{t('agents.stamina')}</span>
-          <span className={agent.stamina < 10 ? 'text-yellow-400' : 'text-zhi-text'}>
-            {agent.stamina.toFixed(1)}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span>BTemp</span>
-          <span className={agent.body_temperature < 10 ? 'text-blue-400' : agent.body_temperature > 35 ? 'text-red-400' : 'text-zhi-text'}>
-            {agent.body_temperature.toFixed(1)}°C
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span>{t('agents.age')}</span>
-          <span className="text-zhi-text">{agent.tick_count}t</span>
-        </div>
-        <div className="flex justify-between">
-          <span>{t('agents.action')}</span>
-          <span className="text-zhi-text truncate max-w-24">
-            {(() => {
-              const ttype = terrain && gridW ? terrain[agent.y * gridW + agent.x] : 0;
-              const badges: string[] = [];
-              if (agent.is_stationary) badges.push('💤');
-              if (ttype === 1) badges.push('🕳️');
-              if (ttype === 2) badges.push('🗼');
-              if (agent.is_eating) badges.push('🍖');
-              return <>{badges.join(' ')}{badges.length ? ' ' : ''}{agent.last_action || t('agents.none')}</>;
-            })()}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span>{t('agents.pos')}</span>
-          <span className="text-zhi-text">({agent.x},{agent.y})</span>
-        </div>
-        <div className="flex gap-3 mt-0.5 text-zhi-muted">
-          <span title="Food">F:{agent.food_eat_count}</span>
-          <span title="BigFood">B:{agent.bigfood_eat_count}</span>
-          <span title="Corpse">C:{agent.corpse_eat_count}</span>
-          <span title="Attacks">A:{agent.attack_count}</span>
-          <span title="Signals">S:{agent.signal_count}</span>
-          <span title="Push">P:{agent.push_count}</span>
-          <span title="Terraform">T:{agent.terraform_count}</span>
-        </div>
-      </div>
+      </Card.Content>
+    </Card>
+  );
+}
+
+function StatRow({ label, value, warn, hot, accent }: {
+  label: string; value: string; warn?: boolean; hot?: boolean; accent?: string;
+}) {
+  let valColor = 'text-zhi-text';
+  if (warn && accent === 'cyan') valColor = 'text-cyan-400';
+  else if (warn && accent === 'yellow') valColor = 'text-yellow-400';
+  else if (warn && accent === 'blue') valColor = 'text-blue-400';
+  else if (warn) valColor = accent === 'cyan' ? 'text-cyan-400' : 'text-orange-400';
+  if (hot) valColor = 'text-red-400';
+
+  return (
+    <div className="flex justify-between">
+      <span>{label}</span>
+      <span className={valColor}>{value}</span>
     </div>
   );
+}
+
+function actionLabel(
+  agent: AgentSnapshot,
+  terrain: number[] | undefined,
+  gridW: number | undefined,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string {
+  const ttype = terrain && gridW ? terrain[agent.y * gridW + agent.x] : 0;
+  const badges: string[] = [];
+  if (agent.is_stationary) badges.push('💤');
+  if (ttype === 1) badges.push('🕳️');
+  if (ttype === 2) badges.push('🗼');
+  if (agent.is_eating) badges.push('🍖');
+  const prefix = badges.length ? badges.join(' ') + ' ' : '';
+  return prefix + (agent.last_action || t('agents.none'));
 }

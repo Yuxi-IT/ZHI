@@ -1,4 +1,5 @@
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { Card } from '@heroui/react';
 import type { EcoDataPoint } from '../hooks/useEcoHistory';
 import { useT } from '../i18n/I18nContext';
 
@@ -60,10 +61,12 @@ export function ChartsPanel({ data }: Props) {
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded border border-zhi-border bg-zhi-panel/50 p-2">
-      <div className="text-[9px] text-zhi-muted mb-1 uppercase tracking-wider">{title}</div>
-      {children}
-    </div>
+    <Card variant="secondary" className="bg-zhi-panel/50 border-zhi-border">
+      <Card.Content className="p-2">
+        <div className="text-[9px] text-zhi-muted mb-1 uppercase tracking-wider">{title}</div>
+        {children}
+      </Card.Content>
+    </Card>
   );
 }
 
