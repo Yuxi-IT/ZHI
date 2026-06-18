@@ -72,7 +72,7 @@ export const WorldMap = memo(function WorldMap({
   const drawRef = useRef<() => void>(() => {});
   const floatingTextsRef = useRef<FloatingText[]>([]);
   const floatingIdRef = useRef(0);
-  const lastEventLenRef = useRef(0);
+  const lastEidRef = useRef(-1);
 
   const trackedAgent = trackedProp !== undefined ? trackedProp : internalTracked;
   const setTrackedAgent = onTrackChange ?? setInternalTracked;
@@ -90,55 +90,62 @@ export const WorldMap = memo(function WorldMap({
         temperatureGrid, terrain, terrainTtl, riverFlow, events, timeOfDay } = data;
       const tracked = trackedProp !== undefined ? trackedProp : data.trackedAgent;
 
-      // Process new events → floating texts
-      if (events && events.length > 0 && events.length > lastEventLenRef.current) {
-        const newEvents = events.slice(lastEventLenRef.current);
-        lastEventLenRef.current = events.length;
-        const now = performance.now();
-        for (const ev of newEvents) {
-          const agent = agents.find(a => a.id === ev.agent_id);
-          if (!agent) continue;
+      // Process new events → floating texts (use monotonic _eid to survive clears/truncation)
+      if (events && events.length > 0) {
+        const newEvents: typeof events = [];
+        for (let i = events.length - 1; i >= 0; i--) {
+          const eid = (events[i] as any)._eid as number | undefined;
+          if (eid === undefined || eid <= lastEidRef.current) break;
+          newEvents.unshift(events[i]);
+        }
+        if (newEvents.length > 0) {
+          lastEidRef.current = (events[events.length - 1] as any)._eid ?? lastEidRef.current;
+          const now = performance.now();
+          for (const ev of newEvents) {
+            const agent = agents.find(a => a.id === ev.agent_id);
 
-          if (ev.type === 'attack' && ev.target_id !== undefined) {
-            const target = agents.find(a => a.id === ev.target_id);
-            if (target) {
+            if (ev.type === 'attack' && ev.target_id !== undefined) {
+              const target = agents.find(a => a.id === ev.target_id);
+              const tx = target?.x ?? agent?.x ?? 0;
+              const ty = target?.y ?? agent?.y ?? 0;
               floatingTextsRef.current.push({
                 id: floatingIdRef.current++,
-                x: target.x, y: target.y,
+                x: tx, y: ty,
                 text: `-${ev.value.toFixed(0)}`,
                 color: '#ef4444', startTime: now,
               });
+              continue;
             }
-            continue;
-          }
-          let text = '', color = '';
-          if (ev.type === 'eat') { text = `+${ev.value.toFixed(0)}`; color = '#22c55e'; }
-          else if (ev.type === 'death') { text = 'DEAD'; color = '#94a3b8'; }
-          else if (ev.type === 'respawn') { text = 'RESPAWN'; color = '#a78bfa'; }
-          else if (ev.type === 'flood') {
-            floatingTextsRef.current.push({
-              id: floatingIdRef.current++, x: Math.floor((ev.value ?? 0) / 1000), y: (ev.value ?? 0) % 1000,
-              text: 'FLOOD', color: '#60a5fa', startTime: now,
-            });
-            continue;
-          } else if (ev.type === 'weather') {
-            floatingTextsRef.current.push({
-              id: floatingIdRef.current++, x: Math.floor((ev.value ?? 0) / 1000), y: (ev.value ?? 0) % 1000,
-              text: 'WEATHER', color: '#94a3b8', startTime: now,
-            });
-            continue;
-          } else if (ev.type === 'dam_built') {
+
+            if (ev.type === 'flood') {
+              floatingTextsRef.current.push({
+                id: floatingIdRef.current++, x: Math.floor((ev.value ?? 0) / 1000), y: (ev.value ?? 0) % 1000,
+                text: 'FLOOD', color: '#60a5fa', startTime: now,
+              });
+              continue;
+            }
+            if (ev.type === 'weather') {
+              floatingTextsRef.current.push({
+                id: floatingIdRef.current++, x: Math.floor((ev.value ?? 0) / 1000), y: (ev.value ?? 0) % 1000,
+                text: 'WEATHER', color: '#94a3b8', startTime: now,
+              });
+              continue;
+            }
+
+            if (!agent) continue;
+
+            let text = '', color = '';
+            if (ev.type === 'eat') { text = `+${ev.value.toFixed(0)}`; color = '#22c55e'; }
+            else if (ev.type === 'death') { text = 'DEAD'; color = '#94a3b8'; }
+            else if (ev.type === 'respawn') { text = 'RESPAWN'; color = '#a78bfa'; }
+            else if (ev.type === 'dam_built') { text = 'DAM'; color = '#a3e635'; }
+            else { continue; }
+
             floatingTextsRef.current.push({
               id: floatingIdRef.current++, x: agent.x, y: agent.y,
-              text: 'DAM', color: '#a3e635', startTime: now,
+              text, color, startTime: now,
             });
-            continue;
-          } else { continue; }
-
-          floatingTextsRef.current.push({
-            id: floatingIdRef.current++, x: agent.x, y: agent.y,
-            text, color, startTime: now,
-          });
+          }
         }
       }
 

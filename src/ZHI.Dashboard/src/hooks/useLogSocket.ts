@@ -7,6 +7,8 @@ const WS_URL = import.meta.env.DEV
 
 const MAX_EVENTS = 2000;
 
+let _globalEid = 0;
+
 export function useLogSocket() {
   const [connected, setConnected] = useState(false);
   const [logs, setLogs] = useState<LogMessage[]>([]);
@@ -39,9 +41,10 @@ export function useLogSocket() {
           });
           break;
         case 'events': {
-          const newEvents = msg.data as WorldEvent[];
+          const rawEvents = msg.data as WorldEvent[];
+          const stamped = rawEvents.map(e => ({ ...e, _eid: _globalEid++ }));
           setEvents(prev => {
-            const next = [...prev, ...newEvents];
+            const next = [...prev, ...stamped];
             return next.length > MAX_EVENTS ? next.slice(-MAX_EVENTS) : next;
           });
           break;
