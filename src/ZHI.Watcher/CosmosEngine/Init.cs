@@ -52,6 +52,29 @@ public partial class CosmosEngine
             for (int y = 0; y < gh; y++)
                 _v.NutrientGrid[x, y] = initNutrient;
 
+        // Initialize surface water from river
+        for (int x = 0; x < gw; x++)
+            for (int y = 0; y < gh; y++)
+                _v.SurfaceWaterGrid[x, y] = _v.RiverGrid[x, y] switch
+                {
+                    2 => 2f,
+                    1 => 1f,
+                    _ => 0f
+                };
+
+        // Initialize groundwater near rivers (taper by distance)
+        for (int x = 0; x < gw; x++)
+            for (int y = 0; y < gh; y++)
+            {
+                int dist = _v.DistanceToRiver[x, y];
+                if (dist == 0)
+                    _v.GroundwaterGrid[x, y] = _config.WaterCycle.MaxGroundwater;
+                else if (dist <= 5)
+                    _v.GroundwaterGrid[x, y] = _config.WaterCycle.MaxGroundwater * (1f - dist / 6f);
+                else
+                    _v.GroundwaterGrid[x, y] = 0.1f;
+            }
+
         // Initialize agent bodies from random genomes
         for (int i = 0; i < n; i++)
         {

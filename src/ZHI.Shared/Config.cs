@@ -20,6 +20,7 @@ public sealed class ZhiConfig
     public TemperatureConfig Temperature { get; set; } = new();
     public StaminaConfig Stamina { get; set; } = new();
     public NutrientConfig Nutrient { get; set; } = new();
+    public WaterCycleConfig WaterCycle { get; set; } = new();
     public int Port { get; set; } = 19816;
     public int DecisionIntervalMs { get; set; } = 200;
     public int DeathCount { get; set; } = 0;
@@ -184,6 +185,20 @@ public sealed class TemperatureConfig
     public float WaterCoolingMult { get; set; } = 2f;       // body temp lerp multiplier in water
     public float DeepWaterExtraCold { get; set; } = 3f;     // extra °C penalty in deep water cells
     public float MinBodyTemp { get; set; } = 26f;           // body temp hard floor
+}
+
+public sealed class WaterCycleConfig
+{
+    public float SurfaceWaterMaxDepth { get; set; } = 3f;
+    public float SurfaceFlowRate { get; set; } = 0.3f;
+    public float EvaporationRate { get; set; } = 0.05f;
+    public float MaxGroundwater { get; set; } = 1f;
+    public float AbsorptionRate { get; set; } = 0.1f;
+    public float GroundwaterDiffusionRate { get; set; } = 0.01f;
+    public float RainAmount { get; set; } = 0.5f;
+    public int RainIntervalMin { get; set; } = 200;
+    public int RainIntervalMax { get; set; } = 600;
+    public int RainRadius { get; set; } = 10;
 }
 
 public sealed class NutrientConfig

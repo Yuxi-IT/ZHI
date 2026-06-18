@@ -78,6 +78,8 @@ public partial class VectorizedState : IDisposable
     public int[,] DistanceToRiver;
     public float[,] HeightMap;       // [W, H] — continuous elevation (-10 to +10)
     public float[,] NutrientGrid;    // [W, H] — soil nutrients (0 to MaxNutrient)
+    public float[,] SurfaceWaterGrid; // [W, H] — surface water depth (0 to SurfaceWaterMaxDepth)
+    public float[,] GroundwaterGrid;  // [W, H] — groundwater saturation (0 to 1)
 
     // Spatial query grids
     private int[] _agentGrid;
@@ -152,6 +154,8 @@ public partial class VectorizedState : IDisposable
         DistanceToRiver = new int[W, H];
         HeightMap = new float[W, H];
         NutrientGrid = new float[W, H];
+        SurfaceWaterGrid = new float[W, H];
+        GroundwaterGrid = new float[W, H];
 
         int gridSize = W * H;
         _agentGrid = new int[gridSize];
@@ -192,13 +196,13 @@ public partial class VectorizedState : IDisposable
     public bool IsShallowWater(int x, int y)
     {
         if (x < 0 || x >= ToolDefinitions.GridWidth || y < 0 || y >= ToolDefinitions.GridHeight) return false;
-        return RiverGrid[x, y] == 1;
+        return RiverGrid[x, y] == 1 || (SurfaceWaterGrid != null && SurfaceWaterGrid[x, y] > 0 && SurfaceWaterGrid[x, y] < 1f);
     }
 
     public bool IsDeepWater(int x, int y)
     {
         if (x < 0 || x >= ToolDefinitions.GridWidth || y < 0 || y >= ToolDefinitions.GridHeight) return false;
-        return RiverGrid[x, y] == 2;
+        return RiverGrid[x, y] == 2 || (SurfaceWaterGrid != null && SurfaceWaterGrid[x, y] >= 1f);
     }
 
     public bool IsAdjacentToWater(int x, int y)
@@ -221,7 +225,8 @@ public partial class VectorizedState : IDisposable
     public bool IsAnyWater(int x, int y)
     {
         if (x < 0 || x >= ToolDefinitions.GridWidth || y < 0 || y >= ToolDefinitions.GridHeight) return false;
-        return RiverGrid[x, y] > 0 || TerrainType[x, y] == ToolDefinitions.TerrainDynamicWater;
+        return RiverGrid[x, y] > 0 || TerrainType[x, y] == ToolDefinitions.TerrainDynamicWater
+            || (SurfaceWaterGrid != null && SurfaceWaterGrid[x, y] > 0);
     }
 
     public int CountAdjacentTerrain(int x, int y, byte terrainType)
