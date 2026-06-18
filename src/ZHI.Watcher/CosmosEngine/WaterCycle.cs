@@ -60,6 +60,7 @@ public partial class CosmosEngine
         float evapRate = _config.WaterCycle.EvaporationRate;
         float tempFactor = MathF.Max(0, (_temperature - 5f) / 30f);
         float windEvapMult = _config.Wind.EvaporationWindMult;
+        float sunEvapMult = _config.Sunlight.SunEvaporationMult;
 
         for (int x = 0; x < W; x++)
             for (int y = 0; y < H; y++)
@@ -67,11 +68,13 @@ public partial class CosmosEngine
                 float water = _v.SurfaceWaterGrid[x, y];
                 if (water <= 0) continue;
 
-                // Wind accelerates evaporation
+                // Wind + sunlight accelerate evaporation
                 float windSpeed = MathF.Sqrt(_v.WindX[x, y] * _v.WindX[x, y] + _v.WindY[x, y] * _v.WindY[x, y]);
                 float windFactor = 1f + windSpeed * windEvapMult;
+                float sunFactor = 1f + _v.Sunlight[x, y] * sunEvapMult;
+                float biomeFactor = GetBiomeEvaporationMult(x, y);
 
-                float evap = evapRate * tempFactor * water * windFactor;
+                float evap = evapRate * tempFactor * water * windFactor * sunFactor * biomeFactor;
                 _v.SurfaceWaterGrid[x, y] = MathF.Max(0, water - evap);
                 _humidity = MathF.Min(1f, _humidity + evap * 0.01f);
             }

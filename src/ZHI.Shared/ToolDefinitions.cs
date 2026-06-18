@@ -36,6 +36,23 @@ public static class ToolDefinitions
     // River flow directions (8-direction compass)
     // 0=none, 1=N, 2=NE, 3=E, 4=SE, 5=S, 6=SW, 7=W, 8=NW
 
+    // Biome types (derived from environment, not hand-placed)
+    public const byte BiomeWater = 0;       // river/lake cell
+    public const byte BiomeRiverBank = 1;   // near river (dist <= 3)
+    public const byte BiomeDesert = 2;      // arid: low groundwater, low nutrient
+    public const byte BiomeGrassland = 3;   // moderate: medium water/nutrient
+    public const byte BiomeJungle = 4;      // lush: high water, high nutrient, warm
+    public const byte BiomeWetland = 5;     // wet: surface water or saturated ground
+    public const byte BiomeHighland = 6;    // high elevation (>180)
+    public const byte BiomeValley = 7;      // low elevation (<70), not water
+
+    // Biomes that get extra sunlight on S/SE/SW aspects (northern hemisphere)
+    public static bool IsSunFacingAspect(byte aspect) =>
+        aspect == AspectS || aspect == AspectSE || aspect == AspectSW;
+    // Biomes that get less sunlight (N-facing slopes)
+    public static bool IsShadeFacingAspect(byte aspect) =>
+        aspect == AspectN || aspect == AspectNE || aspect == AspectNW;
+
     public static readonly string[] ActionNames =
     [
         "move_up",

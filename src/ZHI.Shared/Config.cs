@@ -21,6 +21,8 @@ public sealed class ZhiConfig
     public WaterCycleConfig WaterCycle { get; set; } = new();
     public PlantConfig Plant { get; set; } = new();
     public WindConfig Wind { get; set; } = new();
+    public SunlightConfig Sunlight { get; set; } = new();
+    public BiomeConfig Biome { get; set; } = new();
     public int Port { get; set; } = 19816;
     public int DecisionIntervalMs { get; set; } = 200;
     public int DeathCount { get; set; } = 0;
@@ -251,6 +253,38 @@ public sealed class WindConfig
     public float ScentAdvectionRate { get; set; } = 0.08f; // scent/food-scent advection per tick
     public float EvaporationWindMult { get; set; } = 1.5f; // evaporation multiplier at wind speed 1
     public float SeedWindDrift { get; set; } = 0.5f;       // seed dispersal wind influence (0=random, 1=pure downwind)
+}
+
+public sealed class SunlightConfig
+{
+    public float PeakIntensity { get; set; } = 1.0f;       // noon solar intensity (0-1)
+    public float AspectSunMult { get; set; } = 1.5f;       // south-face sunlight multiplier
+    public float SolarHeatingRate { get; set; } = 0.03f;   // °C/tick max solar heating
+    public float SunEvaporationMult { get; set; } = 1.5f;   // evaporation multiplier at peak sun
+    public float SunPhotosynthesisBoost { get; set; } = 2.0f; // plant growth multiplier at peak sun
+}
+
+public sealed class BiomeConfig
+{
+    // Thresholds for biome derivation
+    public float DesertAridityMax { get; set; } = 0.12f;    // groundwater below this → desert
+    public float GrasslandAridityMax { get; set; } = 0.30f;  // groundwater below this → grassland
+    public float WetlandWaterMin { get; set; } = 0.25f;      // surface water or groundwater above this → wetland
+    public float JungleNutrientMin { get; set; } = 3f;       // nutrient above this + warm + wet → jungle
+    public float JungleTempMin { get; set; } = 18f;          // temperature above this for jungle
+    public float HighlandHeightMin { get; set; } = 180f;     // height above this (/255) → highland
+    public float ValleyHeightMax { get; set; } = 70f;        // height below this → valley
+    public int RiverBankDistance { get; set; } = 3;          // distance to river for riverbank biome
+
+    // Per-biome modifiers (applied multiplicatively on top of grid variables)
+    public float DesertEvaporationMult { get; set; } = 2.0f;
+    public float DesertBodyTempRateMult { get; set; } = 1.3f;
+    public float WetlandEvaporationMult { get; set; } = 0.6f;
+    public float WetlandBodyTempRateMult { get; set; } = 0.7f;
+    public float JunglePlantGrowthMult { get; set; } = 1.5f;
+    public float GrasslandPlantGrowthMult { get; set; } = 1.2f;
+    public float DesertPlantGrowthMult { get; set; } = 0.3f;
+    public float HighlandBodyTempRateMult { get; set; } = 1.2f;
 }
 
 

@@ -36,7 +36,7 @@ function tempColor(t: number): string {
 }
 
 export function WorldDashboard({ worldName, onStop }: Props) {
-  const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, chemicalField, heightMap, slope, riverFlow, surfaceWater, groundwater, nutrient, permeability, pressure, windX, windY, waterCycle, plantCount, stats, connected } = useWebSocket();
+  const { generation, totalDeaths, worldDay, timeOfDay, temperature, gridW, gridH, agents, food, corpses, river, scent, foodScent, temperatureGrid, chemicalField, heightMap, slope, riverFlow, surfaceWater, groundwater, nutrient, permeability, pressure, windX, windY, sunlight, biome, waterCycle, plantCount, stats, connected } = useWebSocket();
   const { logs, events, clearEvents } = useLogSocket();
   const { stats: dbStats, loading } = useStats();
   const { history, record } = useEcoHistory();
@@ -67,6 +67,7 @@ export function WorldDashboard({ worldName, onStop }: Props) {
   const [showPermeability, setShowPermeability] = useState(false);
   const [showPressure, setShowPressure] = useState(false);
   const [showWind, setShowWind] = useState(false);
+  const [showBiome, setShowBiome] = useState(false);
 
   const aliveCount = agents.filter(a => a.is_alive).length;
 
@@ -74,11 +75,13 @@ export function WorldDashboard({ worldName, onStop }: Props) {
     agents: [], food: [], corpses: [], river: [], scent: [], foodScent: [],
     chemicalField: [], temperatureGrid: [], heightMap: [], slope: [], riverFlow: [],
     surfaceWater: [], groundwater: [], nutrient: [], permeability: [], pressure: [], windX: [], windY: [],
+    sunlight: [], biome: [],
     events: [], timeOfDay: 12, trackedAgent: null,
   });
   drawDataRef.current = {
     agents, food, corpses, river, scent, foodScent, chemicalField,
     temperatureGrid, heightMap, slope, riverFlow, surfaceWater, groundwater, nutrient, permeability, pressure, windX, windY,
+    sunlight, biome,
     events,
     timeOfDay, trackedAgent,
   };
@@ -265,6 +268,7 @@ export function WorldDashboard({ worldName, onStop }: Props) {
             showPermeability={showPermeability} setShowPermeability={setShowPermeability}
             showPressure={showPressure} setShowPressure={setShowPressure}
             showWind={showWind} setShowWind={setShowWind}
+            showBiome={showBiome} setShowBiome={setShowBiome}
             trackNextGen={trackNextGen} setTrackNextGen={setTrackNextGen}
           />
 
@@ -289,6 +293,7 @@ export function WorldDashboard({ worldName, onStop }: Props) {
               showPermeability={showPermeability}
               showPressure={showPressure}
               showWind={showWind}
+              showBiome={showBiome}
             />
           </div>
 
@@ -361,6 +366,7 @@ type ToggleKeys = {
   showPermeability: boolean; setShowPermeability: (v: boolean) => void;
   showPressure: boolean; setShowPressure: (v: boolean) => void;
   showWind: boolean; setShowWind: (v: boolean) => void;
+  showBiome: boolean; setShowBiome: (v: boolean) => void;
   trackNextGen: boolean; setTrackNextGen: (v: boolean) => void;
 };
 
@@ -381,6 +387,7 @@ const DisplayToggles = memo(function DisplayToggles(p: ToggleKeys) {
     [p.showPermeability, p.setShowPermeability, t('toggle.permeability'), 'border-teal-600 text-teal-400 bg-teal-900/20'],
     [p.showPressure, p.setShowPressure, t('toggle.pressure'), 'border-red-600 text-red-400 bg-red-900/20'],
     [p.showWind, p.setShowWind, t('toggle.wind'), 'border-slate-400 text-slate-300 bg-slate-700/30'],
+    [p.showBiome, p.setShowBiome, t('toggle.biome'), 'border-lime-600 text-lime-400 bg-lime-900/20'],
     [p.trackNextGen, p.setTrackNextGen, t('toggle.trackRebirth'), 'border-cyan-600 text-cyan-400 bg-cyan-900/20'],
   ];
 

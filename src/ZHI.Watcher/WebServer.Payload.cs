@@ -134,6 +134,16 @@ public partial class WebServer
                 windY[wy * gw + wx] = v.WindY[wx, wy];
             }
 
+        var sunlight = new float[gw * gh];
+        for (int sx = 0; sx < gw; sx++)
+            for (int sy = 0; sy < gh; sy++)
+                sunlight[sy * gw + sx] = v.Sunlight[sx, sy];
+
+        var biome = new byte[gw * gh];
+        for (int bx = 0; bx < gw; bx++)
+            for (int by = 0; by < gh; by++)
+                biome[by * gw + bx] = v.Biome[bx, by];
+
         float totalEnergySrc = _engine.GenFoodEnergy + _engine.GenCorpseEnergy;
         float foodPct = totalEnergySrc > 0 ? _engine.GenFoodEnergy / totalEnergySrc * 100f : 0;
         float corpsePct = totalEnergySrc > 0 ? _engine.GenCorpseEnergy / totalEnergySrc * 100f : 0;
@@ -179,6 +189,8 @@ public partial class WebServer
             pressure,
             wind_x = windX,
             wind_y = windY,
+            sunlight,
+            biome,
             water_cycle = new
             {
                 humidity = _engine.Humidity,

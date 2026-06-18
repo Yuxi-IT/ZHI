@@ -83,6 +83,8 @@ export interface CosmosState {
   pressure: number[]
   wind_x: number[]
   wind_y: number[]
+  sunlight: number[]
+  biome: number[]
   water_cycle: WaterCycleData
 }
 

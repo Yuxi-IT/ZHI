@@ -20,6 +20,8 @@ export interface ZhiConfig {
   nutrient: { corpse_to_nutrient_ratio: number; plant_to_nutrient_ratio: number; diffusion_rate: number; max_nutrient: number; initial_nutrient: number; river_bank_nutrient_boost: number; river_bank_distance: number; height_retention_factor: number };
   water_cycle: { surface_water_max_depth: number; surface_flow_rate: number; evaporation_rate: number; max_groundwater: number; absorption_rate: number; groundwater_diffusion_rate: number; rain_amount: number; rain_interval_min: number; rain_interval_max: number; rain_radius: number; slope_runoff_mult: number; river_drain_rate: number; permeability_base: number };
   wind: { pressure_temp_factor: number; wind_strength: number; advection_rate: number; scent_advection_rate: number; evaporation_wind_mult: number; seed_wind_drift: number };
+  sunlight: { peak_intensity: number; aspect_sun_mult: number; solar_heating_rate: number; sun_evaporation_mult: number; sun_photosynthesis_boost: number };
+  biome: { desert_aridity_max: number; grassland_aridity_max: number; wetland_water_min: number; jungle_nutrient_min: number; jungle_temp_min: number; highland_height_min: number; valley_height_max: number; river_bank_distance: number; desert_evaporation_mult: number; desert_body_temp_rate_mult: number; wetland_evaporation_mult: number; wetland_body_temp_rate_mult: number; jungle_plant_growth_mult: number; grassland_plant_growth_mult: number; desert_plant_growth_mult: number; highland_body_temp_rate_mult: number };
 }
 
 export const DEFAULT_CONFIG: ZhiConfig = {
@@ -40,6 +42,8 @@ export const DEFAULT_CONFIG: ZhiConfig = {
   nutrient: { corpse_to_nutrient_ratio: 0.5, plant_to_nutrient_ratio: 0.3, diffusion_rate: 0.02, max_nutrient: 10, initial_nutrient: 2, river_bank_nutrient_boost: 3, river_bank_distance: 3, height_retention_factor: 0.5 },
   water_cycle: { surface_water_max_depth: 3, surface_flow_rate: 0.3, evaporation_rate: 0.05, max_groundwater: 1, absorption_rate: 0.1, groundwater_diffusion_rate: 0.01, rain_amount: 0.5, rain_interval_min: 200, rain_interval_max: 600, rain_radius: 10, slope_runoff_mult: 2.0, river_drain_rate: 0.3, permeability_base: 1.0 },
   wind: { pressure_temp_factor: 0.5, wind_strength: 1.0, advection_rate: 0.05, scent_advection_rate: 0.08, evaporation_wind_mult: 1.5, seed_wind_drift: 0.5 },
+  sunlight: { peak_intensity: 1.0, aspect_sun_mult: 1.5, solar_heating_rate: 0.03, sun_evaporation_mult: 1.5, sun_photosynthesis_boost: 2.0 },
+  biome: { desert_aridity_max: 0.12, grassland_aridity_max: 0.30, wetland_water_min: 0.25, jungle_nutrient_min: 3, jungle_temp_min: 18, highland_height_min: 180, valley_height_max: 70, river_bank_distance: 3, desert_evaporation_mult: 2.0, desert_body_temp_rate_mult: 1.3, wetland_evaporation_mult: 0.6, wetland_body_temp_rate_mult: 0.7, jungle_plant_growth_mult: 1.5, grassland_plant_growth_mult: 1.2, desert_plant_growth_mult: 0.3, highland_body_temp_rate_mult: 1.2 },
 };
 
 export function NumberField({ label, value, onChange, min, max, step }: {
@@ -247,6 +251,33 @@ export function ConfigFormFields({ config, update }: {
         <NumberField label={t('settings.evaporationWindMult')} value={config.wind.evaporation_wind_mult} onChange={v => update('wind', 'evaporation_wind_mult', v)} min={0} max={5} step={0.1} />
         <NumberField label={t('settings.seedWindDrift')} value={config.wind.seed_wind_drift} onChange={v => update('wind', 'seed_wind_drift', v)} min={0} max={1} step={0.05} />
       </ConfigSection>
+
+      <ConfigSection title={t('settings.sunlight')}>
+        <NumberField label={t('settings.sunlightPeakIntensity')} value={config.sunlight.peak_intensity} onChange={v => update('sunlight', 'peak_intensity', v)} min={0} max={3} step={0.1} />
+        <NumberField label={t('settings.aspectSunMult')} value={config.sunlight.aspect_sun_mult} onChange={v => update('sunlight', 'aspect_sun_mult', v)} min={0} max={5} step={0.1} />
+        <NumberField label={t('settings.solarHeatingRate')} value={config.sunlight.solar_heating_rate} onChange={v => update('sunlight', 'solar_heating_rate', v)} min={0} max={0.2} step={0.005} />
+        <NumberField label={t('settings.sunEvaporationMult')} value={config.sunlight.sun_evaporation_mult} onChange={v => update('sunlight', 'sun_evaporation_mult', v)} min={0} max={5} step={0.1} />
+        <NumberField label={t('settings.sunPhotosynthesisBoost')} value={config.sunlight.sun_photosynthesis_boost} onChange={v => update('sunlight', 'sun_photosynthesis_boost', v)} min={0} max={10} step={0.5} />
+      </ConfigSection>
+
+      <ConfigSection title={t('settings.biome')}>
+        <NumberField label={t('settings.desertAridityMax')} value={config.biome.desert_aridity_max} onChange={v => update('biome', 'desert_aridity_max', v)} min={0} max={1} step={0.01} />
+        <NumberField label={t('settings.grasslandAridityMax')} value={config.biome.grassland_aridity_max} onChange={v => update('biome', 'grassland_aridity_max', v)} min={0} max={1} step={0.01} />
+        <NumberField label={t('settings.wetlandWaterMin')} value={config.biome.wetland_water_min} onChange={v => update('biome', 'wetland_water_min', v)} min={0} max={1} step={0.05} />
+        <NumberField label={t('settings.jungleNutrientMin')} value={config.biome.jungle_nutrient_min} onChange={v => update('biome', 'jungle_nutrient_min', v)} min={0} max={20} step={0.5} />
+        <NumberField label={t('settings.jungleTempMin')} value={config.biome.jungle_temp_min} onChange={v => update('biome', 'jungle_temp_min', v)} min={-10} max={40} />
+        <NumberField label={t('settings.highlandHeightMin')} value={config.biome.highland_height_min} onChange={v => update('biome', 'highland_height_min', v)} min={0} max={255} />
+        <NumberField label={t('settings.valleyHeightMax')} value={config.biome.valley_height_max} onChange={v => update('biome', 'valley_height_max', v)} min={0} max={255} />
+        <NumberField label={t('settings.riverBankBiomeDistance')} value={config.biome.river_bank_distance} onChange={v => update('biome', 'river_bank_distance', v)} min={0} max={20} />
+        <NumberField label={t('settings.desertEvaporationMult')} value={config.biome.desert_evaporation_mult} onChange={v => update('biome', 'desert_evaporation_mult', v)} min={0} max={5} step={0.1} />
+        <NumberField label={t('settings.desertBodyTempRateMult')} value={config.biome.desert_body_temp_rate_mult} onChange={v => update('biome', 'desert_body_temp_rate_mult', v)} min={0} max={5} step={0.1} />
+        <NumberField label={t('settings.wetlandEvaporationMult')} value={config.biome.wetland_evaporation_mult} onChange={v => update('biome', 'wetland_evaporation_mult', v)} min={0} max={3} step={0.1} />
+        <NumberField label={t('settings.wetlandBodyTempRateMult')} value={config.biome.wetland_body_temp_rate_mult} onChange={v => update('biome', 'wetland_body_temp_rate_mult', v)} min={0} max={3} step={0.1} />
+        <NumberField label={t('settings.junglePlantGrowthMult')} value={config.biome.jungle_plant_growth_mult} onChange={v => update('biome', 'jungle_plant_growth_mult', v)} min={0} max={5} step={0.1} />
+        <NumberField label={t('settings.grasslandPlantGrowthMult')} value={config.biome.grassland_plant_growth_mult} onChange={v => update('biome', 'grassland_plant_growth_mult', v)} min={0} max={5} step={0.1} />
+        <NumberField label={t('settings.desertPlantGrowthMult')} value={config.biome.desert_plant_growth_mult} onChange={v => update('biome', 'desert_plant_growth_mult', v)} min={0} max={5} step={0.1} />
+        <NumberField label={t('settings.highlandBodyTempRateMult')} value={config.biome.highland_body_temp_rate_mult} onChange={v => update('biome', 'highland_body_temp_rate_mult', v)} min={0} max={5} step={0.1} />
+      </ConfigSection>
     </div>
   );
 }
@@ -433,6 +464,33 @@ export function ConfigReadOnly({ config }: { config: ZhiConfig }) {
         <ReadOnlyField label={t('settings.scentAdvectionRate')} value={config.wind.scent_advection_rate} />
         <ReadOnlyField label={t('settings.evaporationWindMult')} value={config.wind.evaporation_wind_mult} />
         <ReadOnlyField label={t('settings.seedWindDrift')} value={config.wind.seed_wind_drift} />
+      </ConfigSection>
+
+      <ConfigSection title={t('settings.sunlight')}>
+        <ReadOnlyField label={t('settings.sunlightPeakIntensity')} value={config.sunlight.peak_intensity} />
+        <ReadOnlyField label={t('settings.aspectSunMult')} value={config.sunlight.aspect_sun_mult} />
+        <ReadOnlyField label={t('settings.solarHeatingRate')} value={config.sunlight.solar_heating_rate} />
+        <ReadOnlyField label={t('settings.sunEvaporationMult')} value={config.sunlight.sun_evaporation_mult} />
+        <ReadOnlyField label={t('settings.sunPhotosynthesisBoost')} value={config.sunlight.sun_photosynthesis_boost} />
+      </ConfigSection>
+
+      <ConfigSection title={t('settings.biome')}>
+        <ReadOnlyField label={t('settings.desertAridityMax')} value={config.biome.desert_aridity_max} />
+        <ReadOnlyField label={t('settings.grasslandAridityMax')} value={config.biome.grassland_aridity_max} />
+        <ReadOnlyField label={t('settings.wetlandWaterMin')} value={config.biome.wetland_water_min} />
+        <ReadOnlyField label={t('settings.jungleNutrientMin')} value={config.biome.jungle_nutrient_min} />
+        <ReadOnlyField label={t('settings.jungleTempMin')} value={config.biome.jungle_temp_min} />
+        <ReadOnlyField label={t('settings.highlandHeightMin')} value={config.biome.highland_height_min} />
+        <ReadOnlyField label={t('settings.valleyHeightMax')} value={config.biome.valley_height_max} />
+        <ReadOnlyField label={t('settings.riverBankBiomeDistance')} value={config.biome.river_bank_distance} />
+        <ReadOnlyField label={t('settings.desertEvaporationMult')} value={config.biome.desert_evaporation_mult} />
+        <ReadOnlyField label={t('settings.desertBodyTempRateMult')} value={config.biome.desert_body_temp_rate_mult} />
+        <ReadOnlyField label={t('settings.wetlandEvaporationMult')} value={config.biome.wetland_evaporation_mult} />
+        <ReadOnlyField label={t('settings.wetlandBodyTempRateMult')} value={config.biome.wetland_body_temp_rate_mult} />
+        <ReadOnlyField label={t('settings.junglePlantGrowthMult')} value={config.biome.jungle_plant_growth_mult} />
+        <ReadOnlyField label={t('settings.grasslandPlantGrowthMult')} value={config.biome.grassland_plant_growth_mult} />
+        <ReadOnlyField label={t('settings.desertPlantGrowthMult')} value={config.biome.desert_plant_growth_mult} />
+        <ReadOnlyField label={t('settings.highlandBodyTempRateMult')} value={config.biome.highland_body_temp_rate_mult} />
       </ConfigSection>
     </div>
   );

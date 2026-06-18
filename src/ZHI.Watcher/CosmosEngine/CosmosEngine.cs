@@ -205,6 +205,8 @@ public partial class CosmosEngine : IDisposable
 
         ApplyWind();
 
+        ApplySunlight();
+
         ApplyAgentPhysiology(n);
 
         ApplyScentPhysics();

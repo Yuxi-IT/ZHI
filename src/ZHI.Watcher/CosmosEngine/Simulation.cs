@@ -177,6 +177,7 @@ public partial class CosmosEngine
             int rx = _v.PosX[i], ry = _v.PosY[i];
             if (_v.RiverGrid[rx, ry] > 0 || _v.SurfaceWaterGrid[rx, ry] > 0f)
                 lerpRate *= _config.Temperature.WaterCoolingMult;
+            lerpRate *= GetBiomeBodyTempMult(rx, ry);
             float localTemp = _v.TemperatureGrid[rx, ry];
             _v.BodyTemperature[i] += (localTemp - _v.BodyTemperature[i]) * lerpRate;
             _v.BodyTemperature[i] = MathF.Max(_v.BodyTemperature[i], _config.Temperature.MinBodyTemp);

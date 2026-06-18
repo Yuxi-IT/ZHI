@@ -59,8 +59,10 @@ public partial class CosmosEngine
 
                 float waterFactor = MathF.Min(1f, _v.GroundwaterGrid[x, y] / _config.Plant.WaterNeed);
                 float nutrientFactor = MathF.Min(1f, _v.NutrientGrid[x, y] / _config.Plant.NutrientNeed);
+                float sunFactor = 1f + _v.Sunlight[x, y] * _config.Sunlight.SunPhotosynthesisBoost;
+                float biomeFactor = GetBiomePlantGrowthMult(x, y);
 
-                float growth = growthRate * tempFactor * waterFactor * nutrientFactor;
+                float growth = growthRate * tempFactor * waterFactor * nutrientFactor * sunFactor * biomeFactor;
                 growth = MathF.Min(growth, maxEnergy - plant.Energy);
 
                 if (growth > 0)

@@ -32,6 +32,8 @@ interface WsState {
   pressure: number[];
   windX: number[];
   windY: number[];
+  sunlight: number[];
+  biome: number[];
   waterCycle: WaterCycleData | null;
   plantCount: number;
   stats: CosmosStats | null;
@@ -64,6 +66,8 @@ const INIT: WsState = {
   pressure: [],
   windX: [],
   windY: [],
+  sunlight: [],
+  biome: [],
   waterCycle: null,
   plantCount: 0,
   stats: null,
@@ -104,6 +108,8 @@ function reducer(state: WsState, action: Action): WsState {
         pressure: (d.pressure as number[]) ?? state.pressure,
         windX: (d.wind_x as number[]) ?? state.windX,
         windY: (d.wind_y as number[]) ?? state.windY,
+        sunlight: (d.sunlight as number[]) ?? state.sunlight,
+        biome: (d.biome as number[]) ?? state.biome,
         waterCycle: (d.water_cycle as WaterCycleData) ?? state.waterCycle,
         plantCount: (d.plant_count as number) ?? state.plantCount,
         stats: (d.stats as CosmosStats) ?? state.stats,
@@ -180,6 +186,8 @@ export function useWebSocket() {
     pressure: state.pressure,
     windX: state.windX,
     windY: state.windY,
+    sunlight: state.sunlight,
+    biome: state.biome,
     waterCycle: state.waterCycle,
     plantCount: state.plantCount,
     stats: state.stats,

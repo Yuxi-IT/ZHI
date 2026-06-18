@@ -87,6 +87,9 @@ public partial class CosmosEngine
                     _v.GroundwaterGrid[x, y] = 0.1f;
             }
 
+        // Compute biome classification from terrain + initial conditions
+        _v.ComputeBiomes(_temperature, _config.Biome);
+
         // Schedule first rain
         _nextRainTick = _rng.Next(_config.WaterCycle.RainIntervalMin, _config.WaterCycle.RainIntervalMax);
         _humidity = 0.5f;

@@ -24,6 +24,8 @@ export interface DrawData {
   pressure: number[];
   windX: number[];
   windY: number[];
+  sunlight: number[];
+  biome: number[];
   events: WorldEvent[];
   timeOfDay: number;
   trackedAgent: number | null;
@@ -49,6 +51,7 @@ interface Props {
   showPermeability?: boolean;
   showPressure?: boolean;
   showWind?: boolean;
+  showBiome?: boolean;
 }
 
 interface TooltipInfo {
@@ -78,6 +81,7 @@ export const WorldMap = memo(function WorldMap({
   showPermeability = false,
   showPressure = false,
   showWind = false,
+  showBiome = false,
 }: Props) {
   const { t } = useT();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -105,7 +109,7 @@ export const WorldMap = memo(function WorldMap({
       const data = drawDataRef.current;
       const { agents, food, corpses, river, scent, foodScent, chemicalField,
         temperatureGrid, heightMap, slope, riverFlow,
-        surfaceWater, groundwater, nutrient, permeability, pressure, windX, windY, events, timeOfDay } = data;
+        surfaceWater, groundwater, nutrient, permeability, pressure, windX, windY, sunlight, biome, events, timeOfDay } = data;
       const tracked = trackedProp !== undefined ? trackedProp : data.trackedAgent;
 
       // Process new events → floating texts (use monotonic _eid to survive clears/truncation)
@@ -448,6 +452,32 @@ export const WorldMap = memo(function WorldMap({
         }
       }
 
+      // Biome overlay
+      if (showBiome && biome && biome.length > 0) {
+        const sc = Math.max(0, Math.floor(cam.x / cellSize));
+        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
+        const sr = Math.max(0, Math.floor(cam.y / cellSize));
+        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
+        const biomeColors: [number, number, number][] = [
+          [30, 64, 175],    // 0 Water
+          [34, 197, 94],    // 1 RiverBank
+          [245, 158, 11],   // 2 Desert
+          [132, 204, 22],   // 3 Grassland
+          [22, 101, 52],    // 4 Jungle
+          [14, 165, 233],   // 5 Wetland
+          [148, 163, 184],  // 6 Highland
+          [251, 191, 36],   // 7 Valley
+        ];
+        for (let gx = sc; gx < ec; gx++) {
+          for (let gy = sr; gy < er; gy++) {
+            const b = biome[gy * gridW + gx]!;
+            const [r, g, bl] = biomeColors[b] ?? [128, 128, 128];
+            ctx.fillStyle = `rgba(${r},${g},${bl},0.15)`;
+            ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+
       // Corpses
       const corpseSz = Math.max(cellSize * 0.6, 2);
       for (const c of corpses) {
@@ -587,7 +617,7 @@ export const WorldMap = memo(function WorldMap({
         : t('map.hudNormal', { zoom: zoomPct, alive, total: agents.length });
       ctx.fillText(hud, 8, 8);
     };
-  }, [showScent, showFoodScent, showDirection, showVision, showChemical, showTemp, showTerrain, showFlow, showGroundwater, showSurfaceWater, showNutrient, showPermeability, showPressure, showWind, gridW, gridH, t, trackedProp, drawDataRef]);
+  }, [showScent, showFoodScent, showDirection, showVision, showChemical, showTemp, showTerrain, showFlow, showGroundwater, showSurfaceWater, showNutrient, showPermeability, showPressure, showWind, showBiome, gridW, gridH, t, trackedProp, drawDataRef]);
 
   // Stable rAF loop — starts once, never restarts
   useEffect(() => {
@@ -634,7 +664,7 @@ export const WorldMap = memo(function WorldMap({
         setTrackedAgent(null);
       } else {
         // Inline tooltip computation from drawDataRef
-        const { agents, food, corpses, river, heightMap, slope, temperatureGrid, surfaceWater, groundwater, nutrient, permeability, pressure, windX, windY } = drawDataRef.current;
+        const { agents, food, corpses, river, heightMap, slope, temperatureGrid, surfaceWater, groundwater, nutrient, permeability, pressure, windX, windY, biome } = drawDataRef.current;
         const cam = camRef.current;
         const cellSize = cam.zoom * (rect.width / gridW);
         const gx = Math.floor((cam.x + mx) / cellSize);
@@ -699,6 +729,13 @@ export const WorldMap = memo(function WorldMap({
         if (showNutrient && nutrient && nutrient.length > 0) {
           const nu = nutrient[gy * gridW + gx] ?? 0;
           if (nu > 0.01) lines.push(`${t('map.nutrient')}: ${nu.toFixed(1)}`);
+        }
+        if (biome && biome.length > 0) {
+          const b = biome[gy * gridW + gx];
+          if (b !== undefined) {
+            const names = [t('map.biomeWater'), t('map.biomeRiverBank'), t('map.biomeDesert'), t('map.biomeGrassland'), t('map.biomeJungle'), t('map.biomeWetland'), t('map.biomeHighland'), t('map.biomeValley')];
+            lines.push(`${t('map.biome')}: ${names[b] ?? '?'}`);
+          }
         }
         setTooltip(lines.length > 0 ? { x: mx + 12, y: my - 10, text: lines } : null);
       }
@@ -787,5 +824,6 @@ export const WorldMap = memo(function WorldMap({
     && prev.showNutrient === next.showNutrient
     && prev.showPermeability === next.showPermeability
     && prev.showPressure === next.showPressure
+    && prev.showBiome === next.showBiome
     && prev.showWind === next.showWind;
 });

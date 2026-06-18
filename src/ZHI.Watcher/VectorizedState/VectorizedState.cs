@@ -82,6 +82,8 @@ public partial class VectorizedState : IDisposable
     public float[,] Pressure;        // [W, H] — atmospheric pressure (hPa)
     public float[,] WindX;           // [W, H] — wind vector X component
     public float[,] WindY;           // [W, H] — wind vector Y component
+    public float[,] Sunlight;        // [W, H] — direct sunlight intensity (0-1)
+    public byte[,] Biome;            // [W, H] — biome classification
 
     // Spatial query grids
     private int[] _agentGrid;
@@ -162,6 +164,8 @@ public partial class VectorizedState : IDisposable
         Pressure = new float[W, H];
         WindX = new float[W, H];
         WindY = new float[W, H];
+        Sunlight = new float[W, H];
+        Biome = new byte[W, H];
 
         int gridSize = W * H;
         _agentGrid = new int[gridSize];
@@ -357,6 +361,113 @@ public partial class VectorizedState : IDisposable
                 else if (y == H - 1 && H > 1) dpdy = Pressure[x, H - 1] - Pressure[x, H - 2];
                 WindX[x, y] = -dpdx * windStrength;
                 WindY[x, y] = -dpdy * windStrength;
+            }
+    }
+
+    /// <summary>
+    /// Compute sunlight per cell from time-of-day and aspect (south-facing = more sun in northern hemisphere).
+    /// </summary>
+    public void ComputeSunlight(float gameTimeOfDay, float peakIntensity, float aspectSunMult)
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        // Solar elevation: sin curve peaking at 14:00
+        float hourAngle = (gameTimeOfDay - 8f) * MathF.PI / 12f;
+        float solarElevation = MathF.Sin(hourAngle); // -1 at night, +1 at noon
+        if (solarElevation < 0f) solarElevation = 0f;
+
+        for (int x = 0; x < W; x++)
+            for (int y = 0; y < H; y++)
+            {
+                float sun = solarElevation * peakIntensity;
+                // South-facing slopes get more direct sunlight
+                byte asp = Aspect[x, y];
+                if (asp != ToolDefinitions.AspectFlat)
+                {
+                    if (ToolDefinitions.IsSunFacingAspect(asp))
+                        sun *= aspectSunMult;
+                    else if (ToolDefinitions.IsShadeFacingAspect(asp))
+                        sun *= 1f / aspectSunMult;
+                }
+                // High elevation gets slightly more sun (thinner atmosphere)
+                sun *= 1f + (HeightMap[x, y] / 255f) * 0.2f;
+                Sunlight[x, y] = sun;
+            }
+    }
+
+    /// <summary>
+    /// Derive biome classification from environment variables.
+    /// Called once per generation (static) — biome is a terrain property, not a weather property.
+    /// </summary>
+    public void ComputeBiomes(float tempAvg, BiomeConfig cfg)
+    {
+        int W = ToolDefinitions.GridWidth;
+        int H = ToolDefinitions.GridHeight;
+        for (int x = 0; x < W; x++)
+            for (int y = 0; y < H; y++)
+            {
+                // Water cells = water biome
+                if (RiverGrid[x, y] > 0 || SurfaceWaterGrid[x, y] > 0.5f)
+                {
+                    Biome[x, y] = ToolDefinitions.BiomeWater;
+                    continue;
+                }
+
+                // Riverbank
+                if (DistanceToRiver[x, y] > 0 && DistanceToRiver[x, y] <= cfg.RiverBankDistance)
+                {
+                    Biome[x, y] = ToolDefinitions.BiomeRiverBank;
+                    continue;
+                }
+
+                // Highland
+                if (HeightMap[x, y] >= cfg.HighlandHeightMin)
+                {
+                    Biome[x, y] = ToolDefinitions.BiomeHighland;
+                    continue;
+                }
+
+                // Valley
+                if (HeightMap[x, y] <= cfg.ValleyHeightMax && DistanceToRiver[x, y] <= 8)
+                {
+                    Biome[x, y] = ToolDefinitions.BiomeValley;
+                    continue;
+                }
+
+                float gw = GroundwaterGrid[x, y];
+                float nu = NutrientGrid[x, y];
+                float temp = TemperatureGrid[x, y];
+
+                // Desert: very dry
+                if (gw < cfg.DesertAridityMax)
+                {
+                    Biome[x, y] = ToolDefinitions.BiomeDesert;
+                    continue;
+                }
+
+                // Wetland: surface water or saturated ground
+                if (SurfaceWaterGrid[x, y] > cfg.WetlandWaterMin || gw > 0.6f)
+                {
+                    Biome[x, y] = ToolDefinitions.BiomeWetland;
+                    continue;
+                }
+
+                // Jungle: warm + wet + nutrient-rich
+                if (gw >= 0.3f && nu >= cfg.JungleNutrientMin && temp >= cfg.JungleTempMin)
+                {
+                    Biome[x, y] = ToolDefinitions.BiomeJungle;
+                    continue;
+                }
+
+                // Grassland: moderate conditions
+                if (gw < cfg.GrasslandAridityMax)
+                {
+                    Biome[x, y] = ToolDefinitions.BiomeGrassland;
+                    continue;
+                }
+
+                // Default: grassland
+                Biome[x, y] = ToolDefinitions.BiomeGrassland;
             }
     }
 
