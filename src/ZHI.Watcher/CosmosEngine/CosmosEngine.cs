@@ -7,7 +7,7 @@ using static TorchSharp.torch;
 namespace ZHI.Watcher;
 
 /// <summary>
-/// 空间化网格生态系统引擎 — 128×128 grid, 7 actions, Stress combat, Scent trails
+/// 空间化网格生态系统引擎 — Grid world, <see cref="ToolDefinitions.ActionCount"/> actions, Stress combat, Scent trails
 /// </summary>
 public partial class CosmosEngine : IDisposable
 {
@@ -103,8 +103,6 @@ public partial class CosmosEngine : IDisposable
     public float GameTimeOfDay => _gameTimeOfDay;
     public float Temperature => _temperature;
     public long WorldDay => _totalWorldTicks / 3600 + 1;
-
-    // PLACEHOLDER_CONSTRUCTOR
 
     public CosmosEngine(ZhiConfig config, Blackbox blackbox, string configPath, string? worldDir = null)
     {
@@ -518,6 +516,7 @@ public partial class CosmosEngine : IDisposable
     {
         var line = $"[{DateTime.Now:HH:mm:ss}] {message}";
         OnLog?.Invoke(line);
-        try { _logWriter?.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}"); } catch { }
+        try { _logWriter?.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}"); }
+        catch (Exception ex) { Console.WriteLine($"[Cosmos] Log write failed: {ex.Message}"); }
     }
 }

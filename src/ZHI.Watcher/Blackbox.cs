@@ -8,8 +8,11 @@ public class Blackbox : IDisposable
 
     public Blackbox(string dbPath = "blackbox.db")
     {
-        _db = new SqliteConnection($"Data Source={dbPath}");
+        _db = new SqliteConnection($"Data Source={dbPath};Default Timeout=10");
         _db.Open();
+        using var pragma = _db.CreateCommand();
+        pragma.CommandText = "PRAGMA journal_mode=WAL";
+        pragma.ExecuteNonQuery();
         InitSchema();
     }
 
