@@ -129,35 +129,47 @@ public partial class CosmosEngine
             _v.BodyHeatResist[i] = genome.HeatResistance;
         }
 
+        // Initialize master brain (used only for shared PPO training)
+        _masterBrain.Dispose();
+        _masterBrain = new GRUBrain(_config.Network.LearningRate, _config.Network.Gamma);
+
         if (loadWeights != null && loadWeights.Count > 0)
         {
             try
             {
-                _gruBrain.LoadWeights(loadWeights[0]);
+                _masterBrain.LoadWeights(loadWeights[0]);
             }
             catch (Exception ex)
             {
                 Log($"[Cosmos] Failed to load weights (dimension mismatch?): {ex.Message}. Starting fresh.");
-                _gruBrain.Dispose();
-                _gruBrain = new GRUBrain(_config.Network.LearningRate, _config.Network.Gamma);
+                _masterBrain.Dispose();
+                _masterBrain = new GRUBrain(_config.Network.LearningRate, _config.Network.Gamma);
             }
         }
-        else
-        {
-            _gruBrain.Dispose();
-            _gruBrain = new GRUBrain(_config.Network.LearningRate, _config.Network.Gamma);
-        }
 
-        _gruHidden?.Dispose();
-        _gruHidden = torch.zeros(1, n, _gruBrain.HiddenSize, device: _v.Device);
-
+        // Create per-agent brain instances
+        foreach (var brain in _agentBrains) brain.Dispose();
+        foreach (var hid in _agentHiddens) hid.Dispose();
+        _agentBrains.Clear();
+        _agentHiddens.Clear();
         _agentWeights.Clear();
+
+        byte[] masterBytes = _masterBrain.SaveWeights();
+
         for (int i = 0; i < n; i++)
         {
+            byte[] weights;
             if (loadWeights != null && i < loadWeights.Count)
-                _agentWeights.Add(loadWeights[i]);
+                weights = loadWeights[i];
             else
-                _agentWeights.Add(_gruBrain.SaveWeights());
+                weights = masterBytes;
+
+            _agentWeights.Add(weights);
+
+            var brain = new GRUBrain();
+            brain.LoadWeightsFromBytes(weights);
+            _agentBrains.Add(brain);
+            _agentHiddens.Add(torch.zeros(1, 1, brain.HiddenSize, device: _v.Device));
         }
 
         // Build initial state matrix so first Tick sees the world (visibility-aware)

@@ -79,12 +79,22 @@ public partial class CosmosEngine
             _v.ParentId[i] = -1;
             _deathTick[i] = -1;
 
-            // Zero GRU hidden state for this agent
-            if (_gruHidden is not null)
+            // Replace brain with inherited or fresh instance for respawned agent
+            int bestAlive = FindBestAliveAgent();
+            if (i < _agentBrains.Count)
             {
-                using (var _ = torch.no_grad())
-                    _gruHidden[0, i].zero_();
+                _agentBrains[i].Dispose();
+                _agentHiddens[i].Dispose();
             }
+            var newBrain = new GRUBrain();
+            if (bestAlive >= 0 && bestAlive < _agentWeights.Count && _rng.NextDouble() < 0.8)
+                newBrain.LoadWeightsFromBytes(_agentWeights[bestAlive]);
+            if (i < _agentBrains.Count)
+                _agentBrains[i] = newBrain;
+            else
+                _agentBrains.Add(newBrain);
+            _agentHiddens[i] = torch.zeros(1, 1, newBrain.HiddenSize, device: _v.Device);
+            _agentWeights[i] = newBrain.SaveWeights();
 
             _totalDeaths++;
             _respawnCount++;
@@ -198,6 +208,16 @@ public partial class CosmosEngine
             while (_agentWeights.Count <= childIdx)
                 _agentWeights.Add(childWeights);
 
+            // Create GRUBrain instance for newborn from mutated parent weights
+            while (_agentBrains.Count <= childIdx)
+            {
+                var childBrain = new GRUBrain();
+                try { childBrain.LoadWeightsFromBytes(childWeights); }
+                catch { /* fallback to random init */ }
+                _agentBrains.Add(childBrain);
+                _agentHiddens.Add(torch.zeros(1, 1, childBrain.HiddenSize, device: _v.Device));
+            }
+
             _tickEvents.Add(new WorldEvent { Type = "reproduce", AgentId = i, ChildId = childIdx, Tick = _globalTick });
 
             _blackbox.RecordBirth(i, childIdx, _globalTick, _generation,
@@ -287,5 +307,23 @@ public partial class CosmosEngine
         using var ms = new MemoryStream();
         brain.save(ms);
         return ms.ToArray();
+    }
+
+    /// <summary>
+    /// Find the index of the alive agent with the longest survival (highest TickCount).
+    /// </summary>
+    private int FindBestAliveAgent()
+    {
+        int bestIdx = -1;
+        int bestTicks = 0;
+        for (int i = 0; i < _v.N; i++)
+        {
+            if (_v.Alive[i] && _v.TickCount[i] > bestTicks)
+            {
+                bestIdx = i;
+                bestTicks = _v.TickCount[i];
+            }
+        }
+        return bestIdx;
     }
 }

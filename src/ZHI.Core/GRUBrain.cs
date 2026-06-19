@@ -293,4 +293,37 @@ public class GRUBrain : Module
         _optimizer?.Dispose();
         _optimizer = optim.Adam(parameters(), _learningRate);
     }
+
+    /// <summary>
+    /// Load weights from bytes without recreating the optimizer.
+    /// Used for syncing per-agent inference brains from master.
+    /// </summary>
+    public void LoadWeightsFromBytes(byte[] weights)
+    {
+        using var ms = new MemoryStream(weights);
+        load(ms);
+        this.to(Device.TorchDevice);
+    }
+
+    /// <summary>
+    /// Copy all parameter values from another GRUBrain instance in-place.
+    /// Avoids serialize/deserialize overhead for fast PPO sync.
+    /// </summary>
+    public void CloneWeightsFrom(GRUBrain source)
+    {
+        using var _ = torch.no_grad();
+        // Match parameters by name: this and source share the same architecture
+        var sp = source.named_parameters().ToList();
+        foreach (var (name, targetParam) in named_parameters())
+        {
+            foreach (var (sname, sourceParam) in sp)
+            {
+                if (sname == name)
+                {
+                    targetParam.copy_(sourceParam);
+                    break;
+                }
+            }
+        }
+    }
 }

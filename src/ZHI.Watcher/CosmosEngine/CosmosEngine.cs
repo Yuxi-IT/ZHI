@@ -20,11 +20,12 @@ public partial class CosmosEngine : IDisposable
     private readonly Random _rng = new();
 
     private VectorizedState _v = null!;
-    private GRUBrain _gruBrain = null!;
+    private GRUBrain _masterBrain = null!;
+    private readonly List<GRUBrain> _agentBrains = new();
+    private readonly List<Tensor> _agentHiddens = new();
     private RNDModule? _rnd;
     private MAPElitesGrid? _mapElites;
     private PPOBuffer? _ppoBuffer;
-    private Tensor? _gruHidden;
 
     private const int PpoRolloutSteps = 64;
     private const float PpoClipEpsilon = 0.2f;
@@ -117,11 +118,16 @@ public partial class CosmosEngine : IDisposable
 
         int n = config.Cosmos.AgentCount;
         _v = new VectorizedState(n, ZHI.Core.Device.TorchDevice, _rng);
-        _gruBrain = new GRUBrain(config.Network.LearningRate, config.Network.Gamma);
+        _masterBrain = new GRUBrain(config.Network.LearningRate, config.Network.Gamma);
         _rnd = new RNDModule(learningRate: 0.0005f, rewardScale: 0.05f);
         _mapElites = new MAPElitesGrid(_rng);
         _ppoBuffer = new PPOBuffer(PpoRolloutSteps, n, ZHI.Core.Device.TorchDevice);
-        _gruHidden = torch.zeros(1, n, _gruBrain.HiddenSize, device: ZHI.Core.Device.TorchDevice);
+
+        for (int i = 0; i < n; i++)
+        {
+            _agentBrains.Add(new GRUBrain());
+            _agentHiddens.Add(torch.zeros(1, 1, _masterBrain.HiddenSize, device: ZHI.Core.Device.TorchDevice));
+        }
 
         _deathTick = new int[n];
         Array.Fill(_deathTick, -1);
@@ -221,25 +227,44 @@ public partial class CosmosEngine : IDisposable
 
         ApplyFoodDecay();
 
-        // 6. GRU inference (uses StateMatrix built at end of previous tick)
-        var (actions, chemicalValues, logProbs, values, entropy, newHidden) =
-            _gruBrain.StepForward(_v.StateMatrix, _gruHidden);
-        _gruHidden?.Dispose();
-        _gruHidden = newHidden;
-
-        // NaN guard: if entropy is NaN, the policy has diverged — reset hidden state
-        if (entropy.isnan().any().item<bool>())
+        // 6. Per-agent GRU inference — each agent uses its own brain and hidden state
+        for (int i = 0; i < n; i++)
         {
-            Log("[Cosmos] NaN detected in policy — resetting hidden state");
-            _gruHidden?.Dispose();
-            _gruHidden = torch.zeros(1, n, _gruBrain.HiddenSize, device: _v.Device);
-        }
+            if (!_v.Alive[i])
+            {
+                _actionsBuf[i] = 0;
+                _signalBuf[i] = 0;
+                _logProbsBuf[i] = 0;
+                _valuesBuf[i] = 0;
+                continue;
+            }
 
-        // Extract to CPU
-        using (var cpuActs = actions.cpu()) cpuActs.data<long>().CopyTo(_actionsBuf);
-        using (var cpuChems = chemicalValues.cpu()) cpuChems.data<float>().CopyTo(_signalBuf);
-        using (var cpuLp = logProbs.cpu()) cpuLp.data<float>().CopyTo(_logProbsBuf);
-        using (var cpuVals = values.cpu()) cpuVals.data<float>().CopyTo(_valuesBuf);
+            using var singleState = _v.StateMatrix.narrow(0, i, 1).clone();
+            var (act, chem, lp, val, ent, newHid) =
+                _agentBrains[i].StepForward(singleState, _agentHiddens[i]);
+
+            _agentHiddens[i].Dispose();
+            _agentHiddens[i] = newHid;
+
+            if (ent.isnan().any().item<bool>())
+            {
+                _agentHiddens[i].Dispose();
+                _agentHiddens[i] = torch.zeros(1, 1, _agentBrains[i].HiddenSize, device: _v.Device);
+                _actionsBuf[i] = 0;
+                _signalBuf[i] = 0;
+                _logProbsBuf[i] = 0;
+                _valuesBuf[i] = 0;
+            }
+            else
+            {
+                _actionsBuf[i] = act.item<long>();
+                _signalBuf[i] = chem.item<float>();
+                _logProbsBuf[i] = lp.item<float>();
+                _valuesBuf[i] = val.item<float>();
+            }
+
+            act.Dispose(); chem.Dispose(); lp.Dispose(); val.Dispose(); ent.Dispose();
+        }
 
         // 8. Process actions (rebuild occupancy before moves for capacity check)
         _v.RebuildCellOccupancy();
@@ -327,14 +352,6 @@ public partial class CosmosEngine : IDisposable
             }
         }
 
-        // Reset GRU hidden for dead agents
-        using (var dScope = torch.NewDisposeScope())
-        {
-            for (int i = 0; i < n; i++) _aliveMaskBuf[i] = _v.Alive[i] ? 1f : 0f;
-            using var mask = tensor(_aliveMaskBuf, device: _v.Device).unsqueeze(0).unsqueeze(-1);
-            _gruHidden!.mul_(mask);
-        }
-
         // 11. Snapshot current observation (s_t) for PPO storage
         int stateSize = ToolDefinitions.StateSize;
         int nn = _v.N;
@@ -358,7 +375,7 @@ public partial class CosmosEngine : IDisposable
         // 11c. Store in PPO buffer (s_t, a_t, r_t, v_t)
         _ppoBuffer!.Store(_stateForPpoBuf, _actionsBuf, _signalBuf, _logProbsBuf, _rewardBuf, _donesBuf, _valuesBuf);
 
-        // 12. PPO update
+        // 12. Shared PPO update — train master brain on collective experience, then sync to agents
         if (_ppoBuffer.IsFull)
         {
             var (advArr, retArr) = _ppoBuffer.ComputeGAE(_config.Network.Gamma, GaeLambda);
@@ -366,7 +383,7 @@ public partial class CosmosEngine : IDisposable
             if (tensors != null)
             {
                 var (states, acts, chems, oldLP, adv, ret) = tensors.Value;
-                float loss = _gruBrain.PpoUpdate(states, acts, chems, oldLP, adv, ret,
+                float loss = _masterBrain.PpoUpdate(states, acts, chems, oldLP, adv, ret,
                     epochs: 4, clipEpsilon: PpoClipEpsilon, entCoef: PpoEntropyCoef);
                 float rndLoss = _rnd!.Train(states);
                 Log($"[PPO] loss={loss:F4} rnd={rndLoss:F4}");
@@ -375,9 +392,14 @@ public partial class CosmosEngine : IDisposable
             }
             _ppoBuffer.Clear();
 
-            // Reset all GRU hidden states after policy update to prevent stale temporal context
-            using (var _ = torch.no_grad())
-                _gruHidden!.zero_();
+            // Sync all agent brains from trained master + reset all hidden states
+            byte[] masterWeights = _masterBrain.SaveWeights();
+            for (int i = 0; i < n; i++)
+            {
+                _agentBrains[i].CloneWeightsFrom(_masterBrain);
+                _agentWeights[i] = masterWeights;
+                _agentHiddens[i].zero_();
+            }
         }
 
         // 13. Process pregnancies — decrement counters, birth when complete
@@ -405,11 +427,15 @@ public partial class CosmosEngine : IDisposable
         if (_v.N != n)
         {
             n = _v.N;
-            var oldHidden = _gruHidden;
-            _gruHidden = torch.zeros(1, n, _gruBrain!.HiddenSize, device: _v.Device);
-            using (var _ = torch.no_grad())
-                _gruHidden!.narrow(1, 0, (int)oldHidden!.shape[1]).copy_(oldHidden);
-            oldHidden.Dispose();
+
+            // Grow agent brain/hidden lists for newborns
+            while (_agentBrains.Count < n)
+            {
+                _agentBrains.Add(new GRUBrain());
+                _agentHiddens.Add(torch.zeros(1, 1, _masterBrain.HiddenSize, device: _v.Device));
+            }
+            while (_agentWeights.Count < n)
+                _agentWeights.Add(_masterBrain.SaveWeights());
 
             // Recreate PPO buffer for new agent count (discard partial rollout)
             _ppoBuffer?.Dispose();
@@ -440,10 +466,6 @@ public partial class CosmosEngine : IDisposable
         }
         for (int i = 0; i < n; i++)
             if (_v.Alive[i]) _totalEnergyInWorld += Math.Max(0, _v.Energy[i]);
-
-        // Cleanup
-        actions.Dispose(); chemicalValues.Dispose();
-        logProbs.Dispose(); values.Dispose(); entropy.Dispose();
 
         OnStateChanged?.Invoke();
     }
@@ -507,9 +529,10 @@ public partial class CosmosEngine : IDisposable
     {
         _cts.Cancel();
         _v?.Dispose();
-        _gruBrain?.Dispose();
+        _masterBrain?.Dispose();
+        foreach (var b in _agentBrains) b?.Dispose();
+        foreach (var h in _agentHiddens) h?.Dispose();
         _rnd?.Dispose();
-        _gruHidden?.Dispose();
         _ppoBuffer?.Dispose();
         _logWriter?.Flush();
         _logWriter?.Dispose();
