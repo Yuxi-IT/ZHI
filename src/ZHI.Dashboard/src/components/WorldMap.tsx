@@ -1,6 +1,15 @@
 import { useRef, useEffect, useState, memo } from 'react';
 import type { AgentSnapshot, FoodTile, CorpseTile, WorldEvent } from '../types';
 import { useT } from '../i18n/I18nContext';
+import {
+  drawBackground, drawGridBg, drawGridLines,
+  drawRiver, drawHeightMap, drawRiverFlow,
+  drawFoodScent, drawAgentScent, drawChemical,
+  drawTemperature, drawSurfaceWater, drawGroundwater,
+  drawNutrient, drawPermeability, drawPressure, drawWind,
+  drawBiome, drawCorpses, drawPlants, drawVision,
+  drawAgents, drawFloatingTexts, drawHud,
+} from './WorldMapLayers';
 
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 12;
@@ -98,7 +107,7 @@ export const WorldMap = memo(function WorldMap({
   const trackedAgent = trackedProp !== undefined ? trackedProp : internalTracked;
   const setTrackedAgent = onTrackChange ?? setInternalTracked;
 
-  // Update draw function only when toggle/size settings change — does NOT restart rAF
+  // Build draw function — updates when layer visibility or grid size changes
   useEffect(() => {
     drawRef.current = () => {
       const canvas = canvasRef.current;
@@ -107,46 +116,37 @@ export const WorldMap = memo(function WorldMap({
       if (!ctx) return;
 
       const data = drawDataRef.current;
-      const { agents, food, corpses, river, scent, foodScent, chemicalField,
-        temperatureGrid, heightMap, slope, riverFlow,
-        surfaceWater, groundwater, nutrient, permeability, pressure, windX, windY, sunlight, biome, events, timeOfDay } = data;
       const tracked = trackedProp !== undefined ? trackedProp : data.trackedAgent;
 
-      // Process new events → floating texts (use monotonic _eid to survive clears/truncation)
-      if (events && events.length > 0) {
-        const newEvents: typeof events = [];
-        for (let i = events.length - 1; i >= 0; i--) {
-          const eid = (events[i]! as any)._eid as number | undefined;
+      // Process new events → floating texts
+      if (data.events && data.events.length > 0) {
+        const newEvents: typeof data.events = [];
+        for (let i = data.events.length - 1; i >= 0; i--) {
+          const eid = (data.events[i]! as any)._eid as number | undefined;
           if (eid === undefined || eid <= lastEidRef.current) break;
-          newEvents.unshift(events[i]!);
+          newEvents.unshift(data.events[i]!);
         }
         if (newEvents.length > 0) {
-          lastEidRef.current = (events[events.length - 1] as any)._eid ?? lastEidRef.current;
+          lastEidRef.current = (data.events[data.events.length - 1] as any)._eid ?? lastEidRef.current;
           const now = performance.now();
           for (const ev of newEvents) {
-            const agent = agents.find(a => a.id === ev.agent_id);
-
+            const agent = data.agents.find(a => a.id === ev.agent_id);
             if (ev.type === 'attack' && ev.target_id !== undefined) {
-              const target = agents.find(a => a.id === ev.target_id);
+              const target = data.agents.find(a => a.id === ev.target_id);
               const tx = target?.x ?? agent?.x ?? 0;
               const ty = target?.y ?? agent?.y ?? 0;
               floatingTextsRef.current.push({
-                id: floatingIdRef.current++,
-                x: tx, y: ty,
-                text: `-${ev.value.toFixed(0)}`,
-                color: '#ef4444', startTime: now,
+                id: floatingIdRef.current++, x: tx, y: ty,
+                text: `-${ev.value.toFixed(0)}`, color: '#ef4444', startTime: now,
               });
               continue;
             }
-
             if (!agent) continue;
-
             let text = '', color = '';
             if (ev.type === 'eat') { text = `+${ev.value.toFixed(0)}`; color = '#22c55e'; }
             else if (ev.type === 'death') { text = 'DEAD'; color = '#94a3b8'; }
             else if (ev.type === 'respawn') { text = 'RESPAWN'; color = '#a78bfa'; }
-            else { continue; }
-
+            else continue;
             floatingTextsRef.current.push({
               id: floatingIdRef.current++, x: agent.x, y: agent.y,
               text, color, startTime: now,
@@ -165,475 +165,66 @@ export const WorldMap = memo(function WorldMap({
       const cam = camRef.current;
       const cellSize = cam.zoom * (w / gridW);
 
+      // Tracked agent — center camera
       if (tracked !== null) {
-        const agent = agents.find(a => a.id === tracked && a.is_alive);
+        const agent = data.agents.find(a => a.id === tracked && a.is_alive);
         if (agent) {
           cam.x = agent.x * cellSize + cellSize / 2 - w / 2;
           cam.y = agent.y * cellSize + cellSize / 2 - h / 2;
         }
       }
 
-      const brightness = (Math.cos((timeOfDay - 14) * Math.PI / 12) + 1) / 2;
-      const bgBase = Math.round(5 + brightness * 25);
-      ctx.fillStyle = `rgb(${bgBase},${bgBase},${bgBase})`;
-      ctx.fillRect(0, 0, w, h);
+      const brightness = (Math.cos((data.timeOfDay - 14) * Math.PI / 12) + 1) / 2;
+      const l = { ctx, w, h, camX: cam.x, camY: cam.y, cellSize, brightness };
+
+      drawBackground(l);
 
       ctx.save();
       ctx.translate(-cam.x, -cam.y);
 
-      const totalW = gridW * cellSize, totalH = gridH * cellSize;
-      const gridBg = Math.round(8 + brightness * 20);
-      ctx.fillStyle = `rgb(${gridBg},${gridBg},${gridBg})`;
-      ctx.fillRect(0, 0, totalW, totalH);
+      drawGridBg(l, gridW, gridH);
+      drawGridLines(l, gridW, gridH);
 
-      if (cellSize > 8) {
-        const lineBase = Math.round(15 + brightness * 30);
-        ctx.strokeStyle = `rgb(${lineBase},${lineBase},${lineBase})`;
-        ctx.lineWidth = 0.5;
-        const sc = Math.max(0, Math.floor(cam.x / cellSize));
-        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
-        const sr = Math.max(0, Math.floor(cam.y / cellSize));
-        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
-        for (let i = sc; i <= ec; i++) { ctx.beginPath(); ctx.moveTo(i * cellSize, sr * cellSize); ctx.lineTo(i * cellSize, er * cellSize); ctx.stroke(); }
-        for (let j = sr; j <= er; j++) { ctx.beginPath(); ctx.moveTo(sc * cellSize, j * cellSize); ctx.lineTo(ec * cellSize, j * cellSize); ctx.stroke(); }
-      }
+      // River & terrain
+      if (data.river.length > 0) drawRiver(l, data.river, gridW, gridH);
+      if (showTerrain && data.heightMap?.length) drawHeightMap(l, data.heightMap, gridW, gridH);
+      if (showFlow && data.riverFlow?.length) drawRiverFlow(l, data.riverFlow, gridW, gridH);
 
-      // Water
-      if (river.length > 0) {
-        const sc = Math.max(0, Math.floor(cam.x / cellSize));
-        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
-        const sr = Math.max(0, Math.floor(cam.y / cellSize));
-        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
-        for (let gx = sc; gx < ec; gx++) {
-          for (let gy = sr; gy < er; gy++) {
-            const val = river[gy * gridW + gx];
-            if (val === 0) continue;
-            ctx.fillStyle = val === 2 ? 'rgba(30, 64, 175, 0.6)' : 'rgba(59, 130, 246, 0.35)';
-            ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
-          }
-        }
-      }
+      // Scents & signals
+      if (showFoodScent && data.foodScent?.length) drawFoodScent(l, data.foodScent, gridW, gridH);
+      if (showScent && data.scent?.length) drawAgentScent(l, data.scent, gridW, gridH);
+      if (showChemical && data.chemicalField?.length) drawChemical(l, data.chemicalField, gridW, gridH);
 
-      // Height map
-      if (showTerrain && heightMap && heightMap.length > 0) {
-        const sc = Math.max(0, Math.floor(cam.x / cellSize));
-        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
-        const sr = Math.max(0, Math.floor(cam.y / cellSize));
-        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
-        for (let gx = sc; gx < ec; gx++) {
-          for (let gy = sr; gy < er; gy++) {
-            const h = heightMap[gy * gridW + gx]!;
-            const v = h / 255;
-            ctx.fillStyle = `rgba(${Math.round(v * 255)},${Math.round(v * 255)},${Math.round(v * 255)},0.15)`;
-            ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
-          }
-        }
-      }
+      // Environmental overlays
+      if (showTemp && data.temperatureGrid?.length) drawTemperature(l, data.temperatureGrid, gridW, gridH);
+      if (showSurfaceWater && data.surfaceWater?.length) drawSurfaceWater(l, data.surfaceWater, gridW, gridH);
+      if (showGroundwater && data.groundwater?.length) drawGroundwater(l, data.groundwater, gridW, gridH);
+      if (showNutrient && data.nutrient?.length) drawNutrient(l, data.nutrient, gridW, gridH);
+      if (showPermeability && data.permeability?.length) drawPermeability(l, data.permeability, gridW, gridH);
+      if (showPressure && data.pressure?.length) drawPressure(l, data.pressure, gridW, gridH);
+      if (showWind && data.windX?.length) drawWind(l, data.windX, data.windY, gridW, gridH);
+      if (showBiome && data.biome?.length) drawBiome(l, data.biome, gridW, gridH);
 
-      // River flow
-      if (showFlow && riverFlow && riverFlow.length > 0 && cellSize > 8) {
-        const sc = Math.max(0, Math.floor(cam.x / cellSize));
-        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
-        const sr = Math.max(0, Math.floor(cam.y / cellSize));
-        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
-        const dirs = [0, -Math.PI / 2, -Math.PI / 4, 0, Math.PI / 4, Math.PI / 2, 3 * Math.PI / 4, Math.PI, -3 * Math.PI / 4];
-        for (let gx = sc; gx < ec; gx++) {
-          for (let gy = sr; gy < er; gy++) {
-            const flow = riverFlow[gy * gridW + gx] ?? 0;
-            if (flow <= 0 || flow > 8) continue;
-            const cx = gx * cellSize + cellSize / 2, cy = gy * cellSize + cellSize / 2;
-            const ang = dirs[flow]!, al = cellSize * 0.3;
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-            ctx.beginPath();
-            ctx.moveTo(cx + Math.cos(ang) * al, cy + Math.sin(ang) * al);
-            ctx.lineTo(cx + Math.cos(ang + 2.5) * al * 0.5, cy + Math.sin(ang + 2.5) * al * 0.5);
-            ctx.lineTo(cx + Math.cos(ang - 2.5) * al * 0.5, cy + Math.sin(ang - 2.5) * al * 0.5);
-            ctx.closePath(); ctx.fill();
-          }
-        }
-      }
-
-      // Food scent
-      if (showFoodScent && foodScent && foodScent.length > 0) {
-        const sc = Math.max(0, Math.floor(cam.x / cellSize));
-        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
-        const sr = Math.max(0, Math.floor(cam.y / cellSize));
-        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
-        for (let gx = sc; gx < ec; gx++) {
-          for (let gy = sr; gy < er; gy++) {
-            const val = foodScent[gy * gridW + gx]!;
-            if (val <= 0.01) continue;
-            ctx.fillStyle = `rgba(34, 197, 94, ${Math.min(val / 10, 0.5)})`;
-            ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
-          }
-        }
-      }
-
-      // Agent scent
-      if (showScent && scent.length > 0) {
-        const sc = Math.max(0, Math.floor(cam.x / cellSize));
-        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
-        const sr = Math.max(0, Math.floor(cam.y / cellSize));
-        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
-        for (let gx = sc; gx < ec; gx++) {
-          for (let gy = sr; gy < er; gy++) {
-            const val = scent[gy * gridW + gx]!;
-            if (val <= 0.01) continue;
-            ctx.fillStyle = `rgba(168, 85, 247, ${Math.min(val / 10, 0.6)})`;
-            ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
-          }
-        }
-      }
-
-      // Signal field
-      if (showChemical && chemicalField && chemicalField.length > 0) {
-        const sc = Math.max(0, Math.floor(cam.x / cellSize));
-        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
-        const sr = Math.max(0, Math.floor(cam.y / cellSize));
-        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
-        for (let gx = sc; gx < ec; gx++) {
-          for (let gy = sr; gy < er; gy++) {
-            const val = chemicalField[gy * gridW + gx]!;
-            if (val <= 0.01) continue;
-            ctx.fillStyle = `rgba(250, 204, 21, ${Math.min(val, 0.5)})`;
-            ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
-          }
-        }
-      }
-
-      // Temperature
-      if (showTemp && temperatureGrid && temperatureGrid.length > 0) {
-        const sc = Math.max(0, Math.floor(cam.x / cellSize));
-        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
-        const sr = Math.max(0, Math.floor(cam.y / cellSize));
-        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
-        for (let gx = sc; gx < ec; gx++) {
-          for (let gy = sr; gy < er; gy++) {
-            const tp = temperatureGrid[gy * gridW + gx]!;
-            let r: number, g: number, b: number;
-            if (tp < 5) { r = 59; g = 130; b = 246; }
-            else if (tp < 15) { const s = (tp - 5) / 10; r = Math.round(59 + s * 89); g = Math.round(130 + s * 33); b = Math.round(246 + s * -16); }
-            else if (tp < 25) { const s = (tp - 15) / 10; r = Math.round(148 + s * -74); g = Math.round(163 + s * 59); b = Math.round(230 + s * -8); }
-            else if (tp < 35) { const s = (tp - 25) / 10; r = Math.round(74 + s * 165); g = Math.round(222 + s * -154); b = Math.round(222 + s * -154); }
-            else { r = 239; g = 68; b = 68; }
-            ctx.fillStyle = `rgba(${r},${g},${b},0.25)`;
-            ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
-          }
-        }
-      }
-
-      // Surface water
-      if (showSurfaceWater && surfaceWater && surfaceWater.length > 0) {
-        const sc = Math.max(0, Math.floor(cam.x / cellSize));
-        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
-        const sr = Math.max(0, Math.floor(cam.y / cellSize));
-        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
-        for (let gx = sc; gx < ec; gx++) {
-          for (let gy = sr; gy < er; gy++) {
-            const val = surfaceWater[gy * gridW + gx]!;
-            if (val <= 0.01) continue;
-            ctx.fillStyle = `rgba(59, 130, 246, ${Math.min(val / 3, 0.6)})`;
-            ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
-          }
-        }
-      }
-
-      // Groundwater
-      if (showGroundwater && groundwater && groundwater.length > 0) {
-        const sc = Math.max(0, Math.floor(cam.x / cellSize));
-        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
-        const sr = Math.max(0, Math.floor(cam.y / cellSize));
-        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
-        for (let gx = sc; gx < ec; gx++) {
-          for (let gy = sr; gy < er; gy++) {
-            const val = groundwater[gy * gridW + gx]!;
-            if (val <= 0.01) continue;
-            ctx.fillStyle = `rgba(30, 64, 175, ${Math.min(val, 0.5)})`;
-            ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
-          }
-        }
-      }
-
-      // Nutrient
-      if (showNutrient && nutrient && nutrient.length > 0) {
-        const maxNutrient = 10;
-        const sc = Math.max(0, Math.floor(cam.x / cellSize));
-        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
-        const sr = Math.max(0, Math.floor(cam.y / cellSize));
-        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
-        for (let gx = sc; gx < ec; gx++) {
-          for (let gy = sr; gy < er; gy++) {
-            const val = nutrient[gy * gridW + gx]!;
-            if (val <= 0.01) continue;
-            const t = Math.min(val / maxNutrient, 1);
-            const r = Math.round(34 + t * 146);
-            const g = Math.round(139 + t * 50);
-            const b = Math.round(34 - t * 10);
-            ctx.fillStyle = `rgba(${r},${g},${b},0.35)`;
-            ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
-          }
-        }
-      }
-
-      // Permeability
-      if (showPermeability && permeability && permeability.length > 0) {
-        const sc = Math.max(0, Math.floor(cam.x / cellSize));
-        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
-        const sr = Math.max(0, Math.floor(cam.y / cellSize));
-        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
-        for (let gx = sc; gx < ec; gx++) {
-          for (let gy = sr; gy < er; gy++) {
-            const val = permeability[gy * gridW + gx]!;
-            const t = Math.max(0, Math.min(1, (val - 0.2) / 1.8));
-            ctx.fillStyle = `rgba(${Math.round(75 * (1 - t) + 34 * t)},${Math.round(85 * (1 - t) + 197 * t)},${Math.round(160 * (1 - t) + 94 * t)},0.25)`;
-            ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
-          }
-        }
-      }
-
-      // Pressure
-      if (showPressure && pressure && pressure.length > 0) {
-        const sc = Math.max(0, Math.floor(cam.x / cellSize));
-        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
-        const sr = Math.max(0, Math.floor(cam.y / cellSize));
-        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
-        for (let gx = sc; gx < ec; gx++) {
-          for (let gy = sr; gy < er; gy++) {
-            const p = pressure[gy * gridW + gx]!;
-            const t = (p - 1000) / 30; // normalize around 1000-1030 hPa
-            const ct = Math.max(-1, Math.min(1, t));
-            if (ct < 0) {
-              // Low pressure: warm colors
-              ctx.fillStyle = `rgba(${Math.round(239 + ct * 50)},${Math.round(68 - ct * 30)},${Math.round(68 - ct * 30)},0.2)`;
-            } else {
-              // High pressure: cool colors
-              ctx.fillStyle = `rgba(${Math.round(59 - ct * 30)},${Math.round(130 - ct * 50)},${Math.round(246 - ct * 50)},0.2)`;
-            }
-            ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
-          }
-        }
-      }
-
-      // Wind arrows
-      if (showWind && windX && windY && windX.length > 0 && cellSize > 6) {
-        const sc = Math.max(0, Math.floor(cam.x / cellSize));
-        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
-        const sr = Math.max(0, Math.floor(cam.y / cellSize));
-        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
-        const arrowStep = Math.max(1, Math.floor(8 / cam.zoom));
-        for (let gx = sc; gx < ec; gx += arrowStep) {
-          for (let gy = sr; gy < er; gy += arrowStep) {
-            const wx = windX[gy * gridW + gx]!;
-            const wy = windY[gy * gridW + gx]!;
-            const mag = Math.sqrt(wx * wx + wy * wy);
-            if (mag < 0.05) continue;
-            const cx = gx * cellSize + cellSize / 2;
-            const cy = gy * cellSize + cellSize / 2;
-            const len = Math.min(mag * cellSize * 3, cellSize * 1.5);
-            const nx = wx / mag, ny = wy / mag;
-            const ex = cx + nx * len, ey = cy + ny * len;
-            ctx.strokeStyle = `rgba(255, 255, 255, ${Math.min(0.6, mag * 2)})`;
-            ctx.lineWidth = Math.max(0.5, mag * 1.5);
-            ctx.beginPath();
-            ctx.moveTo(cx, cy);
-            ctx.lineTo(ex, ey);
-            ctx.stroke();
-            // Arrowhead
-            if (len > 3) {
-              const ah = len * 0.3;
-              ctx.beginPath();
-              ctx.moveTo(ex, ey);
-              ctx.lineTo(ex - nx * ah + ny * ah * 0.5, ey - ny * ah - nx * ah * 0.5);
-              ctx.lineTo(ex - nx * ah - ny * ah * 0.5, ey - ny * ah + nx * ah * 0.5);
-              ctx.closePath();
-              ctx.fill();
-            }
-          }
-        }
-      }
-
-      // Biome overlay
-      if (showBiome && biome && biome.length > 0) {
-        const sc = Math.max(0, Math.floor(cam.x / cellSize));
-        const ec = Math.min(gridW, Math.ceil((cam.x + w) / cellSize));
-        const sr = Math.max(0, Math.floor(cam.y / cellSize));
-        const er = Math.min(gridH, Math.ceil((cam.y + h) / cellSize));
-        const biomeColors: [number, number, number][] = [
-          [30, 64, 175],    // 0 Water
-          [34, 197, 94],    // 1 RiverBank
-          [245, 158, 11],   // 2 Desert
-          [132, 204, 22],   // 3 Grassland
-          [22, 101, 52],    // 4 Jungle
-          [14, 165, 233],   // 5 Wetland
-          [148, 163, 184],  // 6 Highland
-          [251, 191, 36],   // 7 Valley
-        ];
-        for (let gx = sc; gx < ec; gx++) {
-          for (let gy = sr; gy < er; gy++) {
-            const b = biome[gy * gridW + gx]!;
-            const [r, g, bl] = biomeColors[b] ?? [128, 128, 128];
-            ctx.fillStyle = `rgba(${r},${g},${bl},0.15)`;
-            ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
-          }
-        }
-      }
-
-      // Corpses
-      const corpseSz = Math.max(cellSize * 0.6, 2);
-      for (const c of corpses) {
-        const alpha = Math.max(0.2, Math.min(1, c.energy / 20));
-        ctx.fillStyle = `rgba(148, 163, 184, ${alpha})`;
-        const cx = c.x * cellSize + cellSize / 2, cy = c.y * cellSize + cellSize / 2;
-        ctx.beginPath();
-        ctx.moveTo(cx, cy - corpseSz / 2); ctx.lineTo(cx + corpseSz / 2, cy);
-        ctx.lineTo(cx, cy + corpseSz / 2); ctx.lineTo(cx - corpseSz / 2, cy);
-        ctx.closePath(); ctx.fill();
-      }
-
-      // Plants — lifecycle + species visual
-      const speciesStageColors: Record<number, [number, number, number][]> = {
-        0: [[139, 90, 43],  [120, 80, 40],  [100, 70, 35]],   // Seed: Grass/Bush/Tree brown
-        1: [[144, 238, 144],[100, 200, 80], [80, 160, 60]],   // Sprout
-        2: [[34, 197, 94],  [20, 150, 60], [15, 120, 45]],    // Adult
-        3: [[128, 128, 128],[110, 100, 90],[90, 80, 70]],     // Decay
-      };
-      for (const f of food) {
-        const stage: number = (f as any).stage ?? 2;
-        const sp: number = (f as any).species ?? 0;
-        const colors = speciesStageColors[stage] ?? speciesStageColors[2]!;
-        const rgb = colors[Math.min(sp, 2)]!;
-        const [cr, cg, cb] = rgb;
-        const energyRatio = f.max_energy > 0 ? f.energy / f.max_energy : 1;
-        let sz = Math.max(cellSize * 0.7, 2);
-        if (stage === 0) sz = Math.max(cellSize * 0.35, 1.5);
-        else if (stage === 1) sz = Math.max(cellSize * 0.55, 1.8);
-        else if (stage === 3) sz = Math.max(cellSize * 0.8, 2.2);
-        const alpha = stage === 0 ? 0.4 : stage === 3 ? Math.max(0.15, energyRatio * 0.5) : Math.max(0.25, energyRatio);
-        ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha})`;
-        ctx.fillRect(f.x * cellSize + (cellSize - sz) / 2, f.y * cellSize + (cellSize - sz) / 2, sz, sz);
-      }
-
-      // Vision
-      if (showVision) {
-        const baseMask = [
-          [1,1,1,1,1,1,1],
-          [0,1,1,1,1,1,0],
-          [0,0,1,1,1,0,0],
-          [0,0,0,1,0,0,0],
-          [0,0,0,0,0,0,0],
-          [0,0,0,0,0,0,0],
-          [0,0,0,0,0,0,0],
-        ];
-        for (const agent of agents) {
-          if (!agent.is_alive) continue;
-          const agentHeight = heightMap ? (heightMap[agent.y * gridW + agent.x] ?? 128) / 255 : 0.5;
-          const R = 3, D = 7, fd = agent.facing_direction;
-          for (let dy = -R; dy <= R; dy++) {
-            for (let dx = -R; dx <= R; dx++) {
-              let rdx: number, rdy: number;
-              if (fd === 0) { rdx = dx; rdy = dy; }
-              else if (fd === 1) { rdx = -dx; rdy = -dy; }
-              else if (fd === 2) { rdx = -dy; rdy = dx; }
-              else { rdx = dy; rdy = -dx; }
-              const mc = rdx + R, mr = rdy + R;
-              if (mc < 0 || mc >= D || mr < 0 || mr >= D) continue;
-              if (!baseMask[mr]![mc]) {
-                const rowDepth = mr / (D - 1);
-                const visReq = rowDepth * 1.5;
-                if (agentHeight < visReq - 0.1) continue;
-              }
-              const gx = agent.x + dx, gy = agent.y + dy;
-              if (gx < 0 || gx >= gridW || gy < 0 || gy >= gridH) continue;
-              const dist = Math.abs(dx) + Math.abs(dy);
-              ctx.fillStyle = `rgba(255, 255, 255, ${dist === 0 ? 0.08 : dist <= 2 ? 0.04 : 0.02})`;
-              ctx.fillRect(gx * cellSize, gy * cellSize, cellSize, cellSize);
-            }
-          }
-        }
-      }
-
-      // Agents
-      for (const agent of agents) {
-        if (!agent.is_alive) continue;
-        const cx = agent.x * cellSize + cellSize / 2;
-        const cy = agent.y * cellSize + cellSize / 2;
-        const r = Math.max(cellSize * 0.4, 3);
-        const hp = Math.max(0, Math.min(1, agent.energy / 100));
-        ctx.fillStyle = `hsl(${hp * 120}, 70%, 50%)`;
-
-        if (agent.stress > 0.5) { ctx.shadowColor = 'rgba(239, 68, 68, 0.6)'; ctx.shadowBlur = agent.stress * 6; }
-        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-        ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
-
-        if (agent.is_stationary) {
-          ctx.strokeStyle = 'rgba(147, 197, 253, 0.6)'; ctx.lineWidth = 1.5;
-          ctx.beginPath(); ctx.arc(cx, cy, r + 2, 0, Math.PI * 2); ctx.stroke();
-        }
-
-        if (showDirection && cellSize > 6) {
-          const dirs = [-Math.PI / 2, Math.PI / 2, Math.PI, 0];
-          const angle = dirs[agent.facing_direction] ?? Math.PI / 2;
-          const ad = r + 2, al = Math.max(cellSize * 0.2, 2);
-          const ax = cx + Math.cos(angle) * ad, ay = cy + Math.sin(angle) * ad;
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-          ctx.beginPath();
-          ctx.moveTo(ax + Math.cos(angle) * al, ay + Math.sin(angle) * al);
-          ctx.lineTo(ax + Math.cos(angle + 2.4) * al * 0.6, ay + Math.sin(angle + 2.4) * al * 0.6);
-          ctx.lineTo(ax + Math.cos(angle - 2.4) * al * 0.6, ay + Math.sin(angle - 2.4) * al * 0.6);
-          ctx.closePath(); ctx.fill();
-        }
-
-        if (agent.is_stationary && cellSize > 10) {
-          ctx.fillStyle = 'rgba(147, 197, 253, 0.8)';
-          ctx.font = `${Math.max(8, cellSize * 0.25)}px monospace`;
-          ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-          ctx.fillText(t('map.zzz'), cx, cy - r - 3);
-        }
-
-        if (agent.id === tracked) {
-          ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.arc(cx, cy, r + 3, 0, Math.PI * 2); ctx.stroke();
-        }
-
-        if (cellSize > 12) {
-          ctx.fillStyle = '#fff';
-          ctx.font = `${Math.max(9, cellSize * 0.3)}px monospace`;
-          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillText(String(agent.id), cx, cy);
-        }
-      }
-
-      // Floating text
-      const now = performance.now();
-      const FADE_MS = 1200;
-      floatingTextsRef.current = floatingTextsRef.current.filter(ft => now - ft.startTime < FADE_MS);
-      for (const ft of floatingTextsRef.current) {
-        const progress = (now - ft.startTime) / FADE_MS;
-        const alpha = 1 - progress;
-        const fy = ft.y * cellSize - progress * cellSize * 1.5;
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = ft.color;
-        ctx.font = `bold ${Math.max(10, cellSize * 0.5)}px monospace`;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-        ctx.fillText(ft.text, ft.x * cellSize + cellSize / 2, fy);
-      }
-      ctx.globalAlpha = 1;
+      // Entities
+      drawCorpses(l, data.corpses);
+      drawPlants(l, data.food);
+      if (showVision) drawVision(l, data.agents, data.heightMap, gridW, gridH);
+      drawAgents(l, data.agents, tracked, showDirection, t('map.zzz'), cellSize);
+      drawFloatingTexts(l, floatingTextsRef.current);
 
       ctx.restore();
 
       // HUD
-      ctx.fillStyle = 'rgba(255,255,255,0.4)';
-      ctx.font = '10px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
       const zoomPct = Math.round(cam.zoom * 100);
-      const alive = agents.filter(a => a.is_alive).length;
-      const hud = tracked !== null
-        ? t('map.hudTracking', { zoom: zoomPct, id: tracked, alive, total: agents.length })
-        : t('map.hudNormal', { zoom: zoomPct, alive, total: agents.length });
-      ctx.fillText(hud, 8, 8);
+      const alive = data.agents.filter(a => a.is_alive).length;
+      const hudLabel = tracked !== null
+        ? t('map.hudTracking', { zoom: zoomPct, id: tracked, alive, total: data.agents.length })
+        : t('map.hudNormal', { zoom: zoomPct, alive, total: data.agents.length });
+      drawHud(l, data.agents, zoomPct, tracked, hudLabel);
     };
   }, [showScent, showFoodScent, showDirection, showVision, showChemical, showTemp, showTerrain, showFlow, showGroundwater, showSurfaceWater, showNutrient, showPermeability, showPressure, showWind, showBiome, gridW, gridH, t, trackedProp, drawDataRef]);
 
-  // Stable rAF loop — starts once, never restarts
+  // Stable rAF loop
   useEffect(() => {
     let animating = true;
     const loop = () => {
@@ -645,7 +236,7 @@ export const WorldMap = memo(function WorldMap({
     return () => { animating = false; cancelAnimationFrame(rafRef.current); };
   }, []);
 
-  // Mouse event handlers — all read from drawDataRef.current for data lookups
+  // Mouse events
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -677,8 +268,7 @@ export const WorldMap = memo(function WorldMap({
         dragRef.current.lastY = e.clientY;
         setTrackedAgent(null);
       } else {
-        // Inline tooltip computation from drawDataRef
-        const { agents, food, corpses, river, heightMap, slope, temperatureGrid, surfaceWater, groundwater, nutrient, permeability, pressure, windX, windY, biome } = drawDataRef.current;
+        const data = drawDataRef.current;
         const cam = camRef.current;
         const cellSize = cam.zoom * (rect.width / gridW);
         const gx = Math.floor((cam.x + mx) / cellSize);
@@ -686,7 +276,7 @@ export const WorldMap = memo(function WorldMap({
         if (gx < 0 || gx >= gridW || gy < 0 || gy >= gridH) { setTooltip(null); return; }
 
         const lines: string[] = [];
-        const agent = agents.find(a => a.is_alive && a.x === gx && a.y === gy);
+        const agent = data.agents.find(a => a.is_alive && a.x === gx && a.y === gy);
         if (agent) {
           lines.push(
             t('map.tooltipAgent', { id: agent.id }) + (agent.respawn_count > 0 ? ` ${t('map.tooltipGen', { gen: agent.respawn_count })}` : ''),
@@ -696,12 +286,12 @@ export const WorldMap = memo(function WorldMap({
             `${t('map.tooltipEats')}: ${agent.eat_count}  ${t('map.tooltipAttacks')}: ${agent.attack_count}  ${t('map.tooltipEmits')}: ${agent.emit_count}`,
           );
         }
-        if (river.length > 0) {
-          const rv = river[gy * gridW + gx];
+        if (data.river.length > 0) {
+          const rv = data.river[gy * gridW + gx];
           if (rv === 1) { lines.push(t('map.shallow'), t('map.shallowDesc')); }
           else if (rv === 2) { lines.push(t('map.deep'), t('map.deepDesc')); }
         }
-        const foodHere = food.find(f => f.x === gx && f.y === gy);
+        const foodHere = data.food.find(f => f.x === gx && f.y === gy);
         if (foodHere) {
           const stageNames = ['Seed', 'Sprout', 'Adult', 'Decay'];
           const speciesNames = [t('map.speciesGrass'), t('map.speciesBush'), t('map.speciesTree')];
@@ -712,44 +302,44 @@ export const WorldMap = memo(function WorldMap({
             `${t('map.energy')}: ${foodHere.energy.toFixed(1)} / ${foodHere.max_energy.toFixed(0)}`,
           );
         }
-        if (showTerrain && heightMap && heightMap.length > 0) {
-          const h = heightMap[gy * gridW + gx]!;
-          const s = slope?.[gy * gridW + gx] ?? 0;
+        if (showTerrain && data.heightMap?.length) {
+          const h = data.heightMap[gy * gridW + gx]!;
+          const s = data.slope?.[gy * gridW + gx] ?? 0;
           lines.push(`${t('map.height')}: ${h}`, `${t('map.slope')}: ${s.toFixed(1)}`);
         }
-        const corpseHere = corpses.find(c => c.x === gx && c.y === gy);
+        const corpseHere = data.corpses.find(c => c.x === gx && c.y === gy);
         if (corpseHere) { lines.push(t('map.corpse'), `${t('map.energy')}: ${corpseHere.energy.toFixed(1)}`); }
-        if (showTemp && temperatureGrid && temperatureGrid.length > 0) {
-          lines.push(`${t('map.cellTemp')}: ${temperatureGrid[gy * gridW + gx]!.toFixed(1)}°C`);
+        if (showTemp && data.temperatureGrid?.length) {
+          lines.push(`${t('map.cellTemp')}: ${data.temperatureGrid[gy * gridW + gx]!.toFixed(1)}°C`);
         }
-        if (showSurfaceWater && surfaceWater && surfaceWater.length > 0) {
-          const sw = surfaceWater[gy * gridW + gx] ?? 0;
+        if (showSurfaceWater && data.surfaceWater?.length) {
+          const sw = data.surfaceWater[gy * gridW + gx] ?? 0;
           if (sw > 0.01) lines.push(`${t('map.surfaceWater')}: ${sw.toFixed(2)}`);
         }
-        if (showGroundwater && groundwater && groundwater.length > 0) {
-          const gw = groundwater[gy * gridW + gx] ?? 0;
+        if (showGroundwater && data.groundwater?.length) {
+          const gw = data.groundwater[gy * gridW + gx] ?? 0;
           lines.push(`${t('map.groundwater')}: ${(gw * 100).toFixed(0)}%`);
         }
-        if (showPermeability && permeability && permeability.length > 0) {
-          const p = permeability[gy * gridW + gx] ?? 1;
+        if (showPermeability && data.permeability?.length) {
+          const p = data.permeability[gy * gridW + gx] ?? 1;
           lines.push(`${t('map.permeability')}: ${p.toFixed(2)}`);
         }
-        if (showPressure && pressure && pressure.length > 0) {
-          const p = pressure[gy * gridW + gx] ?? 1013;
+        if (showPressure && data.pressure?.length) {
+          const p = data.pressure[gy * gridW + gx] ?? 1013;
           lines.push(`${t('map.pressure')}: ${p.toFixed(0)} hPa`);
         }
-        if (showWind && windX && windY && windX.length > 0) {
-          const wx = windX[gy * gridW + gx] ?? 0;
-          const wy = windY[gy * gridW + gx] ?? 0;
+        if (showWind && data.windX?.length) {
+          const wx = data.windX[gy * gridW + gx] ?? 0;
+          const wy = data.windY[gy * gridW + gx] ?? 0;
           const wspd = Math.sqrt(wx * wx + wy * wy);
           lines.push(`${t('map.wind')}: ${wspd.toFixed(2)} (${wx.toFixed(1)}, ${wy.toFixed(1)})`);
         }
-        if (showNutrient && nutrient && nutrient.length > 0) {
-          const nu = nutrient[gy * gridW + gx] ?? 0;
+        if (showNutrient && data.nutrient?.length) {
+          const nu = data.nutrient[gy * gridW + gx] ?? 0;
           if (nu > 0.01) lines.push(`${t('map.nutrient')}: ${nu.toFixed(1)}`);
         }
-        if (showBiome && biome && biome.length > 0) {
-          const b = biome[gy * gridW + gx];
+        if (showBiome && data.biome?.length) {
+          const b = data.biome[gy * gridW + gx];
           if (b !== undefined) {
             const names = [t('map.biomeWater'), t('map.biomeRiverBank'), t('map.biomeDesert'), t('map.biomeGrassland'), t('map.biomeJungle'), t('map.biomeWetland'), t('map.biomeHighland'), t('map.biomeValley')];
             lines.push(`${t('map.biome')}: ${names[b] ?? '?'}`);
@@ -802,7 +392,7 @@ export const WorldMap = memo(function WorldMap({
       canvas.removeEventListener('mouseleave', onMouseLeave);
       canvas.removeEventListener('dblclick', onDblClick);
     };
-  }, [gridW, gridH, showTerrain, showTemp, showSurfaceWater, showGroundwater, showNutrient, showPermeability, showPressure, showWind, t, trackedAgent, setTrackedAgent, drawDataRef]);
+  }, [gridW, gridH, showTerrain, showTemp, showSurfaceWater, showGroundwater, showNutrient, showPermeability, showPressure, showWind, showBiome, t, trackedAgent, setTrackedAgent, drawDataRef]);
 
   return (
     <div className="w-full h-full relative">
